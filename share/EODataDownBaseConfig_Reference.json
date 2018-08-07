@@ -1,0 +1,41 @@
+{
+    "details":
+    {
+        "name":"Living Wales",
+        "description":"System to Support Environmental Monitoring of Wales."
+    },
+    "database":
+    {
+        "connection":"sqlite:///EODataDownTesst.db",
+        "user":"eodatadown",
+        "pass":"E2OoA1louGP615cmzfACwg==",
+        "name":"LivingWales"
+    },
+    "sensors":
+    {
+        "LandsatGOOG":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/Landsat.json"
+        },
+        "Sentinel2GOOG":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel2.json"
+        },
+        "Sentinel1ESA":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel1.json"
+        },
+        "Planet":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/PlanetImagery.json"
+        },
+        "JAXASAR":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/JAXASAR.json"
+        },
+        "MODIS":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/MODIS.json"
+        }
+    }
+}
