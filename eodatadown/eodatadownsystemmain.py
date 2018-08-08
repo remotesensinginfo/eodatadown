@@ -33,14 +33,27 @@ EODataDown - provide the main class where the functionality of EODataDown is acc
 
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
+from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 from eodatadown.eodatadownlandsatgoogsensor import EODataDownLandsatGoogSensor
 from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor
 
 import logging
 import json
 
+from sqlalchemy.ext.declarative import declarative_base
+import sqlalchemy
+import sqlalchemy.orm
+
 logger = logging.getLogger(__name__)
 
+Base = declarative_base()
+
+class EDDSysDetails(Base):
+    __tablename__ = "EDDSystemDetails"
+
+    ID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
+    Name = sqlalchemy.Column(sqlalchemy.String)
+    Description = sqlalchemy.Column(sqlalchemy.String)
 
 class EODataDownSystemMain(object):
 
@@ -66,7 +79,36 @@ class EODataDownSystemMain(object):
         str_data = json.dumps(data, indent=4, sort_keys=True)
         return str_data
 
-    def getSensorObj(self, sensor):
+    def parseConfig(self, config_file):
+        """
+        Parse the inputted JSON configuration file
+        :param config_file:
+        :return:
+        """
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        if not edd_file_checker.checkFileSig(config_file):
+            raise EODataDownException("Input config did not match the file signature.")
+        with open(config_file) as f:
+            config_data = json.load(f)
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+
+            # Get Basic System Info.
+            self.name = json_parse_helper.getStrValue(config_data, ['eodatadown', 'details', 'name'])
+            self.description = json_parse_helper.getStrValue(config_data, ['eodatadown', 'details', 'description'])
+
+            # Get Database Information
+            edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
+
+            self.dbInfoObj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection']),
+                                                                               json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'user']),
+                                                                               edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data,['eodatadown', 'database', 'pass'])),
+                                                                               json_parse_helper.getStrValue(config_data,['eodatadown', 'database', 'name']))
+
+            # Get Sensor Configuration File List
+            for sensor in config_data['eodatadown']['sensors']:
+                self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data, ['eodatadown', 'sensors', sensor, 'config'])
+
+    def getSensorObj(self, sensor, ncores):
         """
         Get an instance of an object for the sensor specified.
         :param sensor:
@@ -75,52 +117,51 @@ class EODataDownSystemMain(object):
         sensorObj = None
         if sensor == "LandsatGOOG":
             logger.debug("Found sensor LandsatGOOG")
-            sensorObj = EODataDownLandsatGoogSensor(self.dbInfoObj)
+            sensorObj = EODataDownLandsatGoogSensor(self.dbInfoObj, ncores)
         elif sensor == "Sentinel2GOOG":
             logger.debug("Found sensor Sentinel2GOOG")
-            sensorObj = EODataDownSentinel2GoogSensor(self.dbInfoObj)
+            sensorObj = EODataDownSentinel2GoogSensor(self.dbInfoObj, ncores)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensorObj
 
-
-    def parseConfig(self, config_file):
-        """
-        Parse the inputted JSON configuration file
-        :param config_file:
-        :return:
-        """
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
-        if not eddFileChecker.checkFileSig(config_file):
-            raise EODataDownException("Input config did not match the file signature.")
-        with open(config_file) as f:
-            config_data = json.load(f)
-
-            # Get Basic System Info.
-            self.name = config_data['details']['name']
-            self.description = config_data['details']['description']
-
-            # Get Database Information
-            eddPassEncoder = eodatadown.eodatadownutils.EDDPasswordTools()
-
-            self.dbInfoObj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(config_data['database']['connection'],
-                                                                               config_data['database']['user'],
-                                                                               eddPassEncoder.unencodePassword(config_data['database']['pass']),
-                                                                               config_data['database']['name'])
-
-            # Get Sensor Configuration File List
-            for sensor in config_data['sensors']:
-                self.sensorConfigFiles[sensor] = config_data['sensors'][sensor]
-
-    def initSensorDBs(self):
+    def initDBs(self):
         """
         A function which will setup the system data base for each of the sensors.
         Note. this function should only be used to initialing the system.
         :return:
         """
+        logger.debug("Creating Database Engine.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+
+        logger.debug("Drop system table if within the existing database.")
+        Base.metadata.drop_all(dbEng)
+
+        logger.debug("Initialise the data usage database.")
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.initUsageLogDB()
+
+        logger.debug("Creating System Details Database.")
+        Base.metadata.bind = dbEng
+        Base.metadata.create_all()
+
+        logger.debug("Creating Database Session.")
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Adding System Details to Database.")
+        ses.add(EDDSysDetails(Name=self.name, Description=self.description))
+        ses.commit()
+        ses.close()
+        logger.debug("Committed and closed db session.")
+
         for sensor in self.sensorConfigFiles:
             logger.debug("Getting sensor object: '" + sensor + "'")
-            sensorObj = self.getSensorObj(sensor)
-            logger.debug("Got sensor object: '"+sensor+"'")
+            sensorObj = self.getSensorObj(sensor, 1)
+            logger.debug("Parse sensor config file: '" + sensor + "'")
+            sensorObj.parseSensorConfig(self.sensorConfigFiles[sensor], True)
+            logger.debug("Initialise Sensor Database: '" + sensor + "'")
             sensorObj.initSensorDB()
             logger.debug("Finished initialising the sensor database for '"+sensor+"'")
+
+        edd_usage_db.addEntry("Finished initialising the databases and configure files.")

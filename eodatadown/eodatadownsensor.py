@@ -42,9 +42,13 @@ class EODataDownSensor (object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, dbInfoObj):
+    def __init__(self, dbInfoObj, ncores):
         self.sensorName = "AbstractBase"
         self.dbInfoObj = dbInfoObj
+        self.ncores = ncores
+
+    @abstractmethod
+    def parseSensorConfig(self, config_file, first_parse=False): pass
 
     @abstractmethod
     def initSensorDB(self): pass

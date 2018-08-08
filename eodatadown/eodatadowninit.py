@@ -55,7 +55,7 @@ def initialise_new_system(config_file):
     logger.debug("Parsed the system configuration.")
 
     # Create and initialise the sensor databases
-    sysMainObj.initSensorDBs()
+    sysMainObj.initDBs()
     logger.debug("Initialised the sensor databases.")
 
 

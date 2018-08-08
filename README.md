@@ -4,7 +4,8 @@ A tool for automatically downloading Earth Observation imagery and products.
 
 ## Depdencies
 
-* PyCrypto
+* PyCrypto [https://www.dlitz.net/software/pycrypto/]
+* SQLAlchemy [http://www.sqlalchemy.org]
 
 ## Configuration
 

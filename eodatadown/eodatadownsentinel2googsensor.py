@@ -48,6 +48,15 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         EODataDownSensor.__init__(self, dbInfoObj)
         self.sensorName = "Sentinel-2 Google"
 
+    def parseSensorConfig(self, config_file, first_parse=False):
+        """
+
+        :param config_file:
+        :param first_parse:
+        :return:
+        """
+        raise EODataDownException("EODataDownSentinel2GoogSensor::parseSensorConfig not implemented")
+
     def initSensorDB(self):
         """
 
