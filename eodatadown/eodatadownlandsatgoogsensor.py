@@ -65,6 +65,7 @@ class EDDLandsatGoogle(Base):
     East_Lon = sqlalchemy.Column(sqlalchemy.Float)
     West_lon = sqlalchemy.Column(sqlalchemy.Float)
     Remote_URL = sqlalchemy.Column(sqlalchemy.String)
+    Query_Search = sqlalchemy.Column(sqlalchemy.DateTime)
     ToDownload = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     Downloaded = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
@@ -77,8 +78,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
     An class which represents a the Landsat sensor being downloaded from the Google Cloud.
     """
 
-    def __init__(self, dbInfoObj, ncores):
-        EODataDownSensor.__init__(self, dbInfoObj, ncores)
+    def __init__(self, dbInfoObj):
+        EODataDownSensor.__init__(self, dbInfoObj)
         self.sensorName = "LandsatGOOG"
 
     def parseSensorConfig(self, config_file, first_parse=False):
@@ -159,16 +160,16 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         :return:
         """
-        raise EODataDownException("EODataDownLandsatGoogSensor::check4NewData not implemented")
+        print("Checking for new data... 'LandsatGoog'")
 
-    def downloadNewData(self):
+    def downloadNewData(self, ncores):
         """
 
         :return:
         """
         raise EODataDownException("EODataDownLandsatGoogSensor::downloadNewData not implemented")
 
-    def convertNewData2ARD(self):
+    def convertNewData2ARD(self, ncores):
         """
 
         :return:

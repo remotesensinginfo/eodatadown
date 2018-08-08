@@ -58,6 +58,9 @@ def initialise_new_system(config_file):
     sysMainObj.initDBs()
     logger.debug("Initialised the sensor databases.")
 
+    edd_usage_db = sysMainObj.getUsageDBObj()
+    edd_usage_db.addEntry("Finished initialising the databases and configure files.")
+
 
 def update_existing_system(config_file):
     raise EODataDownException("Function to update the system using an changed config file has not yet been implmented.")

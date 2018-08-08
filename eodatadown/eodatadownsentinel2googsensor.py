@@ -46,7 +46,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
     def __init__(self, dbInfoObj):
         EODataDownSensor.__init__(self, dbInfoObj)
-        self.sensorName = "Sentinel-2 Google"
+        self.sensorName = "Sentinel2GOOG"
 
     def parseSensorConfig(self, config_file, first_parse=False):
         """
@@ -71,14 +71,14 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         raise EODataDownException("EODataDownSentinel2GoogSensor::check4NewData not implemented")
 
-    def downloadNewData(self):
+    def downloadNewData(self, ncores):
         """
 
         :return:
         """
         raise EODataDownException("EODataDownSentinel2GoogSensor::downloadNewData not implemented")
 
-    def convertNewData2ARD(self):
+    def convertNewData2ARD(self, ncores):
         """
 
         :return:

@@ -60,10 +60,9 @@ class EODataDownSystemMain(object):
     def __init__(self):
         self.name = ''
         self.description = ''
-
         self.dbInfoObj = None
-
         self.sensorConfigFiles = dict()
+        self.sensors = list()
 
     def __str__(self):
         return self.__repr__()
@@ -78,6 +77,13 @@ class EODataDownSystemMain(object):
         data = {'database':db_info, 'details':sys_info, 'sensors':self.sensorConfigFiles}
         str_data = json.dumps(data, indent=4, sort_keys=True)
         return str_data
+
+    def getUsageDBObj(self):
+        logger.debug("Creating Usage database object.")
+        if self.dbInfoObj is None:
+            raise EODataDownException("Need to parse the configuration file to find database information.")
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        return edd_usage_db
 
     def parseConfig(self, config_file):
         """
@@ -107,8 +113,14 @@ class EODataDownSystemMain(object):
             # Get Sensor Configuration File List
             for sensor in config_data['eodatadown']['sensors']:
                 self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data, ['eodatadown', 'sensors', sensor, 'config'])
+                logger.debug("Getting sensor object: '" + sensor + "'")
+                sensorObj = self.getSensorObj(sensor)
+                logger.debug("Parse sensor config file: '" + sensor + "'")
+                sensorObj.parseSensorConfig(self.sensorConfigFiles[sensor], True)
+                self.sensors.append(sensorObj)
+                logger.debug("Parsed sensor config file: '" + sensor + "'")
 
-    def getSensorObj(self, sensor, ncores):
+    def getSensorObj(self, sensor):
         """
         Get an instance of an object for the sensor specified.
         :param sensor:
@@ -117,13 +129,20 @@ class EODataDownSystemMain(object):
         sensorObj = None
         if sensor == "LandsatGOOG":
             logger.debug("Found sensor LandsatGOOG")
-            sensorObj = EODataDownLandsatGoogSensor(self.dbInfoObj, ncores)
+            sensorObj = EODataDownLandsatGoogSensor(self.dbInfoObj)
         elif sensor == "Sentinel2GOOG":
             logger.debug("Found sensor Sentinel2GOOG")
-            sensorObj = EODataDownSentinel2GoogSensor(self.dbInfoObj, ncores)
+            sensorObj = EODataDownSentinel2GoogSensor(self.dbInfoObj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensorObj
+
+    def getSensors(self):
+        """
+        Function which returns the list of sensor objects.
+        :return:
+        """
+        return self.sensors
 
     def initDBs(self):
         """
@@ -155,13 +174,7 @@ class EODataDownSystemMain(object):
         ses.close()
         logger.debug("Committed and closed db session.")
 
-        for sensor in self.sensorConfigFiles:
-            logger.debug("Getting sensor object: '" + sensor + "'")
-            sensorObj = self.getSensorObj(sensor, 1)
-            logger.debug("Parse sensor config file: '" + sensor + "'")
-            sensorObj.parseSensorConfig(self.sensorConfigFiles[sensor], True)
-            logger.debug("Initialise Sensor Database: '" + sensor + "'")
+        for sensorObj in self.sensors:
+            logger.debug("Initialise Sensor Database: '" + sensorObj.getSensorName() + "'")
             sensorObj.initSensorDB()
-            logger.debug("Finished initialising the sensor database for '"+sensor+"'")
-
-        edd_usage_db.addEntry("Finished initialising the databases and configure files.")
+            logger.debug("Finished initialising the sensor database for '" + sensorObj.getSensorName() + "'")

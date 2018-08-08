@@ -53,6 +53,8 @@ EODATADOWN_SUPPORT_EMAIL = "rsgislib-support@googlegroups.com"
 
 EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
 
+EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ESA", "PlanetRE", "PlanetScope", "JAXASAR", "MODIS"]
+
 install_prefix = __file__[:__file__.find('lib')]
 log_config_path = os.path.join(install_prefix, "share" "eodatadown", "loggingconfig.json")
 log_default_level=logging.INFO

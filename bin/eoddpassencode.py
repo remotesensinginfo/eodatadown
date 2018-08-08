@@ -33,6 +33,7 @@ EODataDown - encode password for entering into config JSON files.
 import eodatadown.eodatadownutils
 import argparse
 import logging
+import rsgislib
 
 logger = logging.getLogger('eoddpassencode.py')
 
@@ -41,6 +42,8 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--password", type=str, required=True, help="Password which is going to be encoded.")
     args = parser.parse_args()
 
+    t = rsgislib.RSGISTime()
+    t.start(True)
     try:
         eddPassEncoder = eodatadown.eodatadownutils.EDDPasswordTools()
         encodedPass = eddPassEncoder.encodePassword(args.password)
@@ -48,4 +51,5 @@ if __name__ == "__main__":
         logger.info('Successfully created encoded password.')
     except Exception as e:
         logger.error('Failed to open file', exc_info=True)
+    t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddpassencode.py.')
 

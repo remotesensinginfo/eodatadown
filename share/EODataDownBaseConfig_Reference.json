@@ -25,9 +25,13 @@
         {
             "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel1.json"
         },
-        "Planet":
+        "PlanetRE":
         {
-            "config":"/Users/pete/Temp/EODataDown/Sensors/PlanetImagery.json"
+            "config":"/Users/pete/Temp/EODataDown/Sensors/PlanetREImagery.json"
+        },
+        "PlanetScope":
+        {
+            "config":"/Users/pete/Temp/EODataDown/Sensors/PlanetScopeImagery.json"
         },
         "JAXASAR":
         {

@@ -22,4 +22,6 @@ EODataDown uses the python logging library. A general configuration suitable for
 
 ## Environmental Variables
 
+* EDD_MAIN_CFG - specify the location of a JSON file configuring the system.
 * EDD_LOG_CFG - specify the location of a JSON file configuring the python logging system.
+* EDD_NCORES - specify the number of cores to use when running jobs which can use multiple cores.
