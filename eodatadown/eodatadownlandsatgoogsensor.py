@@ -173,10 +173,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 
-
     def check4NewData(self):
         """
+        A function which queries the Google Landsat BigQuery database (link below) and builds a local
+        database for the row/paths specified. If data already exists within the database then a query
+        will be run from the last acquisition date within the database to present.
 
+        https://bigquery.cloud.google.com/table/bigquery-public-data:cloud_storage_geo_index.landsat_index
         :return:
         """
         logger.info("Checking for new data... 'LandsatGoog'")
@@ -194,7 +197,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         query_date = self.startDate
         ses = Session()
         if ses.query(EDDLandsatGoogle).first() is not None:
-            print(ses.query(EDDLandsatGoogle).order_by(EDDLandsatGoogle.Date_Acquired.desc()).first())
+            query_date = ses.query(EDDLandsatGoogle).order_by(EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
+        logger.info("Query with start at date: "+str(query_date))
 
         logger.debug("Perform google query...")
         goog_fields = "scene_id,product_id,spacecraft_id,sensor_id,date_acquired,sensing_time,collection_number," \

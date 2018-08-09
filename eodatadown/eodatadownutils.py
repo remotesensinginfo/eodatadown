@@ -131,7 +131,7 @@ class EDDCheckFileHash(object):
         if calcd_hash_sig == in_hash_sig:
             logger.debug("Signatures Match")
             return True
-        logger.info("Signature Does Not Match: " + input_file)
+        logger.info("Signature Does Not Match: " + input_file + " '" +calcd_hash_sig+ "'")
         return False
 
 class EDDJSONParseHelper(object):
