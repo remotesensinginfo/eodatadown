@@ -82,24 +82,25 @@ if __name__ == "__main__":
 
     t = rsgislib.RSGISTime()
     t.start(True)
+    edd_run_obj = eodatadown.eodatadownrun.EODataDownRun()
     if args.finddownloads:
         try:
             logger.info('Running process to find new downloads.')
-            eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors)
+            edd_run_obj.find_new_downloads(config_file, ncores, args.sensors)
             logger.info('Finished process to find new downloads.')
         except Exception as e:
             logger.error('Failed to complete the process of finding new downloads.', exc_info=True)
     if args.performdownload:
         try:
             logger.info('Running process to download the available data.')
-            eodatadown.eodatadownrun.perform_downloads(config_file, ncores, args.sensors)
+            edd_run_obj.perform_downloads(config_file, ncores, args.sensors)
             logger.info('Finished process to download the available data.')
         except Exception as e:
             logger.error('Failed to download the available data.', exc_info=True)
     if args.processard:
         try:
             logger.info('Running process to data to an ARD product.')
-            eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
+            edd_run_obj.process_data_ard(config_file, ncores, args.sensors)
             logger.info('Finished process to data to an ARD product.')
         except Exception as e:
             logger.error('Failed to process data to ARD products.', exc_info=True)
