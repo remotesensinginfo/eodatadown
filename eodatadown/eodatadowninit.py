@@ -57,11 +57,30 @@ def initialise_new_system(config_file):
     # Create and initialise the sensor databases
     sysMainObj.initDBs()
     logger.debug("Initialised the sensor databases.")
-
     edd_usage_db = sysMainObj.getUsageDBObj()
-    edd_usage_db.addEntry("Finished initialising the databases and configure files.")
+    edd_usage_db.addEntry("Started: Initialising the databases and configure files.", start_block=True)
+    # I don't think there is anything which need doing - keeping start and end for consistency.
+    edd_usage_db.addEntry("Finished: Initialising the databases and configure files.", end_block=True)
 
 
 def update_existing_system(config_file):
-    raise EODataDownException("Function to update the system using an changed config file has not yet been implmented.")
+    """
+    A function which will update the config file signatures and check parsing.
+    :param config_file:
+    :return:
+    """
+    # Create the signature file for the configuration file.
+    eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+    eddFileChecker.createFileSig(config_file)
+    logger.debug("Created signature file for config file.")
+
+    # Create the System 'Main' object and parse the configuration file.
+    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sysMainObj.parseConfig(config_file, True)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sysMainObj.getUsageDBObj()
+    edd_usage_db.addEntry("Started: Updating initialisation of the configure files.", start_block=True)
+    # I don't think there is anything which need doing - keeping start and end for consistency.
+    edd_usage_db.addEntry("Finished: Updating initialisation of the configure files.", end_block=True)
 

@@ -8,7 +8,7 @@
         },
         "database":
         {
-            "connection":"sqlite:///EODataDownTesst.db",
+            "connection":"sqlite:///EODataDownTest.db",
             "user":"eodatadown",
             "pass":"E2OoA1louGP615cmzfACwg==",
             "name":"LivingWales"

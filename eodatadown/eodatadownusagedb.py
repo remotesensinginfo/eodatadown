@@ -56,6 +56,8 @@ class EDDUsageLog(Base):
     DownloadedNewScns = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     ConvertNewScnsARD = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     IngestNewScnsToDC = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    StartBlock = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    EndBlock = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
 
 class EODataDownUpdateUsageLogDB(object):
 
@@ -80,7 +82,7 @@ class EODataDownUpdateUsageLogDB(object):
 
 
 
-    def addEntry(self, description_val, sensor_val="NA", updated_lcl_db=False, scns_avail=False, downloaded_new_scns=False, convert_scns_ard=False, ingest_scns_dc=False):
+    def addEntry(self, description_val, sensor_val="NA", updated_lcl_db=False, scns_avail=False, downloaded_new_scns=False, convert_scns_ard=False, ingest_scns_dc=False, start_block=False, end_block=False):
         """
         Function to add an entry into the usage log database.
         :param description_val:
@@ -103,7 +105,7 @@ class EODataDownUpdateUsageLogDB(object):
         ses.add(EDDUsageLog(Sensor=sensor_val, Update=datetime.datetime.now(), Description=description_val,
                             UpdatedLclDB=updated_lcl_db, FoundNewScns=scns_avail, NewScnsAvail=scns_avail,
                             DownloadedNewScns=downloaded_new_scns, ConvertNewScnsARD=convert_scns_ard,
-                            IngestNewScnsToDC=ingest_scns_dc))
+                            IngestNewScnsToDC=ingest_scns_dc, StartBlock=start_block, EndBlock=end_block))
         ses.commit()
         ses.close()
         logger.debug("Committed and closed db session.")

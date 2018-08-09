@@ -55,6 +55,21 @@ class EODataDownException(Exception):
         return repr(self.value)
 
 
+class EODataDownUtils(object):
+
+    def findFile(self, dirPath, fileSearch):
+        """
+        Search for a single file with a path using glob. Therefore, the file
+        path returned is a true path. Within the fileSearch provide the file
+        name with '*' as wildcard(s).
+        """
+        import glob
+        files = glob.glob(os.path.join(dirPath, fileSearch))
+        if len(files) != 1:
+            raise EODataDownException('Could not find a single file (' + fileSearch + '); found ' + str(len(files)) + ' files.')
+        return files[0]
+
+
 class EODataDownDatabaseInfo(object):
 
     def __init__(self, dbConn, dbUser, dbPass, dbName):
@@ -95,6 +110,7 @@ class EDDPasswordTools(object):
         cipher = Crypto.Cipher.AES.new(self.secret_key, Crypto.Cipher.AES.MODE_ECB)
         plaintxt = cipher.decrypt(base64.b64decode(txtencoded)).decode()
         return plaintxt
+
 
 class EDDCheckFileHash(object):
 

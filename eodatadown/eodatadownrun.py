@@ -64,6 +64,9 @@ class EODataDownRun(object):
             self.parsedConfig = True
             logger.debug("Parsed the system configuration.")
 
+        edd_usage_db = self.sysMainObj.getUsageDBObj()
+        edd_usage_db.addEntry("Started: Finding Available Downloads.", start_block=True)
+
         sensor_objs = self.sysMainObj.getSensors()
         process_sensor = False
         sensor_objs_to_process = []
@@ -76,12 +79,9 @@ class EODataDownRun(object):
                     process_sensor = True
             if process_sensor:
                 sensor_objs_to_process.append(sensor_obj)
-
         with multiprocessing.Pool(processes=ncores) as pool:
             pool.map(_check_new_data_qfunc, sensor_objs_to_process)
-
-        edd_usage_db = self.sysMainObj.getUsageDBObj()
-        edd_usage_db.addEntry("Finished Finding Available Downloads.")
+        edd_usage_db.addEntry("Finished: Finding Available Downloads.", end_block=True)
 
 
     def perform_downloads(self, config_file, ncores, sensors):
@@ -98,6 +98,9 @@ class EODataDownRun(object):
             self.sysMainObj.parseConfig(config_file)
             self.parsedConfig = True
             logger.debug("Parsed the system configuration.")
+
+        edd_usage_db = self.sysMainObj.getUsageDBObj()
+        edd_usage_db.addEntry("Started: Downloading Available Scenes.", start_block=True)
 
         sensor_objs = self.sysMainObj.getSensors()
         process_sensor = False
@@ -118,8 +121,7 @@ class EODataDownRun(object):
             except Exception as e:
                 logger.debug("Error occurred while downloading for sensor: "+sensorObj.getSensorName())
                 logger.debug(e.__str__(), exc_info=True)
-        edd_usage_db = self.sysMainObj.getUsageDBObj()
-        edd_usage_db.addEntry("Finished Downloading Available Scenes.")
+        edd_usage_db.addEntry("Finished: Downloading Available Scenes.", end_block=True)
 
 
     def process_data_ard(self, config_file, ncores, sensors):
@@ -134,6 +136,9 @@ class EODataDownRun(object):
             self.sysMainObj.parseConfig(config_file)
             self.parsedConfig = True
             logger.debug("Parsed the system configuration.")
+
+        edd_usage_db = self.sysMainObj.getUsageDBObj()
+        edd_usage_db.addEntry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
 
         sensor_objs = self.sysMainObj.getSensors()
         process_sensor = False
@@ -154,6 +159,5 @@ class EODataDownRun(object):
             except Exception as e:
                 logger.debug("Error occurred while converting to ARD for sensor: " + sensorObj.getSensorName())
                 logger.debug(e.__str__(), exc_info=True)
-        edd_usage_db = self.sysMainObj.getUsageDBObj()
-        edd_usage_db.addEntry("Finished Converting Available Scenes to ARD Product.")
+        edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
 

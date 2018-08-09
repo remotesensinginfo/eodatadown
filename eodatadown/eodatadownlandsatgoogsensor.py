@@ -36,12 +36,12 @@ import os
 import os.path
 import datetime
 import multiprocessing
-import rsgislib
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
+import eodatadown.eodatadownrunarcsi
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -75,24 +75,26 @@ class EDDLandsatGoogle(Base):
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Download_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Downloaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    ARDProductPath = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
     Download_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
+    ARDProduct_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
 
-def _download_scn_goog(param):
+
+def _download_scn_goog(params):
     """
-    Function which is used with multiprocessor pool object for downloading landsat data from Google.
-    :param param:
+    Function which is used with multiprocessing pool object for downloading landsat data from Google.
+    :param params:
     :return:
     """
-    scn_id = param[0]
-    dbInfoObj = param[1]
-    googKeyJSON = param[2]
-    googProjName = param[3]
-    bucket_name = param[4]
-    scn_dwnlds_filelst = param[5]
-    scn_lcl_dwnld_path = param[6]
+    scn_id = params[0]
+    dbInfoObj = params[1]
+    googKeyJSON = params[2]
+    googProjName = params[3]
+    bucket_name = params[4]
+    scn_dwnlds_filelst = params[5]
+    scn_lcl_dwnld_path = params[6]
 
     logger.debug("Set up Google storage API.")
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = googKeyJSON
@@ -121,18 +123,64 @@ def _download_scn_goog(param):
     ses.close()
     logger.debug("Finished download and updated database.")
 
+def _process_to_ard(params):
+    """
+    A function which is used with the python multiprocessing pool feature to convert a scene to an ARD product
+    using multiple processing cores.
+    :param params:
+    :return:
+    """
+    scn_id = params[0]
+    dbInfoObj = params[1]
+    scn_path = params[2]
+    dem_file = params[3]
+    output_dir = params[4]
+    tmp_dir = params[5]
+    spacecraft_str = params[6]
+    sensor_str = params[7]
+    final_ard_path = params[8]
+    eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
+    input_mtl = eddUtils.findFile(scn_path, "*MTL.txt")
+
+    eodatadown.eodatadownrunarcsi.run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, sensor_str)
+
+    logger.debug("Move final ARD files to specified location.")
+    ### TODO: NEED TO WRITE CODE FOR HERE...
+    logger.debug("Moved final ARD files to specified location.")
+
+    logger.debug("Set up database connection and update record.")
+    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+    ses = Session()
+    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
+    if query_result is None:
+        logger.error("Could not find the scene within local database: " + scn_id)
+    query_result.ARDProduct = True
+    query_result.ARDProduct_Date = datetime.datetime.now()
+    query_result.ARDProduct_Path = final_ard_path
+    ses.commit()
+    ses.close()
+    logger.debug("Finished download and updated database.")
+
+
+
+
 class EODataDownLandsatGoogSensor (EODataDownSensor):
     """
     An class which represents a the Landsat sensor being downloaded from the Google Cloud.
     """
 
     def __init__(self, dbInfoObj):
+        """
+
+        :param dbInfoObj:
+        """
         EODataDownSensor.__init__(self, dbInfoObj)
         self.sensorName = "LandsatGOOG"
 
     def parseSensorConfig(self, config_file, first_parse=False):
         """
-
+        A function to parse the LandsatGOOG JSON config file.
         :param config_file:
         :param first_parse:
         :return:
@@ -311,7 +359,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                              Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat, South_Lat=row.south_lat,
                                              East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
                                              Remote_URL=row.base_url, Query_Date=datetime.datetime.now(), Download_Date=None,
-                                             Downloaded=False, ARDProduct=False, ARDProductPath="", Download_Path=""))
+                                             Downloaded=False, Download_Path="", ARDProduct_Date=None, ARDProduct=False, ARDProduct_Path=""))
                 if len(db_records) > 0:
                     ses.add_all(db_records)
                     ses.commit()
@@ -389,12 +437,72 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             pool.map(_download_scn_goog, dwnld_params)
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=True)
+        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=True)
 
 
     def convertNewData2ARD(self, ncores):
         """
+        A function to convert the available scenes to an ARD product using ARCSI.
         :param ncores:
         :return:
         """
-        raise EODataDownException("EODataDownLandsatGoogSensor::convertNewData2ARD not implemented")
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True, EDDLandsatGoogle.ARDProduct == False).all()
+
+        if query_result is not None:
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
+            final_ard_path = os.path.join(self.ardFinalPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(final_ard_path):
+                os.mkdir(final_ard_path)
+
+            work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(work_ard_path):
+                os.mkdir(work_ard_path)
+
+            tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(tmp_ard_path):
+                os.mkdir(tmp_ard_path)
+
+            ard_params = []
+            for record in query_result:
+                logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
+                final_ard_scn_path = os.path.join(final_ard_path, record.Product_ID)
+                if not os.path.exists(final_ard_scn_path):
+                    os.mkdir(final_ard_scn_path)
+
+                work_ard_scn_path = os.path.join(work_ard_path, record.Product_ID)
+                if not os.path.exists(work_ard_scn_path):
+                    os.mkdir(work_ard_scn_path)
+
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Product_ID)
+                if not os.path.exists(tmp_ard_scn_path):
+                    os.mkdir(tmp_ard_scn_path)
+
+                ard_params.append([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID, final_ard_scn_path])
+        else:
+            logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start processing the scenes.")
+        with multiprocessing.Pool(processes=ncores) as pool:
+            pool.map(_process_to_ard, ard_params)
+        logger.info("Finished processing the scenes.")
+
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName, updated_lcl_db=True, convert_scns_ard=True)
