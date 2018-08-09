@@ -33,7 +33,10 @@ EODataDown - a sensor class for Landsat data downloaded from the Google Cloud.
 import logging
 import json
 import os
+import os.path
 import datetime
+import multiprocessing
+import rsgislib
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -44,6 +47,7 @@ from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
 
 logger = logging.getLogger(__name__)
+
 
 Base = declarative_base()
 
@@ -70,12 +74,52 @@ class EDDLandsatGoogle(Base):
     Remote_URL = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Download_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
-    ToDownload = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Downloaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProductPath = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
     Download_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
+
+def _download_scn_goog(param):
+    """
+    Function which is used with multiprocessor pool object for downloading landsat data from Google.
+    :param param:
+    :return:
+    """
+    scn_id = param[0]
+    dbInfoObj = param[1]
+    googKeyJSON = param[2]
+    googProjName = param[3]
+    bucket_name = param[4]
+    scn_dwnlds_filelst = param[5]
+    scn_lcl_dwnld_path = param[6]
+
+    logger.debug("Set up Google storage API.")
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = googKeyJSON
+    os.environ["GOOGLE_CLOUD_PROJECT"] = googProjName
+    from google.cloud import storage
+    storage_client = storage.Client()
+    bucket_obj = storage_client.get_bucket(bucket_name)
+
+    logger.info("Downloading "+scn_id)
+    for dwnld in scn_dwnlds_filelst:
+        blob_obj = bucket_obj.blob(dwnld["bucket_path"])
+        blob_obj.download_to_filename(dwnld["dwnld_path"])
+    logger.info("Finished Downloading " + scn_id)
+
+    logger.debug("Set up database connection and update record.")
+    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+    ses = Session()
+    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
+    if query_result is None:
+        logger.error("Could not find the scene within local database: " + scn_id)
+    query_result.Downloaded = True
+    query_result.Download_Date = datetime.datetime.now()
+    query_result.Download_Path = scn_lcl_dwnld_path
+    ses.commit()
+    ses.close()
+    logger.debug("Finished download and updated database.")
 
 class EODataDownLandsatGoogSensor (EODataDownSensor):
     """
@@ -267,8 +311,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                              Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat, South_Lat=row.south_lat,
                                              East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
                                              Remote_URL=row.base_url, Query_Date=datetime.datetime.now(), Download_Date=None,
-                                             ToDownload=False, Downloaded=False, ARDProduct=False, ARDProductPath="",
-                                             Download_Path=""))
+                                             Downloaded=False, ARDProduct=False, ARDProductPath="", Download_Path=""))
                 if len(db_records) > 0:
                     ses.add_all(db_records)
                     ses.commit()
@@ -281,10 +324,73 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
     def downloadNewData(self, ncores):
         """
+        A function which downloads the scenes which are within the database but not downloaded.
         :param ncores:
         :return:
         """
-        raise EODataDownException("EODataDownLandsatGoogSensor::downloadNewData not implemented")
+        logger.debug("Import Google storage module and create storage object.")
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.googKeyJSON
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.googProjName
+        from google.cloud import storage
+        storage_client = storage.Client()
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded==False).all()
+
+        if query_result is not None:
+            logger.debug("Create the output directory for this download.")
+            dt_obj = datetime.datetime.now()
+            lcl_dwnld_path = os.path.join(self.baseDownloadPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(lcl_dwnld_path):
+                os.mkdir(lcl_dwnld_path)
+
+            logger.debug("Build download file list.")
+            dwnld_params = []
+            for record in query_result:
+                logger.debug("Building download info for '"+record.Remote_URL+"'")
+                url_path = record.Remote_URL
+                url_path = url_path.replace("gs://", "")
+                url_path_parts = url_path.split("/")
+                bucket_name = url_path_parts[0]
+                if bucket_name != "gcp-public-data-landsat":
+                    logger.error("Incorrect bucket name '"+bucket_name+"'")
+                    raise EODataDownException("The bucket specified in the URL is not the Google Public Landsat Bucket - something has gone wrong.")
+                bucket_prefix = url_path.replace(bucket_name+"/", "")
+                dwnld_out_dirname = url_path_parts[-1]
+                scn_lcl_dwnld_path = os.path.join(lcl_dwnld_path, dwnld_out_dirname)
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
+
+                logger.debug("Get the storage bucket and blob objects.")
+                bucket_obj = storage_client.get_bucket(bucket_name)
+                bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
+                scn_dwnlds_filelst = []
+                for blob in bucket_blobs:
+                    scnfilename = blob.name.replace(bucket_prefix+"/", "")
+                    dwnld_file = os.path.join(scn_lcl_dwnld_path, scnfilename)
+                    dwnld_dirpath = os.path.split(dwnld_file)[0]
+                    if not os.path.exists(dwnld_dirpath):
+                        os.makedirs(dwnld_dirpath, exist_ok=True)
+                    scn_dwnlds_filelst.append({"bucket_path":blob.name, "dwnld_path": dwnld_file})
+
+                dwnld_params.append([record.Scene_ID, self.dbInfoObj, self.googKeyJSON, self.googProjName, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+        else:
+            logger.info("There are no scenes to be downloaded.")
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start downloading the scenes.")
+        with multiprocessing.Pool(processes=ncores) as pool:
+            pool.map(_download_scn_goog, dwnld_params)
+        logger.info("Finished downloading the scenes.")
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=True)
+
 
     def convertNewData2ARD(self, ncores):
         """

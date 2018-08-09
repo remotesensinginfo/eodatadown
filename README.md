@@ -16,6 +16,7 @@ For google services the following dependencies need to installed.
 * google-cloud-core
 * google-auth
 * google-cloud-bigquery
+* google-cloud-storage
 
 [https://github.com/GoogleCloudPlatform/google-cloud-python]
 
@@ -23,7 +24,7 @@ For google services the following dependencies need to installed.
 
 Using conda and conda-forge the dependencies can be installed within the following command:
 
-conda install -c conda-forge pycrypto sqlalchemy google-cloud-bigquery arcsi
+conda install -c conda-forge pycrypto sqlalchemy google-cloud-storage google-cloud-bigquery arcsi
 
 ## Configuration
 
