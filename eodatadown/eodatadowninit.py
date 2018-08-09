@@ -51,7 +51,7 @@ def initialise_new_system(config_file):
 
     # Create the System 'Main' object and parse the configuration file.
     sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parseConfig(config_file)
+    sysMainObj.parseConfig(config_file, True)
     logger.debug("Parsed the system configuration.")
 
     # Create and initialise the sensor databases

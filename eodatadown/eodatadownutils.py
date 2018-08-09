@@ -131,7 +131,7 @@ class EDDCheckFileHash(object):
         if calcd_hash_sig == in_hash_sig:
             logger.debug("Signatures Match")
             return True
-        logger.debug("Signatures Do Not Match: " + input_file)
+        logger.info("Signature Does Not Match: " + input_file)
         return False
 
 class EDDJSONParseHelper(object):
@@ -159,7 +159,7 @@ class EDDJSONParseHelper(object):
 
     def getDateValue(self, json_obj, tree_sequence, date_format="%Y-%m-%d"):
         """
-        A function which retrieves a single string value from a JSON structure.
+        A function which retrieves a single date value from a JSON structure.
         :param json_obj:
         :param tree_sequence: list of strings
         :param valid_values:
@@ -174,14 +174,14 @@ class EDDJSONParseHelper(object):
             else:
                 raise EODataDownException("Could not find '"+steps_str+"'")
         try:
-            datetime.datetime.strptime(curr_json_obj, date_format).date()
+            out_data_obj = datetime.datetime.strptime(curr_json_obj, date_format).date()
         except Exception as e:
             raise EODataDownException(e)
-        return curr_json_obj
+        return out_data_obj
 
     def getStrListValue(self, json_obj, tree_sequence, valid_values=None):
         """
-        A function which retrieves a single string value from a JSON structure.
+        A function which retrieves a list of string values from a JSON structure.
         :param json_obj:
         :param tree_sequence: list of strings
         :param valid_values:
@@ -208,7 +208,7 @@ class EDDJSONParseHelper(object):
 
     def getNumericValue(self, json_obj, tree_sequence, valid_lower=None, valid_upper=None):
         """
-        A function which retrieves a single string value from a JSON structure.
+        A function which retrieves a single numeric value from a JSON structure.
         :param json_obj:
         :param tree_sequence: list of strings
         :param valid_values:
@@ -241,4 +241,24 @@ class EDDJSONParseHelper(object):
             if out_value > valid_upper:
                 raise EODataDownException("'"+str(out_value)+"' is higher than the defined valid range.")
         return out_value
+
+    def getListValue(self, json_obj, tree_sequence):
+        """
+        A function which retrieves a list of values from a JSON structure.
+        :param json_obj:
+        :param tree_sequence: list of strings
+        :return:
+        """
+        curr_json_obj = json_obj
+        steps_str = ""
+        for tree_step in tree_sequence:
+            steps_str = steps_str+":"+tree_step
+            if tree_step in curr_json_obj:
+                curr_json_obj = curr_json_obj[tree_step]
+            else:
+                raise EODataDownException("Could not find '"+steps_str+"'")
+
+        if type(curr_json_obj).__name__ != "list":
+            raise EODataDownException("Retrieved value is not a list.")
+        return curr_json_obj
 

@@ -85,7 +85,7 @@ class EODataDownSystemMain(object):
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         return edd_usage_db
 
-    def parseConfig(self, config_file):
+    def parseConfig(self, config_file, first_parse=False):
         """
         Parse the inputted JSON configuration file
         :param config_file:
@@ -116,7 +116,7 @@ class EODataDownSystemMain(object):
                 logger.debug("Getting sensor object: '" + sensor + "'")
                 sensorObj = self.getSensorObj(sensor)
                 logger.debug("Parse sensor config file: '" + sensor + "'")
-                sensorObj.parseSensorConfig(self.sensorConfigFiles[sensor], True)
+                sensorObj.parseSensorConfig(self.sensorConfigFiles[sensor], first_parse)
                 self.sensors.append(sensorObj)
                 logger.debug("Parsed sensor config file: '" + sensor + "'")
 
