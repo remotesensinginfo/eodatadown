@@ -36,6 +36,8 @@ import os
 import os.path
 import datetime
 import multiprocessing
+import shutil
+import rsgislib
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -73,10 +75,12 @@ class EDDLandsatGoogle(Base):
     Total_Size = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     Remote_URL = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
-    Download_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    Download_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    Download_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Downloaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Download_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
-    ARDProduct_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    ARDProduct_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    ARDProduct_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
@@ -104,9 +108,11 @@ def _download_scn_goog(params):
     bucket_obj = storage_client.get_bucket(bucket_name)
 
     logger.info("Downloading "+scn_id)
+    start_date = datetime.datetime.now()
     for dwnld in scn_dwnlds_filelst:
         blob_obj = bucket_obj.blob(dwnld["bucket_path"])
         blob_obj.download_to_filename(dwnld["dwnld_path"])
+    end_date = datetime.datetime.now()
     logger.info("Finished Downloading " + scn_id)
 
     logger.debug("Set up database connection and update record.")
@@ -117,7 +123,8 @@ def _download_scn_goog(params):
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scn_id)
     query_result.Downloaded = True
-    query_result.Download_Date = datetime.datetime.now()
+    query_result.Download_Start_Date = start_date
+    query_result.Download_End_Date = end_date
     query_result.Download_Path = scn_lcl_dwnld_path
     ses.commit()
     ses.close()
@@ -139,14 +146,24 @@ def _process_to_ard(params):
     spacecraft_str = params[6]
     sensor_str = params[7]
     final_ard_path = params[8]
+    reproj_outputs = params[9]
+    proj_wkt_file = params[10]
+    projabbv = params[11]
+
     eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
     input_mtl = eddUtils.findFile(scn_path, "*MTL.txt")
 
-    eodatadown.eodatadownrunarcsi.run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, sensor_str)
+    start_date = datetime.datetime.now()
+    eodatadown.eodatadownrunarcsi.run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, sensor_str, reproj_outputs, proj_wkt_file, projabbv)
 
     logger.debug("Move final ARD files to specified location.")
-    ### TODO: NEED TO WRITE CODE FOR HERE...
+    # Move ARD files to be kept.
+    eodatadown.eodatadownrunarcsi.move_arcsi_products(output_dir, final_ard_path)
+    # Remove Remaining files.
+    shutil.rmtree(output_dir)
+    shutil.rmtree(tmp_dir)
     logger.debug("Moved final ARD files to specified location.")
+    end_date = datetime.datetime.now()
 
     logger.debug("Set up database connection and update record.")
     dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
@@ -156,12 +173,12 @@ def _process_to_ard(params):
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scn_id)
     query_result.ARDProduct = True
-    query_result.ARDProduct_Date = datetime.datetime.now()
+    query_result.ARDProduct_Start_Date = start_date
+    query_result.ARDProduct_End_Date = end_date
     query_result.ARDProduct_Path = final_ard_path
     ses.commit()
     ses.close()
     logger.debug("Finished download and updated database.")
-
 
 
 
@@ -201,9 +218,16 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
             logger.debug("Have the correct config file for 'LandsatGOOG'")
 
-            logger.debug("Find ARCSI params from config file")
-            self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "arcsi", "dem"])
-            logger.debug("Found ARCSI params from config file")
+            logger.debug("Find ARD processing params from config file")
+            self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "dem"])
+            self.projEPSG = -1
+            self.projabbv = ""
+            self.ardProjDefined = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "proj"]):
+                self.ardProjDefined = True
+                self.projabbv = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
+                self.projEPSG = int(json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "epsg"], 0, 1000000000))
+            logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
             self.baseDownloadPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "download"])
@@ -358,8 +382,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                              Data_Type=row.data_type, WRS_Path=row.wrs_path, WRS_Row=row.wrs_row,
                                              Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat, South_Lat=row.south_lat,
                                              East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
-                                             Remote_URL=row.base_url, Query_Date=datetime.datetime.now(), Download_Date=None,
-                                             Downloaded=False, Download_Path="", ARDProduct_Date=None, ARDProduct=False, ARDProduct_Path=""))
+                                             Remote_URL=row.base_url, Query_Date=datetime.datetime.now(), Download_Start_Date=None,
+                                             Download_End_Date=None, Downloaded=False, Download_Path="", ARDProduct_Start_Date=None,
+                                             ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path=""))
                 if len(db_records) > 0:
                     ses.add_all(db_records)
                     ses.commit()
@@ -463,6 +488,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True, EDDLandsatGoogle.ARDProduct == False).all()
 
+        proj_wkt_file = None
+        if self.ardProjDefined:
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
             dt_obj = datetime.datetime.now()
@@ -493,7 +523,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 if not os.path.exists(tmp_ard_scn_path):
                     os.mkdir(tmp_ard_scn_path)
 
-                ard_params.append([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID, final_ard_scn_path])
+                if self.ardProjDefined:
+                    proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
+                    rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
+
+                ard_params.append([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()

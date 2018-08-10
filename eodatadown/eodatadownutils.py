@@ -36,6 +36,8 @@ import hashlib
 import os.path
 import datetime
 import logging
+import shutil
+import glob
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +64,49 @@ class EODataDownUtils(object):
         Search for a single file with a path using glob. Therefore, the file
         path returned is a true path. Within the fileSearch provide the file
         name with '*' as wildcard(s).
+        :param dirPath:
+        :param fileSearch:
+        :return:
         """
-        import glob
         files = glob.glob(os.path.join(dirPath, fileSearch))
         if len(files) != 1:
             raise EODataDownException('Could not find a single file (' + fileSearch + '); found ' + str(len(files)) + ' files.')
         return files[0]
+
+    def moveFile2DIR(self, in_file, out_dir):
+        """
+        A function which moves a file to the specified output directory.
+        :param in_file:
+        :param out_dir:
+        :return:
+        """
+        file_name = os.path.split(in_file)[1]
+        out_file_path = os.path.join(out_dir, file_name)
+        shutil.move(in_file, out_file_path)
+
+    def moveFilesWithBase2DIR(self, in_base_file, out_dir):
+        """
+        A function which moves all the files with the same basename
+        (i.e., different extension)to the specified output directory.
+        :param in_base_file:
+        :param out_dir:
+        :return:
+        """
+        file_name = os.path.splitext(in_base_file)[0]
+        in_files = glob.glob(file_name+".*")
+        for file in in_files:
+            self.moveFile2DIR(file, out_dir)
+
+    def copyFile2DIR(self, in_file, out_dir):
+        """
+        A function which moves a file to the specified output directory.
+        :param in_file:
+        :param out_dir:
+        :return:
+        """
+        file_name = os.path.split(in_file)[1]
+        out_file_path = os.path.join(out_dir, file_name)
+        shutil.copyfile(in_file, out_file_path)
 
 
 class EODataDownDatabaseInfo(object):
@@ -151,6 +190,25 @@ class EDDCheckFileHash(object):
         return False
 
 class EDDJSONParseHelper(object):
+
+    def doesPathExist(self, json_obj, tree_sequence):
+        """
+        A function which tests whether a path exists within JSON file.
+        :param json_obj:
+        :param tree_sequence: list of strings
+        :return: boolean
+        """
+        curr_json_obj = json_obj
+        steps_str = ""
+        pathExists = True
+        for tree_step in tree_sequence:
+            steps_str = steps_str+":"+tree_step
+            if tree_step in curr_json_obj:
+                curr_json_obj = curr_json_obj[tree_step]
+            else:
+                pathExists = False
+                break
+        return pathExists
 
     def getStrValue(self, json_obj, tree_sequence, valid_values=None):
         """
