@@ -52,7 +52,7 @@ def run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, 
     """
     import arcsilib.arcsirun
 
-    if (spacecraft_str == "LANDSAT_8") and (sensor_str == ""):
+    if (spacecraft_str == "LANDSAT_8") and (sensor_str == "OLI_TIRS"):
         arcsi_sensor_str = "ls8"
     elif (spacecraft_str == "LANDSAT_7") and (sensor_str == "ETM"):
         arcsi_sensor_str = "ls7"
