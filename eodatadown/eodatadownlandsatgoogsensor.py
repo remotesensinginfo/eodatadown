@@ -131,6 +131,7 @@ def _download_scn_goog(params):
     ses.close()
     logger.debug("Finished download and updated database.")
 
+
 def _process_to_ard(params):
     """
     A function which is used with the python multiprocessing pool feature to convert a scene to an ARD product
@@ -180,7 +181,6 @@ def _process_to_ard(params):
     ses.commit()
     ses.close()
     logger.debug("Finished download and updated database.")
-
 
 
 class EODataDownLandsatGoogSensor (EODataDownSensor):
@@ -286,7 +286,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Drop system table if within the existing database.")
         Base.metadata.drop_all(dbEng)
 
-        logger.debug("Creating LandsatGoog Database.")
+        logger.debug("Creating LandsatGOOG Database.")
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 

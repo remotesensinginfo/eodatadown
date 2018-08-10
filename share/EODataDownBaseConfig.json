@@ -15,9 +15,9 @@
         },
         "sensors":
         {
-            "LandsatGOOG":
+            "Sentinel2GOOG":
             {
-                "config":"/Users/pete/Temp/EODataDown/Sensors/LandsatGoog.json"
+                "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel2Goog.json"
             }
         }
     }
