@@ -499,6 +499,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
                 scn_dwnlds_filelst = []
                 for blob in bucket_blobs:
+                    if "$folder$" in blob.name:
+                        continue
                     scnfilename = blob.name.replace(bucket_prefix+"/", "")
                     dwnld_file = os.path.join(scn_lcl_dwnld_path, scnfilename)
                     dwnld_dirpath = os.path.split(dwnld_file)[0]
