@@ -56,7 +56,8 @@ Base = declarative_base()
 class EDDLandsatGoogle(Base):
     __tablename__ = "EDDLandsatGoogle"
 
-    Scene_ID = sqlalchemy.Column(sqlalchemy.String, primary_key=True, nullable=False)
+    PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
+    Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Product_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Spacecraft_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Sensor_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
@@ -289,6 +290,50 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 
+    def resolveDuplicatedSceneID(self, scn_id):
+        """
+        A function to resolve a duplicated scene ID within the database.
+        :param scn_id:
+        :return:
+        """
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+        logger.debug("Find duplicate records for the scene_id: "+scn_id)
+        query_rtn = ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID).filter(EDDLandsatGoogle.Scene_ID==scn_id).all()
+        process_dates = []
+        for record in query_rtn:
+            prod_id = record.Product_ID
+            logger.debug("Record (Product ID): " + prod_id)
+            if (prod_id == None) or (prod_id == ""):
+                process_dates.append(None)
+            prod_date = datetime.datetime.strptime(prod_id.split("_")[4], "%Y%m%d").date()
+            process_dates.append(prod_date)
+
+        curent_date = datetime.datetime.now().date()
+        min_timedelta = None
+        min_date_idx = 0
+        idx = 0
+        first = True
+        for date_val in process_dates:
+            if date_val is not None:
+                c_timedelta = curent_date - date_val
+                if first:
+                    min_timedelta = c_timedelta
+                    min_date_idx = idx
+                    first = False
+                elif c_timedelta < min_timedelta:
+                    min_timedelta = c_timedelta
+                    min_date_idx = idx
+            idx = idx + 1
+        logger.debug("Keeping (Product ID): " + query_rtn[min_date_idx].Product_ID)
+        logger.debug("Deleting Remaining Products")
+        ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID, ).filter(EDDLandsatGoogle.Scene_ID == scn_id).filter(EDDLandsatGoogle.Product_ID != query_rtn[min_date_idx].Product_ID).delete()
+        ses.commit()
+        ses.close()
+        logger.debug("Completed processing of removing duplicate scene ids.")
+
     def check4NewData(self):
         """
         A function which queries the Google Landsat BigQuery database (link below) and builds a local
@@ -359,18 +404,20 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         new_scns_avail = False
         for wrs2 in self.wrs2RowPaths:
+            logger.info("Finding scenes for Path: "+str(wrs2['path'])+" Row: "+str(wrs2['row']))
             wrs2_filter = "wrs_path = "+str(wrs2['path'])+" AND wrs_row = " +str(wrs2['row'])
             goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + " AND " + wrs2_filter
             logger.debug("Query: '"+goog_query+"'")
             query_results = client.query(goog_query)
             logger.debug("Performed google query")
-
+            
             logger.debug("Process google query result and add to local database (Path: "+str(wrs2['path'])+", Row:"+str(wrs2['row'])+")")
             if query_results.result():
                 db_records = []
                 for row in query_results.result():
                     query_rtn = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID==row.scene_id).one_or_none()
                     if query_rtn is None:
+                        logger.debug("SceneID: "+row.scene_id+"\tProduct_ID: "+row.product_id)
                         sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                         db_records.append(
                             EDDLandsatGoogle(Scene_ID=row.scene_id, Product_ID=row.product_id, Spacecraft_ID=row.spacecraft_id,
@@ -390,6 +437,14 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     ses.commit()
                     new_scns_avail = True
             logger.debug("Processed google query result and added to local database (Path: " + str(wrs2['path']) + ", Row:" + str(wrs2['row'])+")")
+
+        logger.debug("Check for any duplicate scene ids which have been added to database and only keep the one processed more recently")
+        query_rtn = ses.query(sqlalchemy.func.count(EDDLandsatGoogle.Scene_ID), EDDLandsatGoogle.Scene_ID).group_by(EDDLandsatGoogle.Scene_ID).all()
+        for result in query_rtn:
+            if result[0] > 1:
+                self.resolveDuplicatedSceneID(result[1])
+        logger.debug("Completed duplicate check/removal.")
+
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
