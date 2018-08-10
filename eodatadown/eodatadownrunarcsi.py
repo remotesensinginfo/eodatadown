@@ -100,7 +100,7 @@ def run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs
     logger.info("Starting to run ARCSI for: "+input_hdr)
     arcsilib.arcsirun.runARCSI(input_hdr, None, None, "sen2", None, "KEA",
                                output_dir, None, proj_wkt_file, None, projabbv, None, None,
-                               ["CLOUDS", "DOSAOTSGL", "STDSREF", "SATURATE", "TOPOSHADOW", "FOOTPRINT", "METADATA"],
+                               ["CLOUDS", "DOSAOTSGL", "STDSREF", "SATURATE", "TOPOSHADOW", "FOOTPRINT", "METADATA", "SHARP"],
                                True, None, None, arcsilib.DEFAULT_ARCSI_AEROIMG_PATH, arcsilib.DEFAULT_ARCSI_ATMOSIMG_PATH,
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
