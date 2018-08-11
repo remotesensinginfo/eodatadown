@@ -15,9 +15,9 @@
         },
         "sensors":
         {
-            "Sentinel2GOOG":
+            "Sentinel1ESA":
             {
-                "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel2Goog.json"
+                "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel1ESA.json"
             }
         }
     }

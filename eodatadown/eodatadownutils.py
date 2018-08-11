@@ -56,6 +56,21 @@ class EODataDownException(Exception):
         """
         return repr(self.value)
 
+class EODataDownResponseException(EODataDownException):
+
+    def __init__(self, value, response=None):
+        """
+        Init for the EODataDownResponseException class
+        """
+        self.value = value
+        self.response = response
+
+    def __str__(self):
+        """
+        Return a string representation of the exception
+        """
+        return "HTTP status {0} {1}: {2}".format(self.response.status_code, self.response.reason, repr(self.value))
+
 
 class EODataDownUtils(object):
 
@@ -70,7 +85,7 @@ class EODataDownUtils(object):
         """
         files = glob.glob(os.path.join(dirPath, fileSearch))
         if len(files) != 1:
-            raise EODataDownException('Could not find a single file (' + fileSearch + '); found ' + str(len(files)) + ' files.')
+            raise EODataDownException("Could not find a single file (" + fileSearch + "); found " + str(len(files)) + " files.")
         return files[0]
 
     def moveFile2DIR(self, in_file, out_dir):
@@ -136,7 +151,7 @@ class EODataDownDatabaseInfo(object):
 
 
 class EDDPasswordTools(object):
-    secret_key = 'I7Cpan66nlslFqKyuUIkc1puFzeUHlg4'
+    secret_key = "I7Cpan66nlslFqKyuUIkc1puFzeUHlg4"
 
     def encodePassword(self, plaintxt):
         if len(plaintxt) % 16 != 0:
@@ -154,7 +169,7 @@ class EDDPasswordTools(object):
 class EDDCheckFileHash(object):
 
     def getSigFilePath(self, input_file):
-        sig_file = os.path.splitext(input_file)[0]+'.sig'
+        sig_file = os.path.splitext(input_file)[0]+".sig"
         logger.debug("Signature File Path: '" + sig_file + "'")
         return sig_file
 
@@ -168,14 +183,14 @@ class EDDCheckFileHash(object):
         logger.debug("Created signature for input file: '" + input_file + "'")
         sig_file = self.getSigFilePath(input_file)
         f = open(sig_file, "w")
-        f.write(hash_sig+'\n')
+        f.write(hash_sig+"\n")
         f.close()
         logger.debug("Written to signature file: '" + sig_file + "'")
 
     def checkFileSig(self, input_file):
         sig_file = self.getSigFilePath(input_file)
         if not os.path.exists(sig_file):
-            raise EODataDownException('Signature file could not be found.')
+            raise EODataDownException("Signature file could not be found.")
 
         f = open(sig_file, "r")
         in_hash_sig = f.read().strip()
@@ -248,10 +263,32 @@ class EDDJSONParseHelper(object):
             else:
                 raise EODataDownException("Could not find '"+steps_str+"'")
         try:
-            out_data_obj = datetime.datetime.strptime(curr_json_obj, date_format).date()
+            out_date_obj = datetime.datetime.strptime(curr_json_obj, date_format).date()
         except Exception as e:
             raise EODataDownException(e)
-        return out_data_obj
+        return out_date_obj
+
+    def getDateTimeValue(self, json_obj, tree_sequence, date_time_format="%Y-%m-%d"):
+        """
+        A function which retrieves a single date value from a JSON structure.
+        :param json_obj:
+        :param tree_sequence: list of strings
+        :param valid_values:
+        :return:
+        """
+        curr_json_obj = json_obj
+        steps_str = ""
+        for tree_step in tree_sequence:
+            steps_str = steps_str+":"+tree_step
+            if tree_step in curr_json_obj:
+                curr_json_obj = curr_json_obj[tree_step]
+            else:
+                raise EODataDownException("Could not find '"+steps_str+"'")
+        try:
+            out_datetime_obj = datetime.datetime.strptime(curr_json_obj, date_time_format)
+        except Exception as e:
+            raise EODataDownException(e)
+        return out_datetime_obj
 
     def getStrListValue(self, json_obj, tree_sequence, valid_values=None):
         """
@@ -298,7 +335,7 @@ class EDDJSONParseHelper(object):
                 raise EODataDownException("Could not find '"+steps_str+"'")
 
         out_value = 0.0
-        if (type(curr_json_obj).__name__ == 'int') or (type(curr_json_obj).__name__ == 'float'):
+        if (type(curr_json_obj).__name__ == "int") or (type(curr_json_obj).__name__ == "float"):
             out_value = curr_json_obj
         elif type(curr_json_obj).__name__ == "str":
             if curr_json_obj.isnumeric():
@@ -335,4 +372,168 @@ class EDDJSONParseHelper(object):
         if type(curr_json_obj).__name__ != "list":
             raise EODataDownException("Retrieved value is not a list.")
         return curr_json_obj
+
+    def findStringValueESALst(self, lst_json_obj, name):
+        """
+
+        :param lst_json_obj:
+        :param name:
+        :return: [found, value]
+        """
+        value = ""
+        found = False
+        for json_obj in lst_json_obj:
+            if json_obj["name"] == name:
+                value = json_obj["content"]
+                found = True
+                break
+        return [found, value]
+
+    def findIntegerValueESALst(self, lst_json_obj, name):
+        """
+
+        :param lst_json_obj:
+        :param name:
+        :return: [found, value]
+        """
+        value = 0
+        found = False
+        for json_obj in lst_json_obj:
+            if json_obj["name"] == name:
+                value = int(json_obj["content"])
+                found = True
+                break
+        return [found, value]
+
+class EDDGeoBBox(object):
+
+    def __init__(self):
+        """
+        Default constructor without setting values.
+        """
+        self.north_lat = 0.0
+        self.south_lat = 0.0
+        self.west_lon = 0.0
+        self.east_lon = 0.0
+
+    def setBBOX(self, north_lat, south_lat, west_lon, east_lon):
+        """
+
+        :param north_lat:
+        :param south_lat:
+        :param west_lon:
+        :param east_lon:
+        """
+        self.north_lat = north_lat
+        self.south_lat = south_lat
+        self.west_lon = west_lon
+        self.east_lon = east_lon
+
+    def setNorthLat(self, north_lat):
+        """
+
+        :param north_lat:
+        :return:
+        """
+        self.north_lat = north_lat
+
+    def getNorthLat(self):
+        """
+
+        :return:
+        """
+        return self.north_lat
+
+    def setSouthLat(self, south_lat):
+        """
+
+        :param south_lat:
+        :return:
+        """
+        self.south_lat = south_lat
+
+    def getSouthLat(self):
+        """
+
+        :return:
+        """
+        return self.south_lat
+
+    def setWestLon(self, west_lon):
+        """
+
+        :param west_lon:
+        :return:
+        """
+        self.west_lon = west_lon
+
+    def getWestLon(self):
+        """
+
+        :return:
+        """
+        return self.west_lon
+
+    def setEastLon(self, east_lon):
+        """
+
+        :param east_lon:
+        :return:
+        """
+        self.east_lon = east_lon
+
+    def getEastLon(self):
+        """
+
+        :return:
+        """
+        return self.east_lon
+
+    def getWKTPolygon(self):
+        """
+        Get the bounding bbox represented as a polygon as a WKT string.
+        :return:
+        """
+        wkt_str = "POLYGON ((" + str(self.west_lon) + " " + str(self.north_lat) + ", " + str(self.east_lon) + " " + str(
+            self.north_lat) + ", " + str(self.east_lon) + " " + str(self.south_lat) + ", " + str(
+            self.west_lon) + " " + str(self.south_lat) + ", " + str(self.west_lon) + " " + str(self.north_lat) + "))"
+        return wkt_str
+
+    def parseWKTPolygon(self, wkt_poly):
+        """
+        Populate the object from the WKT polygon.
+        :param wkt_poly:
+        :return:
+        """
+        wkt_poly = wkt_poly.replace("POLYGON ((", "").replace("))", "")
+        pts = wkt_poly.split(",")
+        min_lon = 0.0
+        max_lon = 0.0
+        min_lat = 0.0
+        max_lat = 0.0
+        first = True
+        for pt in pts:
+            lon, lat = pt.split(" ")
+            lat_val = float(lat)
+            lon_val = float(lon)
+            if first:
+                min_lon = lon_val
+                max_lon = lon_val
+                min_lat = lat_val
+                max_lat = lat_val
+                first = False
+            else:
+                if lon_val < min_lon:
+                    min_lon = lon_val
+                if lon_val > max_lon:
+                    max_lon = lon_val
+                if lat_val < min_lat:
+                    min_lat = lat_val
+                if lat_val > max_lat:
+                    max_lat = lat_val
+
+        self.north_lat = max_lat
+        self.south_lat = min_lat
+        self.west_lon = min_lon
+        self.east_lon = max_lon
 

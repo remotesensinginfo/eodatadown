@@ -272,10 +272,10 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         logger.debug("Creating Database Engine and Session.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
 
         logger.debug("Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
-        ses = Session()
         if ses.query(EDDSentinel2Google).first() is not None:
             query_date = ses.query(EDDSentinel2Google).order_by(EDDSentinel2Google.Sensing_Time.desc()).first().Sensing_Time
         logger.info("Query with start at date: "+str(query_date))

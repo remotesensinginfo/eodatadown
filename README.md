@@ -8,6 +8,7 @@ A tool for automatically downloading Earth Observation imagery and products.
 * SQLAlchemy [http://www.sqlalchemy.org]
 * RSGISLib [http://www.rsgislib.org]
 * ARCSI [http://arcsi.remotesensing.info]
+* Requests [http://www.python-requests.org]
 
 ### Google Services
 For google services the following dependencies need to installed. 
@@ -19,6 +20,8 @@ For google services the following dependencies need to installed.
 * google-cloud-storage
 
 [https://github.com/GoogleCloudPlatform/google-cloud-python]
+
+
 
 ## Installation
 
