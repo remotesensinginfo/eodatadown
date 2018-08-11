@@ -89,6 +89,8 @@ class EDDSentinel1ESA(Base):
     South_Lat = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     East_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     West_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
+    Remote_URL = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Remote_URL_MD5 = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Download_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Download_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
@@ -375,6 +377,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         query_str_product = "producttype:GRD"
 
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+
         new_scns_avail = False
         n_step = 100
         for geo_bound in self.geoBounds:
@@ -407,7 +410,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                     if n_full_pages > 0:
                         start_off = n_step
                         for i in range(n_full_pages):
-                            url = self.createQueryURL(base_api_url, start_off, n_scns)
+                            url = self.createQueryURL(base_api_url, start_off, n_step)
                             logger.debug("Going to use the following URL: " + url)
                             logger.debug("Using the following query: " + query_str)
                             response = session.post(url, {"q": query_str}, auth=session.auth)
@@ -426,6 +429,18 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                             rsp_json = response.json()["feed"]
                             self.parseResponseJSON(rsp_json, ses, n_remain_scns)
             logger.debug("Processed query result and added to local database for \""+wkt_poly+"\"")
+
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL == None).all()
+        if query_result is not None:
+            for record in query_result:
+                url = base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
+                response = session.get(url, auth=session.auth)
+                if not self.checkResponse(response, url):
+                    logger.error("Could not get the URL for scene: '{}'".format(record.UUID))
+                json_url_info = response.json()['d']
+                record.Remote_URL_MD5 = json_parse_helper.getStrValue(json_url_info, ["Checksum", "Value"])
+                record.Remote_URL = json_parse_helper.getStrValue(json_url_info, ["__metadata", "media_src"])
+            ses.commit()
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
