@@ -601,7 +601,6 @@ class EDDHTTPDownload(object):
         :param continue_download:
         :return:
         """
-        print(input_url)
         logger.debug("Creating HTTP Session Object.")
         session = requests.Session()
         session.auth = (username, password)
@@ -662,10 +661,13 @@ class EDDHTTPDownload(object):
                                 usr_step_feedback = round((downloaded_bytes / exp_file_size) * 100, 0)
                                 logger.info("Downloaded {} % of {}".format(usr_step_feedback, temp_dwnld_path))
                                 next_update = next_update + usr_update_step
-
+            logger.info("Download Complete: ".format(temp_dwnld_path))
             md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
             if md5_match:
                 os.rename(temp_dwnld_path, out_file_path)
+                logger.info("MD5 Matched Renamed download: ".format(out_file_path))
                 return True
+            else:
+                logger.info("MD5 did not match: ".format(temp_dwnld_path))
             return False
 
