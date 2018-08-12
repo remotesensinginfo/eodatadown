@@ -80,6 +80,7 @@ class EDDSentinel2Google(Base):
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
+
 def _download_scn_goog(params):
     """
     Function which is used with multiprocessing pool object for downloading landsat data from Google.
@@ -390,7 +391,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     scn_dwnlds_filelst.append({"bucket_path":blob.name, "dwnld_path": dwnld_file})
 
                 dwnld_params.append([record.Granule_ID, self.dbInfoObj, self.googKeyJSON, self.googProjName, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+            downloaded_new_scns = True
         else:
+            downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
         ses.close()
         logger.debug("Closed the database session.")
@@ -400,7 +403,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             pool.map(_download_scn_goog, dwnld_params)
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=True)
+        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
     def convertNewData2ARD(self, ncores):
         """

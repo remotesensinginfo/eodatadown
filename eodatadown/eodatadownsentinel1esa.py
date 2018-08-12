@@ -91,6 +91,7 @@ class EDDSentinel1ESA(Base):
     West_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     Remote_URL = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Remote_URL_MD5 = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Total_Size = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Download_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Download_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
@@ -101,6 +102,48 @@ class EDDSentinel1ESA(Base):
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
+
+def _download_scn_esa(params):
+    """
+    Function which is used with multiprocessing pool object for downloading landsat data from Google.
+    :param params:
+    :return:
+    """
+    uuid = params[0]
+    remote_url = params[1]
+    remote_url_md5 = params[2]
+    remote_filesize = params[3]
+    dbInfoObj = params[4]
+    scn_lcl_dwnld_path = params[5]
+    esa_user = params[6]
+    esa_pass = params[7]
+    continue_downloads = params[8]
+
+    eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
+
+    start_date = datetime.datetime.now()
+    success = eodd_http_downloader.downloadFile(remote_url, remote_url_md5, scn_lcl_dwnld_path, esa_user, esa_pass, remote_filesize, continue_downloads)
+    end_date = datetime.datetime.now()
+
+    if success and os.path.exists(scn_lcl_dwnld_path):
+        logger.debug("Set up database connection and update record.")
+        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: " + uuid)
+        query_result.Downloaded = True
+        query_result.Download_Start_Date = start_date
+        query_result.Download_End_Date = end_date
+        query_result.Download_Path = scn_lcl_dwnld_path
+        ses.commit()
+        ses.close()
+        logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
+    else:
+        logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
+
+
 class EODataDownSentinel1ESASensor (EODataDownSensor):
     """
     An class which represents a the Sentinel-1 sensor being downloaded from ESA Copernicus Open Access Hub.
@@ -109,6 +152,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
     def __init__(self, dbInfoObj):
         EODataDownSensor.__init__(self, dbInfoObj)
         self.sensorName = "Sentinel1ESA"
+        self.base_api_url = "https://scihub.copernicus.eu/apihub/"
 
     def getSensorName(self):
         return self.sensorName
@@ -356,7 +400,6 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         session.auth = (self.esaUser, self.esaPass)
         user_agent = "eoedatadown/"+str(eodatadown.EODATADOWN_VERSION)
         session.headers["User-Agent"] = user_agent
-        base_api_url = "https://scihub.copernicus.eu/apihub/"
 
         logger.debug("Creating Database Engine and Session.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
@@ -385,7 +428,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
             logger.info("Checking for available scenes for \""+wkt_poly+"\"")
             query_str_geobound = "footprint:\"Intersects("+wkt_poly+")\""
             query_str = query_str_date + ", " + query_str_platform + ", " + query_str_product + ", " + query_str_geobound
-            url = self.createQueryURL(base_api_url, 0, n_step)
+            url = self.createQueryURL(self.base_api_url, 0, n_step)
             logger.debug("Going to use the following URL: " + url)
             logger.debug("Using the following query: " + query_str)
             response = session.post(url, {"q": query_str}, auth=session.auth)
@@ -410,7 +453,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                     if n_full_pages > 0:
                         start_off = n_step
                         for i in range(n_full_pages):
-                            url = self.createQueryURL(base_api_url, start_off, n_step)
+                            url = self.createQueryURL(self.base_api_url, start_off, n_step)
                             logger.debug("Going to use the following URL: " + url)
                             logger.debug("Using the following query: " + query_str)
                             response = session.post(url, {"q": query_str}, auth=session.auth)
@@ -421,7 +464,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                     if n_remain_scns > 0:
                         start_off = n_results - n_remain_scns
                         n_scns = n_remain_scns
-                        url = self.createQueryURL(base_api_url, start_off, n_scns)
+                        url = self.createQueryURL(self.base_api_url, start_off, n_scns)
                         logger.debug("Going to use the following URL: " + url)
                         logger.debug("Using the following query: " + query_str)
                         response = session.post(url, {"q": query_str}, auth=session.auth)
@@ -433,13 +476,14 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL == None).all()
         if query_result is not None:
             for record in query_result:
-                url = base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
+                url = self.base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
                 response = session.get(url, auth=session.auth)
                 if not self.checkResponse(response, url):
                     logger.error("Could not get the URL for scene: '{}'".format(record.UUID))
                 json_url_info = response.json()['d']
                 record.Remote_URL_MD5 = json_parse_helper.getStrValue(json_url_info, ["Checksum", "Value"])
                 record.Remote_URL = json_parse_helper.getStrValue(json_url_info, ["__metadata", "media_src"])
+                record.Total_Size = int(json_parse_helper.getNumericValue(json_url_info, ["ContentLength"]))
             ses.commit()
         ses.close()
         logger.debug("Closed Database session")
@@ -447,7 +491,45 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName, updated_lcl_db=True, scns_avail=new_scns_avail)
 
     def downloadNewData(self, ncores):
-        raise EODataDownException("Not implemented.")
+        """
+
+        :param ncores:
+        :return:
+        """
+        continue_downloads = True
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == False).filter(EDDSentinel1ESA.Remote_URL != None).all()
+        dwnld_params = []
+        if query_result is not None:
+            logger.debug("Create the output directory for this download.")
+            dt_obj = datetime.datetime.now()
+            lcl_dwnld_path = os.path.join(self.baseDownloadPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(lcl_dwnld_path):
+                os.mkdir(lcl_dwnld_path)
+
+            for record in query_result:
+                out_filename = record.Identifier+".zip"
+                downloaded_new_scns = True
+                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.dbInfoObj, os.path.join(lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
+        else:
+            downloaded_new_scns = False
+            logger.info("There are no scenes to be downloaded.")
+
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start downloading the scenes.")
+        with multiprocessing.Pool(processes=ncores) as pool:
+            pool.map(_download_scn_esa, dwnld_params)
+        logger.info("Finished downloading the scenes.")
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
+
 
     def convertNewData2ARD(self, ncores):
         raise EODataDownException("Not implemented.")

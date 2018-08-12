@@ -37,7 +37,10 @@ import os.path
 import datetime
 import logging
 import shutil
+import requests
 import glob
+
+import eodatadown
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +206,24 @@ class EDDCheckFileHash(object):
             return True
         logger.info("Signature Does Not Match: " + input_file + " '" +calcd_hash_sig+ "'")
         return False
+
+    def check_checksum(self, input_file, checksum, block_size=2 ** 13):
+        """
+        Compare a given MD5 checksum with one calculated from a file.
+        :param input_file:
+        :param checksum:
+        :param block_size:
+        :return:
+        """
+        md5 = hashlib.md5()
+        with open(input_file, "rb") as f:
+            while True:
+                block_data = f.read(block_size)
+                if not block_data:
+                    break
+                md5.update(block_data)
+        return md5.hexdigest().lower() == checksum.lower()
+
 
 class EDDJSONParseHelper(object):
 
@@ -405,6 +426,7 @@ class EDDJSONParseHelper(object):
                 break
         return [found, value]
 
+
 class EDDGeoBBox(object):
 
     def __init__(self):
@@ -536,4 +558,114 @@ class EDDGeoBBox(object):
         self.south_lat = min_lat
         self.west_lon = min_lon
         self.east_lon = max_lon
+
+
+
+class EDDHTTPDownload(object):
+
+    def checkResponse(self, response, url):
+        """
+        Check the HTTP response and raise an exception with appropriate error message
+        if request was not successful.
+        :param response:
+        :param url:
+        :return:
+        """
+        try:
+            response.raise_for_status()
+            success = True
+        except (requests.HTTPError, ValueError):
+            success = False
+            excpt_msg = "Invalid API response."
+            try:
+                excpt_msg = response.headers["cause-message"]
+            except:
+                try:
+                    excpt_msg = response.json()["error"]["message"]["value"]
+                except:
+                    excpt_msg = "Unknown error ('{0}'), check url in a web browser: '{1}'".format(response.reason, url)
+            api_error = EODataDownResponseException(excpt_msg, response)
+            api_error.__cause__ = None
+            raise api_error
+        return success
+
+    def downloadFile(self, input_url, input_url_md5, out_file_path, username, password, exp_file_size, continue_download=True):
+        """
+
+        :param input_url:
+        :param input_url_md5:
+        :param out_file_path:
+        :param username:
+        :param password:
+        :param exp_file_size:
+        :param continue_download:
+        :return:
+        """
+        print(input_url)
+        logger.debug("Creating HTTP Session Object.")
+        session = requests.Session()
+        session.auth = (username, password)
+        user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
+        session.headers["User-Agent"] = user_agent
+
+        eddFileChecker = EDDCheckFileHash()
+
+        temp_dwnld_path = out_file_path + '.incomplete'
+        needs_downloading = True
+        if os.path.exists(temp_dwnld_path) and continue_download:
+            if os.path.getsize(temp_dwnld_path) > exp_file_size:
+                os.remove(temp_dwnld_path)
+                needs_downloading = True
+                logger.debug("There was an existing file but too large removed and starting download again: " + out_file_path)
+            elif os.path.getsize(temp_dwnld_path) == exp_file_size:
+                md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
+                if md5_match:
+                    needs_downloading = False
+                    os.rename(temp_dwnld_path, out_file_path)
+                    logger.debug("There was an existing file and the MD5 matched so renamed and not downloading: " + out_file_path)
+                else:
+                    os.remove(temp_dwnld_path)
+                    needs_downloading = True
+                    logger.debug("There was an existing file but the MD5 did not matched so removed and starting download again: " + out_file_path)
+            else:
+                logger.debug("There was an existing temp file which was incomplete so will try to continue from where is was: " + out_file_path)
+                needs_downloading = True
+
+        if needs_downloading:
+            continuing_download = False
+            headers = {}
+            downloaded_bytes = 0
+            if os.path.exists(temp_dwnld_path):
+                continuing_download = True
+                logger.debug("Continuing the Download")
+                downloaded_bytes = os.path.getsize(temp_dwnld_path)
+                headers = {'Range': 'bytes={}-'.format(downloaded_bytes)}
+
+            usr_update_step = exp_file_size/10
+            next_update = downloaded_bytes
+            usr_step_feedback = round((downloaded_bytes/exp_file_size)*100, 0)
+
+            with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
+                self.checkResponse(r, input_url)
+                chunk_size = 2 ** 20
+                if continuing_download:
+                    mode = 'ab'
+                else:
+                    mode = 'wb'
+                with open(temp_dwnld_path, mode) as f:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if chunk:  # filter out keep-alive new chunks
+                            f.write(chunk)
+                            downloaded_bytes = downloaded_bytes + len(chunk)
+
+                            if downloaded_bytes > next_update:
+                                usr_step_feedback = round((downloaded_bytes / exp_file_size) * 100, 0)
+                                logger.info("Downloaded {} % of {}".format(usr_step_feedback, temp_dwnld_path))
+                                next_update = next_update + usr_update_step
+
+            md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
+            if md5_match:
+                os.rename(temp_dwnld_path, out_file_path)
+                return True
+            return False
 
