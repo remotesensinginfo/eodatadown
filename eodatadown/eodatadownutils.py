@@ -779,7 +779,7 @@ class EDDHTTPDownload(object):
         headers = {}
         downloaded_bytes = 0
 
-        usr_update_step = 1000
+        usr_update_step = 10000
         next_update = usr_update_step
 
         with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:

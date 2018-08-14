@@ -437,19 +437,11 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                     act_xml_http_resp = session.get(dwnld_obj.analytic_xml_act_url)
                     eodd_http_downloader.checkResponse(act_xml_http_resp, dwnld_obj.analytic_xml_act_url)
                 elif dwnld_obj.activated == "active":
-                    dwnld_params.append([record.Scene_ID, dwnld_obj.analytic_img_dwn_url, dwnld_obj.analytic_img_md5, dwnld_obj.analytic_xml_dwn_url, dwnld_obj.analytic_xml_md5, self.dbInfoObj, lcl_dwnld_path, self.planetAPIKey])
-
-                """
-                pprint.pprint(http_resp.json())
-                url = http_resp.json()["analytic"]["location"]
-                md5 = http_resp.json()["analytic"]["md5_digest"]
-
-                scn_lcl_dwnld_path = os.path.join(lcl_dwnld_path, record.Scene_ID+".tif")
-                eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
-                success = eodd_http_downloader.downloadFile(url, md5, scn_lcl_dwnld_path, self.planetAPIKey, "")
-                """
-
-
+                    lcl_dwnld_scn_path = os.path.join(lcl_dwnld_path, record.Scene_ID)
+                    if not os.path.exists(lcl_dwnld_scn_path):
+                        os.mkdir(lcl_dwnld_scn_path)
+                    downloaded_new_scns = True
+                    dwnld_params.append([record.Scene_ID, dwnld_obj.analytic_img_dwn_url, dwnld_obj.analytic_img_md5, dwnld_obj.analytic_xml_dwn_url, dwnld_obj.analytic_xml_md5, self.dbInfoObj, lcl_dwnld_scn_path, self.planetAPIKey])
         ses.close()
         logger.debug("Closed the database session.")
 
