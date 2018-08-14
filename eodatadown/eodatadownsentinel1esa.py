@@ -40,8 +40,6 @@ import os
 import os.path
 import datetime
 import multiprocessing
-import shutil
-import rsgislib
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -378,7 +376,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                                     LastRelativeOrbitNumber=lastrelativeorbitnumber_val, SliceNumber=slicenumber_val,
                                     SensorOperationalMode=sensoroperationalmode_val, SwathIdentifier=swathidentifier_val,
                                     PlatformIdentifier=platformidentifier_val, OrbitDirection=orbitdirection_val,
-                                    PolarisationMode=polarisationmode_val, ProductClass=productclass_val, ProductType=productclass_val,
+                                    PolarisationMode=polarisationmode_val, ProductClass=productclass_val, ProductType=producttype_val,
                                     PlatformName=platformname_val, IngestionDate=ingestiondate_date_val,
                                     BeginPosition=beginposition_date_val, EndPosition=endposition_date_val,
                                     North_Lat=ent_north_Lat, South_Lat=ent_south_Lat, East_Lon=ent_east_lon, West_Lon=ent_west_lon,

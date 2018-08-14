@@ -39,6 +39,7 @@ import logging
 import shutil
 import requests
 import glob
+import json
 
 import eodatadown
 
@@ -266,6 +267,27 @@ class EDDJSONParseHelper(object):
             if curr_json_obj not in valid_values:
                 raise EODataDownException("'"+curr_json_obj+"' is not within the list of valid values.")
         return curr_json_obj
+
+    def getBooleanValue(self, json_obj, tree_sequence):
+        """
+        A function which retrieves a single boolean value from a JSON structure.
+        :param json_obj:
+        :param tree_sequence: list of strings
+        :return:
+        """
+        curr_json_obj = json_obj
+        steps_str = ""
+        for tree_step in tree_sequence:
+            steps_str = steps_str+":"+tree_step
+            if tree_step in curr_json_obj:
+                curr_json_obj = curr_json_obj[tree_step]
+            else:
+                raise EODataDownException("Could not find '"+steps_str+"'")
+        if type(curr_json_obj).__name__ == "bool":
+            rtn_bool = curr_json_obj
+        else:
+            raise EODataDownException("'"+curr_json_obj+"' is not 'True' or 'False'.")
+        return rtn_bool
 
     def getDateValue(self, json_obj, tree_sequence, date_format="%Y-%m-%d"):
         """
@@ -560,6 +582,69 @@ class EDDGeoBBox(object):
         self.east_lon = max_lon
 
 
+    def getGeoJSONPolygonStr(self, pretty_print=False):
+        """
+
+        :return:
+        """
+        json_dict = dict()
+        json_dict["type"] = "Polygon"
+        json_dict["coordinates"] = [[[self.west_lon, self.north_lat], [self.east_lon, self.north_lat], [self.east_lon, self.south_lat], [self.west_lon, self.south_lat], [self.west_lon, self.north_lat]]]
+        if pretty_print:
+            return json.dumps(json_dict, sort_keys=True,indent=4)
+        else:
+            return json.dumps(json_dict)
+
+    def getGeoJSONPolygon(self):
+        """
+
+        :return:
+        """
+        json_dict = dict()
+        json_dict["type"] = "Polygon"
+        json_dict["coordinates"] = [[[self.west_lon, self.north_lat], [self.east_lon, self.north_lat], [self.east_lon, self.south_lat], [self.west_lon, self.south_lat], [self.west_lon, self.north_lat]]]
+        return json_dict
+
+    def parseGeoJSONPolygon(self, geo_json_poly):
+        """
+        Populate the object from coordinates dictionary.
+        :param coords_dict:
+        :return:
+        """
+        if not geo_json_poly["type"].lower() == "polygon":
+            raise EODataDownException("GwoJSON should be of type polygon.")
+        pts = geo_json_poly["coordinates"][0]
+        min_lon = 0.0
+        max_lon = 0.0
+        min_lat = 0.0
+        max_lat = 0.0
+        first = True
+        for pt in pts:
+            lon = pt[0]
+            lat = pt[1]
+            lat_val = float(lat)
+            lon_val = float(lon)
+            if first:
+                min_lon = lon_val
+                max_lon = lon_val
+                min_lat = lat_val
+                max_lat = lat_val
+                first = False
+            else:
+                if lon_val < min_lon:
+                    min_lon = lon_val
+                if lon_val > max_lon:
+                    max_lon = lon_val
+                if lat_val < min_lat:
+                    min_lat = lat_val
+                if lat_val > max_lat:
+                    max_lat = lat_val
+
+        self.north_lat = max_lat
+        self.south_lat = min_lat
+        self.west_lon = min_lon
+        self.east_lon = max_lon
+
 
 class EDDHTTPDownload(object):
 
@@ -670,4 +755,53 @@ class EDDHTTPDownload(object):
             else:
                 logger.info("MD5 did not match: ".format(temp_dwnld_path))
             return False
+
+    def downloadFile(self, input_url, input_url_md5, out_file_path, username, password):
+        """
+
+        :param input_url:
+        :param input_url_md5:
+        :param out_file_path:
+        :param username:
+        :param password:
+        :return:
+        """
+        logger.debug("Creating HTTP Session Object.")
+        session = requests.Session()
+        session.auth = (username, password)
+        user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
+        session.headers["User-Agent"] = user_agent
+
+        eddFileChecker = EDDCheckFileHash()
+
+        temp_dwnld_path = out_file_path + '.incomplete'
+
+        headers = {}
+        downloaded_bytes = 0
+
+        usr_update_step = 1000
+        next_update = usr_update_step
+
+        with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
+            self.checkResponse(r, input_url)
+            chunk_size = 2 ** 20
+            mode = 'wb'
+
+            with open(temp_dwnld_path, mode) as f:
+                for chunk in r.iter_content(chunk_size=chunk_size):
+                    if chunk:  # filter out keep-alive new chunks
+                        f.write(chunk)
+                        downloaded_bytes = downloaded_bytes + len(chunk)
+                        if downloaded_bytes > next_update:
+                            logger.info("Downloaded {} of {}".format(downloaded_bytes, temp_dwnld_path))
+                            next_update = next_update + usr_update_step
+        logger.info("Download Complete: ".format(temp_dwnld_path))
+        md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
+        if md5_match:
+            os.rename(temp_dwnld_path, out_file_path)
+            logger.info("MD5 Matched Renamed download: ".format(out_file_path))
+            return True
+        else:
+            logger.info("MD5 did not match: ".format(temp_dwnld_path))
+        return False
 

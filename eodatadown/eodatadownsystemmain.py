@@ -37,6 +37,7 @@ from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 from eodatadown.eodatadownlandsatgoogsensor import EODataDownLandsatGoogSensor
 from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor
 from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESASensor
+from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
 
 import logging
 import json
@@ -137,6 +138,9 @@ class EODataDownSystemMain(object):
         elif sensor == "Sentinel1ESA":
             logger.debug("Found sensor Sentinel1ESA")
             sensorObj = EODataDownSentinel1ESASensor(self.dbInfoObj)
+        elif sensor == "RapideyePlanet":
+            logger.debug("Found sensor RapideyePlanet")
+            sensorObj = EODataDownRapideyeSensor(self.dbInfoObj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensorObj

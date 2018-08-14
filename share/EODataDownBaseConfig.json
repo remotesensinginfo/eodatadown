@@ -15,9 +15,9 @@
         },
         "sensors":
         {
-            "Sentinel1ESA":
+            "RapideyePlanet":
             {
-                "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel1ESA.json"
+                "config":"/Users/pete/Temp/EODataDown/Sensors/RapideyePlanet.json"
             }
         }
     }
