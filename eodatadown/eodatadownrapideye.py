@@ -37,11 +37,11 @@ import os
 import os.path
 import datetime
 import multiprocessing
-import pprint
+import rsgislib
+import shutil
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
-from eodatadown.eodatadownutils import EODataDownResponseException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
@@ -154,6 +154,54 @@ def _download_scn_planet(params):
         ses.commit()
         ses.close()
         logger.debug("Finished download and updated database.")
+
+def _process_to_ard(params):
+    """
+    A function which is used with the python multiprocessing pool feature to convert a scene to an ARD product
+    using multiple processing cores.
+    :param params:
+    :return:
+    """
+    scene_id = params[0]
+    dbInfoObj = params[1]
+    scn_path = params[2]
+    dem_file = params[3]
+    output_dir = params[4]
+    tmp_dir = params[5]
+    final_ard_path = params[6]
+    reproj_outputs = params[7]
+    proj_wkt_file = params[8]
+    projabbv = params[9]
+
+    eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
+    input_xml = eddUtils.findFile(scn_path, "*.xml")
+
+    start_date = datetime.datetime.now()
+    eodatadown.eodatadownrunarcsi.run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs, proj_wkt_file, projabbv)
+
+    logger.debug("Move final ARD files to specified location.")
+    # Move ARD files to be kept.
+    eodatadown.eodatadownrunarcsi.move_arcsi_products(output_dir, final_ard_path)
+    # Remove Remaining files.
+    shutil.rmtree(output_dir)
+    shutil.rmtree(tmp_dir)
+    logger.debug("Moved final ARD files to specified location.")
+    end_date = datetime.datetime.now()
+
+    logger.debug("Set up database connection and update record.")
+    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+    ses = Session()
+    query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
+    if query_result is None:
+        logger.error("Could not find the scene within local database: " + scene_id)
+    query_result.ARDProduct = True
+    query_result.ARDProduct_Start_Date = start_date
+    query_result.ARDProduct_End_Date = end_date
+    query_result.ARDProduct_Path = final_ard_path
+    ses.commit()
+    ses.close()
+    logger.debug("Finished download and updated database.")
 
 
 class EODataDownRapideyeSensor (EODataDownSensor):
@@ -458,5 +506,73 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param ncores:
         :return:
         """
-        raise EODataDownException("Not Implemented")
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == True, EDDRapideyePlanet.ARDProduct == False).all()
+
+        proj_wkt_file = None
+        if self.ardProjDefined:
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+
+        if query_result is not None:
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
+            final_ard_path = os.path.join(self.ardFinalPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(final_ard_path):
+                os.mkdir(final_ard_path)
+
+            work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(work_ard_path):
+                os.mkdir(work_ard_path)
+
+            tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(tmp_ard_path):
+                os.mkdir(tmp_ard_path)
+
+            ard_params = []
+            for record in query_result:
+                logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
+                final_ard_scn_path = os.path.join(final_ard_path, record.Scene_ID)
+                if not os.path.exists(final_ard_scn_path):
+                    os.mkdir(final_ard_scn_path)
+
+                work_ard_scn_path = os.path.join(work_ard_path, record.Scene_ID)
+                if not os.path.exists(work_ard_scn_path):
+                    os.mkdir(work_ard_scn_path)
+
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Scene_ID)
+                if not os.path.exists(tmp_ard_scn_path):
+                    os.mkdir(tmp_ard_scn_path)
+
+                if self.ardProjDefined:
+                    proj_wkt_file = os.path.join(work_ard_scn_path, record.Scene_ID+"_wkt.wkt")
+                    rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
+
+                ard_params.append([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+        else:
+            logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start processing the scenes.")
+        with multiprocessing.Pool(processes=ncores) as pool:
+            pool.map(_process_to_ard, ard_params)
+        logger.info("Finished processing the scenes.")
+
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName, updated_lcl_db=True, convert_scns_ard=True)
 

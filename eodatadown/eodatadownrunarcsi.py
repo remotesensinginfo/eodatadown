@@ -108,7 +108,32 @@ def run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs
                                True, False, False, None, None, False, None)
     logger.info("Finished running ARCSI for: " + input_hdr)
 
+def run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs, proj_wkt_file, projabbv):
+    """
+    A function to run ARCSI for a landsat scene using python rather than
+    the command line interface.
+    :param input_mtl:
+    :param dem_file:
+    :param output_dir:
+    :param tmp_dir:
+    :return:
+    """
+    import arcsilib.arcsirun
 
+    if not reproj_outputs:
+        proj_wkt_file = None
+        projabbv = None
+
+    logger.info("Starting to run ARCSI for: "+input_xml)
+    arcsilib.arcsirun.runARCSI(input_xml, None, None, "rapideye", None, "KEA",
+                               output_dir, None, proj_wkt_file, None, projabbv, None, None,
+                               ["DOSAOTSGL", "STDSREF", "SATURATE", "TOPOSHADOW", "FOOTPRINT", "METADATA"],
+                               True, None, None, arcsilib.DEFAULT_ARCSI_AEROIMG_PATH, arcsilib.DEFAULT_ARCSI_ATMOSIMG_PATH,
+                               "GreenVegetation", 0, None, None, False, None, None, None, None, False,
+                               None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
+                               20, False, False, 1000, "cubic", "near", 3000, 3000, 1000, 21,
+                               True, False, False, None, None, False, None)
+    logger.info("Finished running ARCSI for: " + input_xml)
 
 def move_arcsi_products(arcsi_out_dir, ard_products_dir):
     """
@@ -130,8 +155,11 @@ def move_arcsi_products(arcsi_out_dir, ard_products_dir):
         sref_full_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_WHOLE_IMG"])
         eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_full_image), ard_products_dir)
 
-        cloud_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "CLOUD_MASK"])
-        eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, cloud_msk_image), ard_products_dir)
+        try:
+            cloud_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "CLOUD_MASK"])
+            eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, cloud_msk_image), ard_products_dir)
+        except Exception as e:
+            logger.info("Cloud mask was not available - assume it wasn't calculated")
 
         valid_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "VALID_MASK"])
         eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, valid_msk_image), ard_products_dir)
