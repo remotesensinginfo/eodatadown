@@ -338,6 +338,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         :param ncores:
         :return:
         """
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
         logger.debug("Import Google storage module and create storage object.")
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.googKeyJSON
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.googProjName
@@ -355,9 +358,6 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
             dt_obj = datetime.datetime.now()
-            lcl_dwnld_path = os.path.join(self.baseDownloadPath, dt_obj.strftime("%Y-%m-%d"))
-            if not os.path.exists(lcl_dwnld_path):
-                os.mkdir(lcl_dwnld_path)
 
             logger.debug("Build download file list.")
             dwnld_params = []
@@ -372,7 +372,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     raise EODataDownException("The bucket specified in the URL is not the Google Public Sentinel-2 Bucket - something has gone wrong.")
                 bucket_prefix = url_path.replace(bucket_name+"/", "")
                 dwnld_out_dirname = url_path_parts[-1]
-                scn_lcl_dwnld_path = os.path.join(lcl_dwnld_path, dwnld_out_dirname)
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
 
@@ -436,9 +436,6 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
             dt_obj = datetime.datetime.now()
-            final_ard_path = os.path.join(self.ardFinalPath, dt_obj.strftime("%Y-%m-%d"))
-            if not os.path.exists(final_ard_path):
-                os.mkdir(final_ard_path)
 
             work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
             if not os.path.exists(work_ard_path):
@@ -451,7 +448,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             ard_params = []
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: " + record.Granule_ID)
-                final_ard_scn_path = os.path.join(final_ard_path, record.Product_ID)
+                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
 

@@ -40,6 +40,7 @@ import os
 import os.path
 import datetime
 import multiprocessing
+import rsgislib
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -494,6 +495,9 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         :param ncores:
         :return:
         """
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
         continue_downloads = True
 
         logger.debug("Creating Database Engine and Session.")
@@ -506,14 +510,14 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
             dt_obj = datetime.datetime.now()
-            lcl_dwnld_path = os.path.join(self.baseDownloadPath, dt_obj.strftime("%Y-%m-%d"))
-            if not os.path.exists(lcl_dwnld_path):
-                os.mkdir(lcl_dwnld_path)
 
             for record in query_result:
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Identifier)
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Identifier+".zip"
                 downloaded_new_scns = True
-                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.dbInfoObj, os.path.join(lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
+                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.dbInfoObj, os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
@@ -530,6 +534,52 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
 
 
     def convertNewData2ARD(self, ncores):
+        """
+
+        :param ncores:
+        :return:
+        """
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == True, EDDSentinel1ESA.ARDProduct == False).all()
+
+        proj_wkt_file = None
+        if self.ardProjDefined:
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+
+        if query_result is not None:
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
+
+            work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(work_ard_path):
+                os.mkdir(work_ard_path)
+
+            tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(tmp_ard_path):
+                os.mkdir(tmp_ard_path)
+
+            ##############################
+            ##############################
+            ###### IMPLEMENT HERE ########
+            ##############################
+            ##############################
+
+        ses.close()
         raise EODataDownException("Not implemented.")
 
 

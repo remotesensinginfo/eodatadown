@@ -187,18 +187,19 @@ def _process_to_ard(params):
     :return:
     """
     scene_id = params[0]
-    dbInfoObj = params[1]
-    scn_path = params[2]
-    dem_file = params[3]
-    output_dir = params[4]
-    tmp_dir = params[5]
-    final_ard_path = params[6]
-    reproj_outputs = params[7]
-    proj_wkt_file = params[8]
-    projabbv = params[9]
+    file_identifier = params[1]
+    dbInfoObj = params[2]
+    scn_path = params[3]
+    dem_file = params[4]
+    output_dir = params[5]
+    tmp_dir = params[6]
+    final_ard_path = params[7]
+    reproj_outputs = params[8]
+    proj_wkt_file = params[9]
+    projabbv = params[10]
 
     eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
-    input_xml = eddUtils.findFile(scn_path, "*.xml")
+    input_xml = eddUtils.findFile(scn_path, file_identifier+"*.xml")
 
     start_date = datetime.datetime.now()
     eodatadown.eodatadownrunarcsi.run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs, proj_wkt_file, projabbv)
@@ -469,6 +470,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param ncores:
         :return:
         """
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
         logger.debug("Creating HTTP Session Object.")
         session = requests.Session()
         session.auth = (self.planetAPIKey, "")
@@ -489,9 +493,6 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
             dt_obj = datetime.datetime.now()
-            lcl_dwnld_path = os.path.join(self.baseDownloadPath, dt_obj.strftime("%Y-%m-%d"))
-            if not os.path.exists(lcl_dwnld_path):
-                os.mkdir(lcl_dwnld_path)
 
             for record in query_result:
                 logger.debug("Testing if available to download : "+ record.Scene_ID)
@@ -510,7 +511,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                     act_xml_http_resp = session.get(dwnld_obj.analytic_xml_act_url)
                     eodd_http_downloader.checkResponse(act_xml_http_resp, dwnld_obj.analytic_xml_act_url)
                 elif dwnld_obj.activated == "active":
-                    lcl_dwnld_scn_path = os.path.join(lcl_dwnld_path, record.Scene_ID)
+                    lcl_dwnld_scn_path = os.path.join(self.baseDownloadPath, record.Scene_ID)
                     if not os.path.exists(lcl_dwnld_scn_path):
                         os.mkdir(lcl_dwnld_scn_path)
                     downloaded_new_scns = True
@@ -556,9 +557,6 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
             dt_obj = datetime.datetime.now()
-            final_ard_path = os.path.join(self.ardFinalPath, dt_obj.strftime("%Y-%m-%d"))
-            if not os.path.exists(final_ard_path):
-                os.mkdir(final_ard_path)
 
             work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
             if not os.path.exists(work_ard_path):
@@ -571,7 +569,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             ard_params = []
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
-                final_ard_scn_path = os.path.join(final_ard_path, record.Scene_ID)
+                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Scene_ID)
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
 
@@ -587,7 +585,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Scene_ID+"_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                ard_params.append([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                ard_params.append([record.Scene_ID, record.File_Identifier, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
