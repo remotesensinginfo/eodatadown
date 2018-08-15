@@ -40,6 +40,7 @@ import shutil
 import requests
 import glob
 import json
+import ftplib
 
 import eodatadown
 
@@ -824,4 +825,50 @@ class EDDHTTPDownload(object):
         else:
             logger.info("MD5 did not match: ".format(temp_dwnld_path))
         return False
+
+
+class EODDFTPDownload(object):
+
+    def traverseFTP(self, ftp_conn, ftp_path):
+        """
+
+        :param ftp_conn:
+        :param ftp_path:
+        :return:
+        """
+        dirs = []
+        nondirs = []
+        for item in ftp_conn.mlsd(ftp_path):
+            if (item[1]['type'] == 'dir') and ((item[0][0] == 'S') or (item[0][0] == 'N')):
+                dirs.append(os.path.join(ftp_path, item[0]))
+                logger.debug("Found a directory: {}".format(os.path.join(ftp_path, item[0])))
+            elif not ((item[0] == '.') or (item[0] == '..')):
+                nondirs.append(os.path.join(ftp_path, item[0]))
+                logger.debug("Found a file: {}".format(os.path.join(ftp_path, item[0])))
+
+        if not nondirs:
+            return nondirs
+
+        for subdir in sorted(dirs):
+            tmpFilesLst = self.traverseFTP(ftp_conn, subdir)
+            nondirs = nondirs + tmpFilesLst
+        return nondirs
+
+    def getFTPFileListings(self, ftp_url, ftp_path, ftp_user, ftp_pass, ftp_timeout=None):
+        """
+        Traverse the FTP server directory structure to create a list of all the files (full paths)
+        :param ftp_url:
+        :param ftp_path:
+        :param ftp_user:
+        :param ftp_pass:
+        :param ftp_timeout: in seconds (None and system default will be used; system defaults are usual aboue 300 seconds)
+        :return:
+        """
+        logger.debug("Opening FTP Connection to {}".format(ftp_url))
+        ftp_conn = ftplib.FTP(ftp_url, user=ftp_user, passwd=ftp_pass, timeout=ftp_timeout)
+        ftp_conn.login()
+        logger.info("Traverse the file system and get a list of paths")
+        ftp_files = self.traverseFTP(ftp_conn, ftp_path)
+        logger.info("Fiinshed traversing the ftp server file system.")
+        return ftp_files
 

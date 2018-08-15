@@ -47,7 +47,6 @@ from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownutils import EODataDownResponseException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
-import eodatadown.eodatadownrunarcsi
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy

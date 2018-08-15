@@ -15,9 +15,9 @@
         },
         "sensors":
         {
-            "RapideyePlanet":
+            "JAXASARTiles":
             {
-                "config":"/Users/pete/Temp/EODataDown/Sensors/RapideyePlanet.json"
+                "config":"/Users/pete/Temp/EODataDown/Sensors/JAXAPALSARTiles.json"
             }
         }
     }
