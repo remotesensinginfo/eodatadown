@@ -39,6 +39,7 @@ import datetime
 import multiprocessing
 import rsgislib
 import shutil
+import xml.etree.ElementTree as ET
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -65,6 +66,7 @@ class EDDRapideyePlanet(Base):
     Grid_Cell = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Item_Type = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Provider = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    File_Identifier = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Acquired = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Published = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Updated = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
@@ -109,6 +111,22 @@ class PlanetImageDownloadReference(object):
         self.analytic_xml_act_url = ""
         self.activated = "inactive"
 
+def _getREIdentifierFileSize(xml_file):
+    """
+
+    :param xml_file:
+    :return:
+    """
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+    schemaURL = root.attrib['{http://www.w3.org/2001/XMLSchema-instance}schemaLocation'].strip().split()[0]
+    rapideyeUrl = '{' + schemaURL + '}'
+    metaDataProperty = root.find('{http://www.opengis.net/gml}metaDataProperty')
+    eoMetaData = metaDataProperty.find(rapideyeUrl + 'EarthObservationMetaData')
+    scn_identifier = eoMetaData.find('{http://earth.esa.int/eop}identifier').text.strip()
+    productInfo = root.find('{http://www.opengis.net/gml}resultOf').find(rapideyeUrl + 'EarthObservationResult').find('{http://earth.esa.int/eop}product').find(rapideyeUrl + 'ProductInformation')
+    file_size_kb = float(productInfo.find('{http://earth.esa.int/eop}size').text.strip())
+    return scn_identifier, file_size_kb
 
 def _download_scn_planet(params):
     """
@@ -125,17 +143,22 @@ def _download_scn_planet(params):
     lcl_dwnld_path = params[6]
     planetAPIKey = params[7]
 
-    print(analytic_img_dwn_url)
-    print(analytic_xml_dwn_url)
-
-    img_file_out = os.path.join(lcl_dwnld_path, "RE_" + scene_id + ".tif")
-    xml_file_out = os.path.join(lcl_dwnld_path, "RE_" + scene_id + ".xml")
-
     logger.info("Downloading " + scene_id)
     start_date = datetime.datetime.now()
     eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
-    success_img = eodd_http_downloader.downloadFile(analytic_img_dwn_url, analytic_img_md5, img_file_out, planetAPIKey, "")
+    xml_file_out = os.path.join(lcl_dwnld_path, scene_id + ".xml")
     success_xml = eodd_http_downloader.downloadFile(analytic_xml_dwn_url, analytic_xml_md5, xml_file_out, planetAPIKey, "")
+
+    if success_xml:
+        scn_identifier, tif_file_size_kb = _getREIdentifierFileSize(xml_file_out)
+        xml_file_out_tmp = xml_file_out
+        xml_file_out = os.path.join(lcl_dwnld_path, scn_identifier + "_metadata.xml")
+        os.rename(xml_file_out_tmp, xml_file_out)
+
+        tif_file_size_bytes = tif_file_size_kb * 1000
+
+        img_file_out = os.path.join(lcl_dwnld_path, scn_identifier + ".tif")
+        success_img = eodd_http_downloader.downloadFileContinue(analytic_img_dwn_url, analytic_img_md5, img_file_out, planetAPIKey, "", exp_file_size=tif_file_size_bytes, continue_download=True)
     end_date = datetime.datetime.now()
     logger.info("Finished Downloading " + scene_id)
 
@@ -151,6 +174,7 @@ def _download_scn_planet(params):
         query_result.Download_Start_Date = start_date
         query_result.Download_End_Date = end_date
         query_result.Download_Path = lcl_dwnld_path
+        query_result.File_Identifier = scn_identifier
         ses.commit()
         ses.close()
         logger.debug("Finished download and updated database.")
@@ -459,9 +483,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == False).all()
-        dwnld_params = []
         eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
 
+        dwnld_params = []
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
             dt_obj = datetime.datetime.now()
@@ -471,6 +495,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
 
             for record in query_result:
                 logger.debug("Testing if available to download : "+ record.Scene_ID)
+
                 http_resp = session.get(record.Remote_URL)
                 eodd_http_downloader.checkResponse(http_resp, record.Remote_URL)
                 dwnld_obj = self.parseHTTPDownloadResponseJSON(http_resp.json())

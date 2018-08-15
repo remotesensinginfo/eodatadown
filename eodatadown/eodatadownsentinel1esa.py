@@ -120,7 +120,7 @@ def _download_scn_esa(params):
     eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
 
     start_date = datetime.datetime.now()
-    success = eodd_http_downloader.downloadFile(remote_url, remote_url_md5, scn_lcl_dwnld_path, esa_user, esa_pass, remote_filesize, continue_downloads)
+    success = eodd_http_downloader.downloadFileContinue(remote_url, remote_url_md5, scn_lcl_dwnld_path, esa_user, esa_pass, remote_filesize, continue_downloads)
     end_date = datetime.datetime.now()
 
     if success and os.path.exists(scn_lcl_dwnld_path):

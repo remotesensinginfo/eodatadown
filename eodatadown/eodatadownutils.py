@@ -674,7 +674,7 @@ class EDDHTTPDownload(object):
             raise api_error
         return success
 
-    def downloadFile(self, input_url, input_url_md5, out_file_path, username, password, exp_file_size, continue_download=True):
+    def downloadFileContinue(self, input_url, input_url_md5, out_file_path, username, password, exp_file_size, continue_download=True):
         """
 
         :param input_url:
@@ -686,13 +686,23 @@ class EDDHTTPDownload(object):
         :param continue_download:
         :return:
         """
+
+        eddFileChecker = EDDCheckFileHash()
+        if os.path.exists(out_file_path):
+            logger.debug("Output file is already present, checking MD5.")
+            md5_match = eddFileChecker.check_checksum(out_file_path, input_url_md5)
+            if not md5_match:
+                logger.debug("MD5 did not match for the existing file so deleted and will download.")
+                os.remove(out_file_path)
+            else:
+                logger.info("The output file already exists and the MD5 matched so not downloading: {}".format(out_file_path))
+                return True
+
         logger.debug("Creating HTTP Session Object.")
         session = requests.Session()
         session.auth = (username, password)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
         session.headers["User-Agent"] = user_agent
-
-        eddFileChecker = EDDCheckFileHash()
 
         temp_dwnld_path = out_file_path + '.incomplete'
         needs_downloading = True
@@ -766,20 +776,30 @@ class EDDHTTPDownload(object):
         :param password:
         :return:
         """
+        eddFileChecker = EDDCheckFileHash()
+        if os.path.exists(out_file_path):
+            logger.debug("Output file is already present, checking MD5.")
+            md5_match = eddFileChecker.check_checksum(out_file_path, input_url_md5)
+            if not md5_match:
+                logger.debug("MD5 did not match for the existing file so deleted and will download.")
+                os.remove(out_file_path)
+            else:
+                logger.info(
+                    "The output file already exists and the MD5 matched so not downloading: {}".format(out_file_path))
+                return True
+
         logger.debug("Creating HTTP Session Object.")
         session = requests.Session()
         session.auth = (username, password)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
         session.headers["User-Agent"] = user_agent
 
-        eddFileChecker = EDDCheckFileHash()
-
         temp_dwnld_path = out_file_path + '.incomplete'
 
         headers = {}
         downloaded_bytes = 0
 
-        usr_update_step = 10000
+        usr_update_step = 500000
         next_update = usr_update_step
 
         with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
