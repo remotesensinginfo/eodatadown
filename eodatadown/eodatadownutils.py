@@ -42,6 +42,8 @@ import glob
 import json
 import ftplib
 import time
+import gzip
+import pycurl
 
 import eodatadown
 
@@ -218,6 +220,16 @@ class EDDCheckFileHash(object):
         :param block_size:
         :return:
         """
+        lcl_checksum = self.calcMD5Checksum(input_file, block_size)
+        return lcl_checksum.lower() == checksum.lower()
+
+    def calcMD5Checksum(self, input_file, block_size=2 ** 13):
+        """
+
+        :param input_file:
+        :param block_size:
+        :return:
+        """
         md5 = hashlib.md5()
         with open(input_file, "rb") as f:
             while True:
@@ -225,10 +237,36 @@ class EDDCheckFileHash(object):
                 if not block_data:
                     break
                 md5.update(block_data)
-        return md5.hexdigest().lower() == checksum.lower()
-
+        return md5.hexdigest()
 
 class EDDJSONParseHelper(object):
+
+    def readGZIPJSON(self, file_path):
+        """
+        Function to read a gzipped JSON file returning the data structure produced
+        :param file_path:
+        :return:
+        """
+        with gzip.GzipFile(file_path, "r") as fin:  # 4. gzip
+            json_bytes = fin.read()                 # 3. bytes (i.e. UTF-8)
+
+        json_str = json_bytes.decode("utf-8")       # 2. string (i.e. JSON)
+        data = json.loads(json_str)                 # 1. data
+        return data
+
+    def writeGZIPJSON(self, data, file_path):
+        """
+        Function to write a gzipped json file.
+        :param data:
+        :param file_path:
+        :return:
+        """
+        json_str = json.dumps(data) + "\n"           # 1. string (i.e. JSON)
+        json_bytes = json_str.encode("utf-8")        # 2. bytes (i.e. UTF-8)
+
+        with gzip.GzipFile(file_path, "w") as fout:  # 3. gzip
+            fout.write(json_bytes)
+
 
     def doesPathExist(self, json_obj, tree_sequence):
         """
@@ -899,3 +937,43 @@ class EODDFTPDownload(object):
         logger.info("Fiinshed traversing the ftp server file system.")
         return ftp_files, nondirslst
 
+    def downloadFile(self, url, remote_path, local_path, time_out=None, username=None, password=None):
+        """
+
+        :param url:
+        :param remote_path:
+        :param local_path:
+        :param time_out: (default 300 seconds if None)
+        :param username:
+        :param password:
+        :return:
+        """
+        full_path_url = url+remote_path
+        success = False
+        try:
+            if time_out is None:
+                time_out = 300
+
+            fp = open(local_path, "wb")
+            curl = pycurl.Curl()
+            curl.setopt(pycurl.URL, full_path_url)
+            curl.setopt(pycurl.FOLLOWLOCATION, True)
+            curl.setopt(pycurl.NOPROGRESS, 0)
+            curl.setopt(pycurl.FOLLOWLOCATION, 1)
+            curl.setopt(pycurl.MAXREDIRS, 5)
+            curl.setopt(pycurl.CONNECTTIMEOUT, 50)
+            curl.setopt(pycurl.TIMEOUT, time_out)
+            curl.setopt(pycurl.FTP_RESPONSE_TIMEOUT, 600)
+            curl.setopt(pycurl.NOSIGNAL, 1)
+            if (not username is None) and (not password is None):
+                curl.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_ANY)
+                curl.setopt(pycurl.USERPWD, username + ':' + password)
+            curl.setopt(pycurl.WRITEDATA, fp)
+            logger.info("Starting download of {}".format(full_path_url))
+            curl.perform()
+            logger.info("Finished download in {0} of {1} bytes for {2}".format(curl.getinfo(curl.TOTAL_TIME), curl.getinfo(curl.SIZE_DOWNLOAD), full_path_url))
+            success = True
+        except:
+            logger.error("An error occurred when downloading {}.".format(os.path.join(url, remote_path)))
+            success = False
+        return success

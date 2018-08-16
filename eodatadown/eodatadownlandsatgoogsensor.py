@@ -474,9 +474,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded==False).all()
 
         if query_result is not None:
-            logger.debug("Create the output directory for this download.")
-            dt_obj = datetime.datetime.now()
-
             logger.debug("Build download file list.")
             dwnld_params = []
             for record in query_result:

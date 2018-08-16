@@ -34,10 +34,10 @@ import logging
 import json
 import os.path
 import datetime
+import multiprocessing
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
-from eodatadown.eodatadownutils import EODataDownResponseException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
@@ -82,12 +82,48 @@ class EDDJAXASARTiles(Base):
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
 
-class EDDJAXASARYear(Base):
-    __tablename__ = "EDDJAXASARYear"
+def _download_scn_jaxa(params):
+    """
+    Function which is used with multiprocessing pool object for downloading landsat data from Google.
+    :param params:
+    :return:
+    """
+    server_path = params[0]
+    server_url = params[1]
+    scn_lcl_dwnld_path = params[2]
+    dbInfoObj = params[3]
 
-    Year = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, nullable=False)
-    Complete = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    Date_Complete = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    logger.info("Downloading "+server_path)
+    start_date = datetime.datetime.now()
+    if os.path.exists(scn_lcl_dwnld_path) and (os.path.getsize(scn_lcl_dwnld_path) > 1000):
+        success = True
+    else:
+        edd_ftp_utils = eodatadown.eodatadownutils.EODDFTPDownload()
+        success = edd_ftp_utils.downloadFile(server_url, server_path, scn_lcl_dwnld_path, time_out=1200)
+    end_date = datetime.datetime.now()
+    logger.info("Finished Downloading " + server_path)
+
+    if success:
+        logger.debug("Set up database connection and update record.")
+        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+        query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Server_File_Path == server_path).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: " + server_path)
+        query_result.Downloaded = True
+        query_result.Download_Start_Date = start_date
+        query_result.Download_End_Date = end_date
+        query_result.Download_Path = scn_lcl_dwnld_path
+        query_result.Remote_URL = os.path.join(server_url, server_path)
+        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        query_result.Remote_URL_MD5 = eddFileChecker.calcMD5Checksum(scn_lcl_dwnld_path)
+        ses.commit()
+        ses.close()
+        logger.debug("Finished download and updated database.")
+
+
+
 
 class EODataDownJAXASARTileSensor (EODataDownSensor):
     """
@@ -213,39 +249,48 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         for year_tmp in self.years_of_interest:
             if year_tmp not in years_in_db:
                 years_to_dwn.append(year_tmp)
-
-        print(years_to_dwn)
+        new_scns_avail = False
         if len(years_to_dwn) > 0:
-            edd_ftp_utils = eodatadown.eodatadownutils.EODDFTPDownload()
-            new_scns_avail = False
-            for cyear in years_to_dwn:
-                query_rtn = ses.query(EDDJAXASARYear).filter(EDDJAXASARYear.Year == cyear).one_or_none()
-                if query_rtn is None:
-                    eddSARYearObj = EDDJAXASARYear(Year=cyear)
-                    ses.add(eddSARYearObj)
-                    ses.commit()
-                eddSARYearObj = query_rtn
-                file_dict, file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "", ftp_timeout=None)
-                db_records = []
-                for file_path in file_lst:
-                    #for file_path in file_lst[dir_path]:
-                    file_base_path = os.path.split(file_path)[0]
-                    parent_tile = os.path.basename(file_base_path)
-                    file_name = os.path.split(file_path)[1]
-                    tile_name = file_name.split("_")[0]
-                    if "FNF" not in file_name:
-                        db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear, File_Name=file_name, Server_File_Path=file_path, InstrumentName=self.instrument_name[cyear], Query_Date=datetime.datetime.now()))
-                query_rtn = ses.query(EDDJAXASARYear).filter(EDDJAXASARYear.Year == cyear).one_or_none()
-                if query_rtn is None:
-                    eddSARYearObj = EDDJAXASARYear(Year=cyear, Complete=True, Date_Complete=datetime.datetime.now())
-                    ses.add(eddSARYearObj)
-                query_rtn.Complete = True
-                query_rtn.Date_Complete = datetime.datetime.now()
-                ses.commit()
-                if len(db_records) > 0:
-                    ses.add_all(db_records)
-                    ses.commit()
-                    new_scns_avail = True
+            if self.lcl_jaxa_lst is None:
+                edd_ftp_utils = eodatadown.eodatadownutils.EODDFTPDownload()
+                new_scns_avail = False
+                for cyear in years_to_dwn:
+                    logger.info("Processing {} from remote server.".format(cyear))
+                    file_dict, file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "", ftp_timeout=None)
+                    db_records = []
+                    for file_path in file_lst:
+                        file_base_path = os.path.split(file_path)[0]
+                        parent_tile = os.path.basename(file_base_path)
+                        file_name = os.path.split(file_path)[1]
+                        tile_name = file_name.split("_")[0]
+                        if ("FNF" not in file_name) and (parent_tile.strip() != str(cyear)):
+                            db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear, File_Name=file_name, Server_File_Path=file_path, InstrumentName=self.instrument_name[cyear], Query_Date=datetime.datetime.now()))
+                    if len(db_records) > 0:
+                        ses.add_all(db_records)
+                        ses.commit()
+                        new_scns_avail = True
+            else:
+                json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+                jaxa_file_lst = json_parse_helper.readGZIPJSON(self.lcl_jaxa_lst)
+
+                for cyear in years_to_dwn:
+                    logger.info("Processing {} from local file specified.".format(cyear))
+                    db_records = []
+                    for file_path in jaxa_file_lst[str(cyear)]:
+                        file_base_path = os.path.split(file_path)[0]
+                        parent_tile = os.path.basename(file_base_path)
+                        file_name = os.path.split(file_path)[1]
+                        tile_name = file_name.split("_")[0]
+                        if ("FNF" not in file_name) and (parent_tile.strip() != str(cyear)):
+                            db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear,
+                                                              File_Name=file_name, Server_File_Path=file_path,
+                                                              InstrumentName=self.instrument_name[cyear],
+                                                              Query_Date=datetime.datetime.now()))
+                    if len(db_records) > 0:
+                        ses.add_all(db_records)
+                        ses.commit()
+                        new_scns_avail = True
+
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
@@ -257,8 +302,37 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         :param ncores:
         :return:
         """
-        raise EODataDownException("Not implemented")
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
 
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == False).all()
+
+        if query_result is not None:
+            logger.debug("Build download file list.")
+            dwnld_params = []
+            for record in query_result:
+                logger.debug("Building download info for '"+record.File_Name+"'")
+                local_file_path = os.path.join(self.baseDownloadPath, record.File_Name)
+                dwnld_params.append([record.Server_File_Path, self.jaxa_ftp, local_file_path, self.dbInfoObj])
+        else:
+            logger.info("There are no scenes to be downloaded.")
+
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start downloading the scenes.")
+        if len(dwnld_params) > 0:
+            with multiprocessing.Pool(processes=ncores) as pool:
+                pool.map(_download_scn_jaxa, dwnld_params)
+            download_new_scns = True
+        logger.info("Finished downloading the scenes.")
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=download_new_scns)
 
     def convertNewData2ARD(self, ncores):
         """
