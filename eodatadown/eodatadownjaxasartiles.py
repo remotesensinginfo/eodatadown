@@ -152,6 +152,9 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
+            self.lcl_jaxa_lst = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "download", "jaxa_file_listing"])
+            if self.lcl_jaxa_lst == "":
+                self.lcl_jaxa_lst = None
             self.tile_lst = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor", "download", "tiles"])
             self.all_jaxa_tiles = False
             if len(self.tile_lst) == 0:
@@ -212,9 +215,10 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                     ses.add(eddSARYearObj)
                     ses.commit()
                 eddSARYearObj = query_rtn
-                file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "", ftp_timeout=None)
+                file_dict, file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "", ftp_timeout=None)
                 db_records = []
                 for file_path in file_lst:
+                    #for file_path in file_lst[dir_path]:
                     file_base_path = os.path.split(file_path)[0]
                     parent_tile = os.path.basename(file_base_path)
                     file_name = os.path.split(file_path)[1]

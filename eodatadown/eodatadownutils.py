@@ -41,6 +41,7 @@ import requests
 import glob
 import json
 import ftplib
+import time
 
 import eodatadown
 
@@ -829,32 +830,56 @@ class EDDHTTPDownload(object):
 
 class EODDFTPDownload(object):
 
-    def traverseFTP(self, ftp_conn, ftp_path):
+    def traverseFTP(self, ftp_conn, ftp_path, ftp_files, try_n_times):
         """
 
         :param ftp_conn:
         :param ftp_path:
+        :param ftp_files: dictionary
+        :param try_n_times: if server connection fails try again (sleeping for 5 secs in between) n times for failing.
         :return:
         """
         dirs = []
         nondirs = []
-        for item in ftp_conn.mlsd(ftp_path):
+        if ftp_path not in ftp_files:
+            ftp_files[ftp_path] = []
+        count = 0
+        for i in range(try_n_times):
+            if count > try_n_times:
+                break
+            count = count + 1
+            try:
+                dir_lst = ftp_conn.mlsd(ftp_path, ["type"])
+                break
+            except Exception as e:
+                logger.error("FTP connection failed but trying again: {0}".format(e))
+                time.sleep(5)
+                continue
+        if count > try_n_times:
+            raise EODataDownException("Tried multiple times which failed to get directory listing on FTP server so failing.")
+
+        for item in dir_lst:
             if (item[1]['type'] == 'dir') and ((item[0][0] == 'S') or (item[0][0] == 'N')):
-                dirs.append(os.path.join(ftp_path, item[0]))
-                logger.debug("Found a directory: {}".format(os.path.join(ftp_path, item[0])))
+                c_dir = os.path.join(ftp_path, item[0])
+                dirs.append(c_dir)
+                if c_dir not in ftp_files:
+                    ftp_files[c_dir] = []
+                logger.debug("Found a directory: {}".format(c_dir))
             elif not ((item[0] == '.') or (item[0] == '..')):
-                nondirs.append(os.path.join(ftp_path, item[0]))
-                logger.debug("Found a file: {}".format(os.path.join(ftp_path, item[0])))
+                c_file = os.path.join(ftp_path, item[0])
+                nondirs.append(c_file)
+                ftp_files[ftp_path].append(c_file)
+                logger.debug("Found a file: {}".format(c_file))
 
         if not nondirs:
             return nondirs
 
         for subdir in sorted(dirs):
-            tmpFilesLst = self.traverseFTP(ftp_conn, subdir)
+            tmpFilesLst = self.traverseFTP(ftp_conn, subdir, ftp_files, try_n_times)
             nondirs = nondirs + tmpFilesLst
         return nondirs
 
-    def getFTPFileListings(self, ftp_url, ftp_path, ftp_user, ftp_pass, ftp_timeout=None):
+    def getFTPFileListings(self, ftp_url, ftp_path, ftp_user, ftp_pass, ftp_timeout=None, try_n_times=5):
         """
         Traverse the FTP server directory structure to create a list of all the files (full paths)
         :param ftp_url:
@@ -862,13 +887,15 @@ class EODDFTPDownload(object):
         :param ftp_user:
         :param ftp_pass:
         :param ftp_timeout: in seconds (None and system default will be used; system defaults are usual aboue 300 seconds)
-        :return:
+        :param try_n_times: if server connection fails try again (sleeping for 5 secs in between) n times for failing.
+        :return: directory by directory and simple list of files as tuple
         """
+        ftp_files = dict()
         logger.debug("Opening FTP Connection to {}".format(ftp_url))
         ftp_conn = ftplib.FTP(ftp_url, user=ftp_user, passwd=ftp_pass, timeout=ftp_timeout)
         ftp_conn.login()
         logger.info("Traverse the file system and get a list of paths")
-        ftp_files = self.traverseFTP(ftp_conn, ftp_path)
+        nondirslst = self.traverseFTP(ftp_conn, ftp_path, ftp_files, try_n_times)
         logger.info("Fiinshed traversing the ftp server file system.")
-        return ftp_files
+        return ftp_files, nondirslst
 
