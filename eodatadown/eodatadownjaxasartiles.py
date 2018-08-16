@@ -225,7 +225,11 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                     tile_name = file_name.split("_")[0]
                     if "FNF" not in file_name:
                         db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear, File_Name=file_name, Server_File_Path=file_path))
-                eddSARYearObj.Complete = True
+                query_rtn = ses.query(EDDJAXASARYear).filter(EDDJAXASARYear.Year == cyear).one_or_none()
+                if query_rtn is None:
+                    eddSARYearObj = EDDJAXASARYear(Year=cyear, Complete=True)
+                    ses.add(eddSARYearObj)
+                query_rtn.Complete=True
                 ses.commit()
                 if len(db_records) > 0:
                     ses.add_all(db_records)
