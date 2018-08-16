@@ -33,6 +33,7 @@ EODataDown - a sensor class for downloading JAXA SAR tiles.
 import logging
 import json
 import os.path
+import datetime
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -86,7 +87,7 @@ class EDDJAXASARYear(Base):
 
     Year = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, nullable=False)
     Complete = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-
+    Date_Complete = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
 
 class EODataDownJAXASARTileSensor (EODataDownSensor):
     """
@@ -107,6 +108,15 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         self.ftp_paths[2015] = "/pub/ALOS-2/ext1/PALSAR-2_MSC/25m_MSC/2015"
         self.ftp_paths[2016] = "/pub/ALOS-2/ext1/PALSAR-2_MSC/25m_MSC/2016"
         self.ftp_paths[2017] = "/pub/ALOS-2/ext2/PALSAR-2_MSC/25m_MSC/2017"
+        self.instrument_name = dict()
+        self.instrument_name[1996] = "JERS-1"
+        self.instrument_name[2007] = "ALOS PALSAR"
+        self.instrument_name[2008] = "ALOS PALSAR"
+        self.instrument_name[2009] = "ALOS PALSAR"
+        self.instrument_name[2010] = "ALOS PALSAR"
+        self.instrument_name[2015] = "ALOS-2 PALSAR-2"
+        self.instrument_name[2016] = "ALOS-2 PALSAR-2"
+        self.instrument_name[2017] = "ALOS-2 PALSAR-2"
 
     def getSensorName(self):
         return self.sensorName
@@ -224,12 +234,13 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                     file_name = os.path.split(file_path)[1]
                     tile_name = file_name.split("_")[0]
                     if "FNF" not in file_name:
-                        db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear, File_Name=file_name, Server_File_Path=file_path))
+                        db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear, File_Name=file_name, Server_File_Path=file_path, InstrumentName=self.instrument_name[cyear], Query_Date=datetime.datetime.now()))
                 query_rtn = ses.query(EDDJAXASARYear).filter(EDDJAXASARYear.Year == cyear).one_or_none()
                 if query_rtn is None:
-                    eddSARYearObj = EDDJAXASARYear(Year=cyear, Complete=True)
+                    eddSARYearObj = EDDJAXASARYear(Year=cyear, Complete=True, Date_Complete=datetime.datetime.now())
                     ses.add(eddSARYearObj)
-                query_rtn.Complete=True
+                query_rtn.Complete = True
+                query_rtn.Date_Complete = datetime.datetime.now()
                 ses.commit()
                 if len(db_records) > 0:
                     ses.add_all(db_records)
