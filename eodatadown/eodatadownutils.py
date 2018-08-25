@@ -44,6 +44,7 @@ import ftplib
 import time
 import gzip
 import pycurl
+import subprocess
 
 import eodatadown
 
@@ -93,7 +94,7 @@ class EODataDownUtils(object):
         """
         files = glob.glob(os.path.join(dirPath, fileSearch))
         if len(files) != 1:
-            raise EODataDownException("Could not find a single file (" + fileSearch + "); found " + str(len(files)) + " files.")
+            raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, dirPath, len(files)))
         return files[0]
 
     def moveFile2DIR(self, in_file, out_dir):
@@ -130,6 +131,26 @@ class EODataDownUtils(object):
         file_name = os.path.split(in_file)[1]
         out_file_path = os.path.join(out_dir, file_name)
         shutil.copyfile(in_file, out_file_path)
+
+    def extractGZTarFile(self, in_file, out_dir):
+        """
+
+        :param in_file:
+        :param out_dir:
+        :return:
+        """
+        cwd = os.getcwd()
+        os.chdir(out_dir)
+        logger.debug("Executing tar (gz) data extraction.")
+        cmd = 'tar -xzf ' + in_file
+        logger.debug("Command is: '{}'.".format(cmd))
+        try:
+            subprocess.call(cmd, shell=True)
+        except Exception as e:
+            logger.error("Failed to run command: {}".format(cmd))
+            raise e
+        logger.debug("Executed tar (gz) data extraction.")
+        os.chdir(cwd)
 
 
 class EODataDownDatabaseInfo(object):

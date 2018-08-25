@@ -32,9 +32,16 @@ EODataDown - a sensor class for downloading JAXA SAR tiles.
 
 import logging
 import json
+import os
 import os.path
 import datetime
 import multiprocessing
+import subprocess
+
+import rsgislib
+import rsgislib.imageutils
+import rsgislib.imagecalc
+import rsgislib.imagefilter
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -95,8 +102,12 @@ def _download_scn_jaxa(params):
 
     logger.info("Downloading "+server_path)
     start_date = datetime.datetime.now()
-    if os.path.exists(scn_lcl_dwnld_path) and (os.path.getsize(scn_lcl_dwnld_path) > 1000):
+    if os.path.exists(scn_lcl_dwnld_path) and (os.path.getsize(scn_lcl_dwnld_path) >= 1000):
         success = True
+    elif os.path.exists(scn_lcl_dwnld_path) and (os.path.getsize(scn_lcl_dwnld_path) < 1000):
+        os.remove(scn_lcl_dwnld_path)
+        edd_ftp_utils = eodatadown.eodatadownutils.EODDFTPDownload()
+        success = edd_ftp_utils.downloadFile(server_url, server_path, scn_lcl_dwnld_path, time_out=1200)
     else:
         edd_ftp_utils = eodatadown.eodatadownutils.EODDFTPDownload()
         success = edd_ftp_utils.downloadFile(server_url, server_path, scn_lcl_dwnld_path, time_out=1200)
@@ -122,6 +133,134 @@ def _download_scn_jaxa(params):
         ses.close()
         logger.debug("Finished download and updated database.")
 
+
+
+def _process_to_ard(params):
+    """
+
+    :param params:
+    :return:
+    """
+    pid = params[0]
+    tile_name = params[1]
+    year = params[2]
+    dbInfoObj = params[3]
+    download_path = params[4]
+    work_ard_scn_path = params[5]
+    tmp_ard_scn_path = params[6]
+    final_ard_scn_path = params[7]
+    ard_proj_defined = params[8]
+    proj_wkt_file = params[9]
+    proj_abbv = params[10]
+
+    ###############################
+    ##### Setup file patterns #####
+    ###############################
+    hh_jers1_file_pattern = '*_sl_HH'
+
+    hh_p1_file_pattern = '*_sl_HH'
+    hv_p1_file_pattern = '*_sl_HV'
+
+    hh_p2_file_pattern = '*_sl_HH_F02DAR'
+    hv_p2_file_pattern = '*_sl_HV_F02DAR'
+
+    hh_p2_fp_file_pattern = '*_sl_HH_FP6QAR'
+    hv_p2_fp_file_pattern = '*_sl_HV_FP6QAR'
+
+    mask_file_pattern = '*_mask'
+    date_file_pattern = '*_date'
+    linci_file_pattern = '*_linci'
+
+    mask_p2_file_pattern = '*_mask_F02DAR'
+    date_p2_file_pattern = '*_date_F02DAR'
+    linci_p2_file_pattern = '*_linci_F02DAR'
+    ###############################
+
+    unique_base_name = "{0}_{1}".format(tile_name, year)
+
+    edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+    edd_utils.extractGZTarFile(download_path, work_ard_scn_path)
+
+
+    if year == 1996:
+        # JERS-1
+        # File file
+        try:
+            hh_file = edd_utils.findFile(work_ard_scn_path, hh_jers1_file_pattern)
+        except Exception as e:
+            logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
+            raise e
+
+        hh_kea_file = os.path.join(final_ard_scn_path, unique_base_name + '_hh.kea')
+        cmd = 'gdal_translate -of KEA ' + hh_file + ' ' + hh_kea_file
+        try:
+            subprocess.call(cmd, shell=True)
+        except Exception as e:
+            logger.error("Could not run command: '{}'".format(cmd))
+            raise e
+        if not os.path.exists(hh_kea_file):
+            raise EODataDownException("The file '{}' is not present - failure somewhere.".format(hh_kea_file))
+        rsgislib.imageutils.popImageStats(hh_kea_file, usenodataval=True, nodataval=0, calcpyramids=True)
+
+
+    elif year in [2007, 2008, 2009, 2010]:
+        # ALOS PALSAR
+        # File files
+        try:
+            hh_file = edd_utils.findFile(work_ard_scn_path, hh_p1_file_pattern)
+        except Exception as e:
+            logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
+            raise e
+        try:
+            hv_file = edd_utils.findFile(work_ard_scn_path, hv_p1_file_pattern)
+        except Exception as e:
+            logger.error("Could not find HV file in '{}'".format(work_ard_scn_path))
+            raise e
+
+        # Add HH/HV ratio.
+        hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
+        band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
+        rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
+
+        # Stack Image bands
+        sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
+        rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None,
+                                            0, 'KEA', rsgislib.TYPE_16UINT)
+        rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
+    else:
+        # ALOS-2 PALSAR-2
+        # Find files.
+        try:
+            hh_file = edd_utils.findFile(work_ard_scn_path, hh_p2_file_pattern)
+        except Exception:
+            try:
+                hh_file = edd_utils.findFile(work_ard_scn_path, hh_p2_fp_file_pattern)
+            except Exception as e:
+                logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
+                raise e
+
+        try:
+            hv_file = edd_utils.findFile(work_ard_scn_path, hv_p2_file_pattern)
+        except Exception:
+            try:
+                hv_file = edd_utils.findFile(work_ard_scn_path, hv_p2_fp_file_pattern)
+            except Exception as e:
+                logger.error("Could not find HV file in '{}'".format(work_ard_scn_path))
+                raise e
+
+        # Add HH/HV ratio.
+        hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
+        band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
+        rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
+
+        # Stack Image bands
+        sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
+        rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+        rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
+
+
+
+    print("Finished... HELLO WORLD.")
 
 
 
@@ -311,14 +450,15 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == False).all()
-
+        download_new_scns = False
         if query_result is not None:
             logger.debug("Build download file list.")
             dwnld_params = []
             for record in query_result:
-                logger.debug("Building download info for '"+record.File_Name+"'")
-                local_file_path = os.path.join(self.baseDownloadPath, record.File_Name)
-                dwnld_params.append([record.Server_File_Path, self.jaxa_ftp, local_file_path, self.dbInfoObj])
+                if self.all_jaxa_tiles or (record.Tile_Name in self.tile_lst):
+                    logger.debug("Building download info for '"+record.File_Name+"'")
+                    local_file_path = os.path.join(self.baseDownloadPath, record.File_Name)
+                    dwnld_params.append([record.Server_File_Path, self.jaxa_ftp, local_file_path, self.dbInfoObj])
         else:
             logger.info("There are no scenes to be downloaded.")
 
@@ -340,4 +480,74 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         :param ncores:
         :return:
         """
-        raise EODataDownException("Not implemented")
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == True,
+                                                         EDDJAXASARTiles.ARDProduct == False).all()
+
+        proj_wkt_file = None
+        if self.ardProjDefined:
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+
+        if query_result is not None:
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
+
+            work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(work_ard_path):
+                os.mkdir(work_ard_path)
+
+            tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(tmp_ard_path):
+                os.mkdir(tmp_ard_path)
+
+            ard_params = []
+            for record in query_result:
+                if self.all_jaxa_tiles or (record.Tile_Name in self.tile_lst):
+                    logger.debug("Create info for running ARD analysis for scene: {0} in {1}".format(record.Tile_Name, record.Year))
+                    unique_name = "{0}_{1}".format(record.Tile_Name, record.Year)
+                    final_ard_scn_path = os.path.join(self.ardFinalPath, unique_name)
+                    if not os.path.exists(final_ard_scn_path):
+                        os.mkdir(final_ard_scn_path)
+
+                    work_ard_scn_path = os.path.join(work_ard_path, unique_name)
+                    if not os.path.exists(work_ard_scn_path):
+                        os.mkdir(work_ard_scn_path)
+
+                    tmp_ard_scn_path = os.path.join(tmp_ard_path, unique_name)
+                    if not os.path.exists(tmp_ard_scn_path):
+                        os.mkdir(tmp_ard_scn_path)
+
+                    if self.ardProjDefined:
+                        proj_wkt_file = os.path.join(work_ard_scn_path, unique_name + "_wkt.wkt")
+                        rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
+
+                    ard_params.append([record.PID, record.Tile_Name, record.Year, self.dbInfoObj, record.Download_Path, work_ard_scn_path,
+                         tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+        else:
+            logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start processing the scenes.")
+        with multiprocessing.Pool(processes=ncores) as pool:
+            pool.map(_process_to_ard, ard_params)
+        logger.info("Finished processing the scenes.")
+
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName,
+                              updated_lcl_db=True, convert_scns_ard=True)
