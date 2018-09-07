@@ -36,7 +36,12 @@ import os
 import os.path
 import datetime
 import multiprocessing
-import subprocess
+import shutil
+
+import osgeo.osr as osr
+import osgeo.gdal as gdal
+from rios import rat
+import numpy
 
 import rsgislib
 import rsgislib.imageutils
@@ -134,7 +139,6 @@ def _download_scn_jaxa(params):
         logger.debug("Finished download and updated database.")
 
 
-
 def _process_to_ard(params):
     """
 
@@ -155,212 +159,338 @@ def _process_to_ard(params):
     out_proj_img_res = params[11]
     success = False
 
-    ###############################
-    ##### Setup file patterns #####
-    ###############################
-    hh_jers1_file_pattern = '*_sl_HH'
-
-    hh_p1_file_pattern = '*_sl_HH'
-    hv_p1_file_pattern = '*_sl_HV'
-
-    hh_p2_file_pattern = '*_sl_HH_F02DAR'
-    hv_p2_file_pattern = '*_sl_HV_F02DAR'
-
-    hh_p2_fp_file_pattern = '*_sl_HH_FP6QAR'
-    hv_p2_fp_file_pattern = '*_sl_HV_FP6QAR'
-
-    mask_file_pattern = '*_mask'
-    date_file_pattern = '*_date'
-    linci_file_pattern = '*_linci'
-
-    mask_p2_file_pattern = '*_mask_F02DAR'
-    date_p2_file_pattern = '*_date_F02DAR'
-    linci_p2_file_pattern = '*_linci_F02DAR'
-    ###############################
-
-    unique_base_name = "{0}_{1}".format(tile_name, year)
-
-    edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-    edd_utils.extractGZTarFile(download_path, work_ard_scn_path)
+    out_msk_file = ""
+    out_date_file = ""
+    out_linci_file = ""
+    sar_stack_file = ""
 
     rsgis_utils = rsgislib.RSGISPyUtils()
 
-    msk_file = ""
-    date_file = ""
-    linci_file = ""
+    start_date = datetime.datetime.now()
+    try:
+        msk_file = ""
+        date_file = ""
+        linci_file = ""
 
-    if year == 1996:
-        # JERS-1
-        # File file
-        try:
-            hh_file = edd_utils.findFile(work_ard_scn_path, hh_jers1_file_pattern)
-        except Exception as e:
-            logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
-            raise e
+        ###############################
+        ##### Setup file patterns #####
+        ###############################
+        hh_jers1_file_pattern = '*_sl_HH'
 
-        sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_hh.kea')
-        if ard_proj_defined:
-            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_hh.kea')
-            rsgislib.imageutils.reprojectImage(hh_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
-        else:
-            rsgislib.imagecalc.imageMath(hh_file, sar_stack_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(hh_file))
-        rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
+        hh_p1_file_pattern = '*_sl_HH'
+        hv_p1_file_pattern = '*_sl_HV'
 
-        try:
-            msk_file = edd_utils.findFile(work_ard_scn_path, mask_file_pattern)
-        except Exception as e:
-            logger.error("Could not find Mask file in '{}'".format(work_ard_scn_path))
-            raise e
+        hh_p2_file_pattern = '*_sl_HH_F02DAR'
+        hv_p2_file_pattern = '*_sl_HV_F02DAR'
 
-        try:
-            date_file = edd_utils.findFile(work_ard_scn_path, date_file_pattern)
-        except Exception as e:
-            logger.error("Could not find Date file in '{}'".format(work_ard_scn_path))
-            raise e
+        hh_p2_fp_file_pattern = '*_sl_HH_FP6QAR'
+        hv_p2_fp_file_pattern = '*_sl_HV_FP6QAR'
 
-        try:
-            linci_file = edd_utils.findFile(work_ard_scn_path, linci_file_pattern)
-        except Exception as e:
-            logger.error("Could not find Incidence Angle file in '{}'".format(work_ard_scn_path))
-            raise e
+        mask_file_pattern = '*_mask'
+        date_file_pattern = '*_date'
+        linci_file_pattern = '*_linci'
 
-    elif year in [2007, 2008, 2009, 2010]:
-        # ALOS PALSAR
-        # File files
-        try:
-            hh_file = edd_utils.findFile(work_ard_scn_path, hh_p1_file_pattern)
-        except Exception as e:
-            logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
-            raise e
-        try:
-            hv_file = edd_utils.findFile(work_ard_scn_path, hv_p1_file_pattern)
-        except Exception as e:
-            logger.error("Could not find HV file in '{}'".format(work_ard_scn_path))
-            raise e
+        mask_p2_file_pattern = '*_mask_F02DAR'
+        date_p2_file_pattern = '*_date_F02DAR'
+        linci_p2_file_pattern = '*_linci_F02DAR'
+        ###############################
 
-        # Add HH/HV ratio.
-        hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
-        band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
-        rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
+        unique_base_name = "{0}_{1}".format(tile_name, year)
 
-        # Stack Image bands
-        sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
-        if ard_proj_defined:
-            sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.kea')
-            rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
-            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.kea')
-            rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
-        else:
-            rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
-        rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
+        edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        edd_utils.extractGZTarFile(download_path, work_ard_scn_path)
 
-        try:
-            msk_file = edd_utils.findFile(work_ard_scn_path, mask_file_pattern)
-        except Exception as e:
-            logger.error("Could not find Mask file in '{}'".format(work_ard_scn_path))
-            raise e
-
-        try:
-            date_file = edd_utils.findFile(work_ard_scn_path, date_file_pattern)
-        except Exception as e:
-            logger.error("Could not find Date file in '{}'".format(work_ard_scn_path))
-            raise e
-
-        try:
-            linci_file = edd_utils.findFile(work_ard_scn_path, linci_file_pattern)
-        except Exception as e:
-            logger.error("Could not find Incidence Angle file in '{}'".format(work_ard_scn_path))
-            raise e
-    else:
-        # ALOS-2 PALSAR-2
-        # Find files.
-        try:
-            hh_file = edd_utils.findFile(work_ard_scn_path, hh_p2_file_pattern)
-        except Exception:
+        if year == 1996:
+            # JERS-1
+            # File file
+            ref_launch_date = datetime.datetime(1992, 2, 11)
             try:
-                hh_file = edd_utils.findFile(work_ard_scn_path, hh_p2_fp_file_pattern)
+                hh_file = edd_utils.findFile(work_ard_scn_path, hh_jers1_file_pattern)
             except Exception as e:
                 logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
                 raise e
 
-        try:
-            hv_file = edd_utils.findFile(work_ard_scn_path, hv_p2_file_pattern)
-        except Exception:
+            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_hh.kea')
+            if ard_proj_defined:
+                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_hh.kea')
+                rsgislib.imageutils.reprojectImage(hh_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+            else:
+                rsgislib.imagecalc.imageMath(hh_file, sar_stack_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(hh_file))
+            rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
+
             try:
-                hv_file = edd_utils.findFile(work_ard_scn_path, hv_p2_fp_file_pattern)
-            except Exception as e:
-                logger.error("Could not find HV file in '{}'".format(work_ard_scn_path))
-                raise e
-
-        # Add HH/HV ratio.
-        hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
-        band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
-        rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
-
-        # Stack Image bands
-        sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
-        if ard_proj_defined:
-            sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.kea')
-            rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
-            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.kea')
-            rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
-        else:
-            rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
-        rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
-
-        try:
-            msk_file = edd_utils.findFile(work_ard_scn_path, mask_file_pattern)
-        except Exception:
-            try:
-                msk_file = edd_utils.findFile(work_ard_scn_path, mask_p2_file_pattern)
+                msk_file = edd_utils.findFile(work_ard_scn_path, mask_file_pattern)
             except Exception as e:
                 logger.error("Could not find Mask file in '{}'".format(work_ard_scn_path))
                 raise e
 
-        try:
-            date_file = edd_utils.findFile(work_ard_scn_path, date_file_pattern)
-        except Exception:
             try:
-                date_file = edd_utils.findFile(work_ard_scn_path, date_p2_file_pattern)
+                date_file = edd_utils.findFile(work_ard_scn_path, date_file_pattern)
             except Exception as e:
                 logger.error("Could not find Date file in '{}'".format(work_ard_scn_path))
                 raise e
 
-        try:
-            linci_file = edd_utils.findFile(work_ard_scn_path, linci_file_pattern)
-        except Exception:
             try:
-                linci_file = edd_utils.findFile(work_ard_scn_path, linci_p2_file_pattern)
+                linci_file = edd_utils.findFile(work_ard_scn_path, linci_file_pattern)
             except Exception as e:
                 logger.error("Could not find Incidence Angle file in '{}'".format(work_ard_scn_path))
                 raise e
 
-    out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + '_mask.kea')
-    if ard_proj_defined:
-        out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_mask.kea')
-        rsgislib.imageutils.reprojectImage(msk_file, out_msk_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
-    else:
-        rsgislib.imagecalc.imageMath(msk_file, out_msk_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(msk_file))
-    rsgislib.rastergis.populateStats(out_msk_file, True, True, True)
+        elif year in [2007, 2008, 2009, 2010]:
+            # ALOS PALSAR
+            # File files
+            ref_launch_date = datetime.datetime(2006, 1, 24)
+            try:
+                hh_file = edd_utils.findFile(work_ard_scn_path, hh_p1_file_pattern)
+            except Exception as e:
+                logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
+                raise e
+            try:
+                hv_file = edd_utils.findFile(work_ard_scn_path, hv_p1_file_pattern)
+            except Exception as e:
+                logger.error("Could not find HV file in '{}'".format(work_ard_scn_path))
+                raise e
 
-    out_date_file = os.path.join(final_ard_scn_path, unique_base_name + '_date.kea')
-    if ard_proj_defined:
-        out_date_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_date.kea')
-        rsgislib.imageutils.reprojectImage(date_file, out_date_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
-    else:
-        rsgislib.imagecalc.imageMath(date_file, out_date_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(date_file))
-    rsgislib.rastergis.populateStats(out_date_file, True, True, True)
+            # Add HH/HV ratio.
+            hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
+            band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
+            rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
 
-    out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + '_linci.kea')
-    if ard_proj_defined:
-        out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_linci.kea')
-        rsgislib.imageutils.reprojectImage(linci_file, out_linci_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
-    else:
-        rsgislib.imagecalc.imageMath(linci_file, out_linci_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(linci_file))
-    rsgislib.rastergis.populateStats(out_linci_file, True, True, True)
+            # Stack Image bands
+            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
+            if ard_proj_defined:
+                sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.kea')
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.kea')
+                rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+            else:
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+            rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
 
-    success = True
+            try:
+                msk_file = edd_utils.findFile(work_ard_scn_path, mask_file_pattern)
+            except Exception as e:
+                logger.error("Could not find Mask file in '{}'".format(work_ard_scn_path))
+                raise e
 
+            try:
+                date_file = edd_utils.findFile(work_ard_scn_path, date_file_pattern)
+            except Exception as e:
+                logger.error("Could not find Date file in '{}'".format(work_ard_scn_path))
+                raise e
+
+            try:
+                linci_file = edd_utils.findFile(work_ard_scn_path, linci_file_pattern)
+            except Exception as e:
+                logger.error("Could not find Incidence Angle file in '{}'".format(work_ard_scn_path))
+                raise e
+        else:
+            # ALOS-2 PALSAR-2
+            # Find files.
+            ref_launch_date = datetime.datetime(2014, 5, 24)
+            try:
+                hh_file = edd_utils.findFile(work_ard_scn_path, hh_p2_file_pattern)
+            except Exception:
+                try:
+                    hh_file = edd_utils.findFile(work_ard_scn_path, hh_p2_fp_file_pattern)
+                except Exception as e:
+                    logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
+                    raise e
+
+            try:
+                hv_file = edd_utils.findFile(work_ard_scn_path, hv_p2_file_pattern)
+            except Exception:
+                try:
+                    hv_file = edd_utils.findFile(work_ard_scn_path, hv_p2_fp_file_pattern)
+                except Exception as e:
+                    logger.error("Could not find HV file in '{}'".format(work_ard_scn_path))
+                    raise e
+
+            # Add HH/HV ratio.
+            hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
+            band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
+            rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
+
+            # Stack Image bands
+            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
+            if ard_proj_defined:
+                sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.kea')
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.kea')
+                rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+            else:
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+            rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
+
+            try:
+                msk_file = edd_utils.findFile(work_ard_scn_path, mask_file_pattern)
+            except Exception:
+                try:
+                    msk_file = edd_utils.findFile(work_ard_scn_path, mask_p2_file_pattern)
+                except Exception as e:
+                    logger.error("Could not find Mask file in '{}'".format(work_ard_scn_path))
+                    raise e
+
+            try:
+                date_file = edd_utils.findFile(work_ard_scn_path, date_file_pattern)
+            except Exception:
+                try:
+                    date_file = edd_utils.findFile(work_ard_scn_path, date_p2_file_pattern)
+                except Exception as e:
+                    logger.error("Could not find Date file in '{}'".format(work_ard_scn_path))
+                    raise e
+
+            try:
+                linci_file = edd_utils.findFile(work_ard_scn_path, linci_file_pattern)
+            except Exception:
+                try:
+                    linci_file = edd_utils.findFile(work_ard_scn_path, linci_p2_file_pattern)
+                except Exception as e:
+                    logger.error("Could not find Incidence Angle file in '{}'".format(work_ard_scn_path))
+                    raise e
+
+        out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + '_mask.kea')
+        if ard_proj_defined:
+            out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_mask.kea')
+            rsgislib.imageutils.reprojectImage(msk_file, out_msk_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+        else:
+            rsgislib.imagecalc.imageMath(msk_file, out_msk_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(msk_file))
+        rsgislib.rastergis.populateStats(out_msk_file, True, True, True)
+
+        ####### Add Mask descriptions ##########
+        rat_img_dataset = gdal.Open(out_msk_file, gdal.GA_Update)
+        Histogram = rat.readColumn(rat_img_dataset, "Histogram")
+        Mask_Type_Names = numpy.empty_like(Histogram, dtype=numpy.dtype('a255'))
+        Mask_Type_Names[...] = ""
+        Mask_Type_Names[0] = "No data"
+        if Mask_Type_Names.shape[0] >= 50:
+            Mask_Type_Names[50] = "Ocean and water"
+        if Mask_Type_Names.shape[0] >= 100:
+            Mask_Type_Names[100] = "Lay over"
+        if Mask_Type_Names.shape[0] >= 150:
+            Mask_Type_Names[150] = "Shadowing"
+        if Mask_Type_Names.shape[0] >= 255:
+            Mask_Type_Names[255] = "Land"
+        rat.writeColumn(rat_img_dataset, "Type", Mask_Type_Names)
+        rat_img_dataset = None
+        ########################################
+
+        out_date_file = os.path.join(final_ard_scn_path, unique_base_name + '_date.kea')
+        if ard_proj_defined:
+            out_date_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_date.kea')
+            rsgislib.imageutils.reprojectImage(date_file, out_date_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+        else:
+            rsgislib.imagecalc.imageMath(date_file, out_date_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(date_file))
+        rsgislib.rastergis.populateStats(out_date_file, True, True, True)
+
+        ##################### Define Dates #######################
+        rat_img_dataset = gdal.Open(out_date_file, gdal.GA_Update)
+        Histogram = rat.readColumn(rat_img_dataset, "Histogram")
+        Aqu_Date_Day = numpy.zeros_like(Histogram, dtype=int)
+        Aqu_Date_Month = numpy.zeros_like(Histogram, dtype=int)
+        Aqu_Date_Year = numpy.zeros_like(Histogram, dtype=int)
+
+        ID = numpy.arange(Histogram.shape[0])
+        ID = ID[Histogram > 0]
+        min_date_day_launch = numpy.min(ID) # For date range in db
+        max_date_day_launch = numpy.max(ID) # For date range in db
+
+        for tmp_day_count in ID:
+            try:
+                tmp_date = ref_launch_date + datetime.timedelta(days=float(tmp_day_count))
+            except Exception as e:
+                logger.error("Could not create datetime object '{}'".format(e))
+                raise e
+            Aqu_Date_Day[tmp_day_count] = tmp_date.day
+            Aqu_Date_Month[tmp_day_count] = tmp_date.month
+            Aqu_Date_Year[tmp_day_count] = tmp_date.year
+
+        rat.writeColumn(rat_img_dataset, "Day", Aqu_Date_Day)
+        rat.writeColumn(rat_img_dataset, "Month", Aqu_Date_Month)
+        rat.writeColumn(rat_img_dataset, "Year", Aqu_Date_Year)
+        rat_img_dataset = None
+        #############################################################
+
+        out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + '_linci.kea')
+        if ard_proj_defined:
+            out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_linci.kea')
+            rsgislib.imageutils.reprojectImage(linci_file, out_linci_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+        else:
+            rsgislib.imagecalc.imageMath(linci_file, out_linci_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(linci_file))
+        rsgislib.rastergis.populateStats(out_linci_file, True, True, True)
+        success = True
+    except Exception as e:
+        success = False
+    end_date = datetime.datetime.now()
+
+    if success:
+        # Remove Remaining files.
+        shutil.rmtree(work_ard_scn_path)
+        shutil.rmtree(tmp_ard_scn_path)
+
+        logger.debug("Set up database connection and update record.")
+        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+        query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.PID == pid).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: " + pid)
+
+        ##################### Find Date Range #######################
+        try:
+            query_result.Start_Date = ref_launch_date + datetime.timedelta(days=float(min_date_day_launch))
+            query_result.End_Date = ref_launch_date + datetime.timedelta(days=float(max_date_day_launch))
+        except Exception as e:
+            logger.error("Could not create datetime object '{}'".format(e))
+            raise e
+        #############################################################
+
+        ############## Find Incident Angle Range ####################
+        rat_img_dataset = gdal.Open(out_linci_file, gdal.GA_ReadOnly)
+        Histogram = rat.readColumn(rat_img_dataset, "Histogram")
+        rat_img_dataset = None
+        ID = numpy.arange(Histogram.shape[0])
+        ID = ID[Histogram > 0]
+        query_result.Incident_Angle_Low = numpy.min(ID)
+        query_result.Incident_Angle_High = numpy.max(ID)
+        #############################################################
+
+        ############## Find input image BBOX ####################
+        bbox = rsgis_utils.getImageBBOX(sar_stack_file)
+        query_result.North_Lat = bbox[2]
+        query_result.South_Lat = bbox[3]
+        query_result.East_Lon = bbox[1]
+        query_result.West_Lon = bbox[0]
+
+        in_img_epsg = int(rsgis_utils.getEPSGCode(sar_stack_file))
+        if in_img_epsg != 4326:
+            tlx = bbox[0]
+            tly = bbox[2]
+            brx = bbox[1]
+            bry = bbox[3]
+
+            source_osr = osr.SpatialReference()
+            source_osr.ImportFromEPSG(in_img_epsg)
+
+            target_osr = osr.SpatialReference()
+            target_osr.ImportFromEPSG(4326)
+
+            north_lat, west_lon = rsgis_utils.reprojPoint(source_osr, target_osr, tlx, tly)
+            south_lat, east_lon = rsgis_utils.reprojPoint(source_osr, target_osr, brx, bry)
+
+            query_result.North_Lat = north_lat
+            query_result.South_Lat = south_lat
+            query_result.East_Lon = east_lon
+            query_result.West_Lon = west_lon
+        #########################################################
+
+        query_result.ARDProduct = True
+        query_result.ARDProduct_Start_Date = start_date
+        query_result.ARDProduct_End_Date = end_date
+        query_result.ARDProduct_Path = sar_stack_file
+        ses.commit()
+        ses.close()
+        logger.debug("Finished download and updated database.")
 
 
 class EODataDownJAXASARTileSensor (EODataDownSensor):
