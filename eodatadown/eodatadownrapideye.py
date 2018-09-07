@@ -49,8 +49,6 @@ from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
 
-import planet.api
-
 logger = logging.getLogger(__name__)
 
 Base = declarative_base()
@@ -324,6 +322,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         A function which queries the planet API to find if scenes are available.
         :return:
         """
+        import planet.api
+
         logger.debug("Creating Database Engine and Session.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
