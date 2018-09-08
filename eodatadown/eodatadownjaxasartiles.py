@@ -491,6 +491,12 @@ def _process_to_ard(params):
         ses.commit()
         ses.close()
         logger.debug("Finished download and updated database.")
+    else:
+        # Remove Remaining files.
+        shutil.rmtree(work_ard_scn_path)
+        shutil.rmtree(tmp_ard_scn_path)
+        shutil.rmtree(final_ard_scn_path)
+
 
 
 class EODataDownJAXASARTileSensor (EODataDownSensor):
