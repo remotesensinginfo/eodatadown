@@ -91,10 +91,14 @@ class EDDRapideyePlanet(Base):
     Download_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Downloaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Download_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
+    Archived = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     ARDProduct_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
+    DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 class PlanetImageDownloadReference(object):
 
