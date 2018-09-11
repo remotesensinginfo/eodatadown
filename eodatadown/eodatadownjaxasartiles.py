@@ -496,6 +496,7 @@ def _process_to_ard(params):
         shutil.rmtree(work_ard_scn_path)
         shutil.rmtree(tmp_ard_scn_path)
         shutil.rmtree(final_ard_scn_path)
+        logger.debug("Removed tmp, work and final paths are scene wasn't successfully processed.")
 
 
 
