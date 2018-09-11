@@ -505,9 +505,13 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
     An abstract class which represents a sensor and defines the functions a sensor must have.
     """
 
-    def __init__(self, dbInfoObj):
+    def __init__(self, db_info_obj):
+        """
+        Function to initial the sensor.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        EODataDownSensor.__init__(self, db_info_obj)
         self.sensorName = "JAXASARTiles"
-        self.dbInfoObj = dbInfoObj
         self.avail_years = [1996, 2007, 2008, 2009, 2010, 2015, 2016, 2017]
         self.jaxa_ftp = "ftp.eorc.jaxa.jp"
         self.ftp_paths = dict()
@@ -529,15 +533,14 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         self.instrument_name[2016] = "ALOS-2 PALSAR-2"
         self.instrument_name[2017] = "ALOS-2 PALSAR-2"
 
-    def getSensorName(self):
-        return self.sensorName
-
-    def parseSensorConfig(self, config_file, first_parse=False):
+    def parse_sensor_config(self, config_file, first_parse=False):
         """
-        A function to parse the JAXASARTiles JSON config file.
-        :param config_file:
-        :param first_parse:
-        :return:
+        Parse the JSON configuration file. If first_parse=True then a signature file will be created
+        which will be checked each time the system runs to ensure changes are not back to the
+        configuration file. If the signature does not match the input file then an expection will be
+        thrown. To update the configuration (e.g., extent date range or spatial area) run with first_parse=True.
+        :param config_file: string with the path to the JSON file.
+        :param first_parse: boolean as to whether the file has been previously parsed.
         """
         eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
@@ -562,20 +565,30 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             self.ardProjDefined = False
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "proj"]):
                 self.ardProjDefined = True
-                self.projabbv = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
-                self.projEPSG = int(json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "epsg"], 0, 1000000000))
-                self.outImgRes = float(json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "outres"], 0, 1000))
+                self.projabbv = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
+                self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
+                                                                      ["eodatadown", "sensor", "ardparams", "proj",
+                                                                       "epsg"], 0, 1000000000))
+                self.outImgRes = float(json_parse_helper.getNumericValue(config_data,
+                                                                         ["eodatadown", "sensor", "ardparams", "proj",
+                                                                          "outres"], 0, 1000))
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardtmp"])
+            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
+                                                                  ["eodatadown", "sensor", "paths", "download"])
+            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
+                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
+            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
+            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
+                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
-            self.lcl_jaxa_lst = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "download", "jaxa_file_listing"])
+            self.lcl_jaxa_lst = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "download", "jaxa_file_listing"])
             if self.lcl_jaxa_lst == "":
                 self.lcl_jaxa_lst = None
             self.tile_lst = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor", "download", "tiles"])
@@ -583,19 +596,22 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             if len(self.tile_lst) == 0:
                 self.all_jaxa_tiles = True
 
-            self.years_of_interest = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor", "download", "years"])
+            self.years_of_interest = json_parse_helper.getListValue(config_data,
+                                                                    ["eodatadown", "sensor", "download", "years"])
             if len(self.years_of_interest) == 0:
                 raise EODataDownException("Must specify at least one year")
 
             for year in self.years_of_interest:
                 if year not in self.avail_years:
-                    raise EODataDownException("The year ({0}) specified is not within the list of available years.".format(year))
+                    raise EODataDownException(
+                        "The year ({0}) specified is not within the list of available years.".format(year))
             logger.debug("Found search params from config file")
 
-    def initSensorDB(self):
+    def init_sensor_db(self):
         """
-        Initialise the sensor database table.
-        :return:
+        A function which initialises the database use the db_info_obj passed to __init__.
+        Be careful as running this function drops the table if it already exists and therefore
+        any data would be lost.
         """
         logger.debug("Creating Database Engine.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
@@ -607,10 +623,10 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 
-    def check4NewData(self):
+    def check_new_scns(self):
         """
-
-        :return:
+        Check whether there is new data available which is not within the existing database.
+        Scenes not within the database will be added.
         """
         logger.debug("Creating Database Engine and Session.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
@@ -633,7 +649,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                 new_scns_avail = False
                 for cyear in years_to_dwn:
                     logger.info("Processing {} from remote server.".format(cyear))
-                    file_dict, file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "", ftp_timeout=None)
+                    file_dict, file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "",
+                                                                           ftp_timeout=None)
                     db_records = []
                     for file_path in file_lst:
                         file_base_path = os.path.split(file_path)[0]
@@ -641,7 +658,10 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                         file_name = os.path.split(file_path)[1]
                         tile_name = file_name.split("_")[0]
                         if ("FNF" not in file_name) and (parent_tile.strip() != str(cyear)):
-                            db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear, File_Name=file_name, Server_File_Path=file_path, InstrumentName=self.instrument_name[cyear], Query_Date=datetime.datetime.now()))
+                            db_records.append(EDDJAXASARTiles(Tile_Name=tile_name, Parent_Tile=parent_tile, Year=cyear,
+                                                              File_Name=file_name, Server_File_Path=file_path,
+                                                              InstrumentName=self.instrument_name[cyear],
+                                                              Query_Date=datetime.datetime.now()))
                     if len(db_records) > 0:
                         ses.add_all(db_records)
                         ses.commit()
@@ -671,13 +691,31 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName, updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
+                              updated_lcl_db=True, scns_avail=new_scns_avail)
 
-    def downloadNewData(self, ncores):
+    def get_scnlist_download(self):
         """
+        A function which queries the database to retrieve a list of scenes which are within the
+        database but have yet to be downloaded.
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
+        """
+        raise EODataDownException("Not implemented.")
 
-        :param ncores:
-        :return:
+    def download_scn(self, unq_id):
+        """
+        A function which downloads an individual scene and updates the database if download is successful.
+        :param unq_id: the unique ID of the scene to be downloaded.
+        :return: returns boolean indicating successful or otherwise download.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def download_all_avail(self, n_cores):
+        """
+        Queries the database to find all scenes which have not been downloaded and then downloads them.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous downloads to occur.
+        Be careful not use more cores than your internet connection and server can handle.
+        :param n_cores: The number of scenes to be simultaneously downloaded.
         """
         if not os.path.exists(self.baseDownloadPath):
             raise EODataDownException("The download path does not exist, please create and run again.")
@@ -705,18 +743,39 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
         logger.info("Start downloading the scenes.")
         if len(dwnld_params) > 0:
-            with multiprocessing.Pool(processes=ncores) as pool:
+            with multiprocessing.Pool(processes=n_cores) as pool:
                 pool.map(_download_scn_jaxa, dwnld_params)
             download_new_scns = True
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=download_new_scns)
 
-    def convertNewData2ARD(self, ncores):
+    def get_scnlist_con2ard(self):
         """
+        A function which queries the database to find scenes which have been downloaded but have not yet been
+        processed to an analysis ready data (ARD) format.
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
+        """
+        raise EODataDownException("Not implemented.")
 
-        :param ncores:
-        :return:
+    def scn2ard(self, unq_id):
+        """
+        A function which processes a single scene to an analysis ready data (ARD) format.
+        :param unq_id: the unique ID of the scene to be processed.
+        :return: returns boolean indicating successful or otherwise processing.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scns2ard_all_avail(self, n_cores):
+        """
+        Queries the database to find all scenes which have been downloaded but not processed to an
+        analysis ready data (ARD) format and then processed them to an ARD format.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous processing
+        of the scenes using a single core for each scene.
+        Be careful not use more cores than your system has or have I/O capacity for. The processing being
+        undertaken is I/O heavy in the ARD Work and tmp paths. If you have high speed storage (e.g., SSD)
+        available it is recommended the ARD work and tmp paths are located on this volume.
+        :param n_cores: The number of scenes to be simultaneously processed.
         """
         if not os.path.exists(self.ardFinalPath):
             raise EODataDownException("The ARD final path does not exist, please create and run again.")
@@ -782,10 +841,112 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
 
         logger.info("Start processing the scenes.")
-        with multiprocessing.Pool(processes=ncores) as pool:
+        with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_process_to_ard, ard_params)
         logger.info("Finished processing the scenes.")
 
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName,
                               updated_lcl_db=True, convert_scns_ard=True)
+
+    def get_scnlist_add2datacube(self):
+        """
+        A function which queries the database to find scenes which have been processed to an ARD format
+        but have not yet been loaded into the system datacube (specifed in the configuration file).
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to be loaded.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scn2datacube(self, unq_id):
+        """
+        A function which loads a single scene into the datacube system.
+        :param unq_id: the unique ID of the scene to be loaded.
+        :return: returns boolean indicating successful or otherwise loading into the datacube.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scns2datacube_all_avail(self):
+        """
+        Queries the database to find all scenes which have been processed to an ARD format but not loaded
+        into the datacube and then loads these scenes into the datacube.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def get_scn_record(self, unq_id):
+        """
+        A function which queries the database using the unique ID of a scene returning the record
+        :param unq_id:
+        :return: Returns the database record object
+        """
+        raise EODataDownException("Not implemented.")
+
+    def query_scn_records_date(self, start_date, end_date):
+        """
+        A function which queries the database to find scenes within a specified date range.
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :return: list of database records.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
+        """
+        A function which queries the database to find scenes within a specified bounding box.
+        :param lat_north: double with latitude north
+        :param lat_south: double with latitude south
+        :param lon_east: double with longitude east
+        :param lon_west: double with longitude west
+        :return: list of database records.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def update_dwnld_path(self, replace_path, new_path):
+        """
+        If the path to the downloaded files is updated then this function will update the database
+        replacing the part of the path which has been changed. The files will also be moved (if they have
+        not already been moved) during the processing. If they are no present at the existing location
+        in the database or at the new path then this process will not complete.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files will be located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def update_ard_path(self, replace_path, new_path):
+        """
+        If the path to the ARD files is updated then this function will update the database
+        replacing the part of the path which has been changed. The files will also be moved (if they have
+        not already been moved) during the processing. If they are no present at the existing location
+        in the database or at the new path then this process will not complete.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files will be located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def dwnlds_archived(self, replace_path=None, new_path=None):
+        """
+        This function identifies scenes which have been downloaded but the download is no longer available
+        in the download path. It will set the archived option on the database for these files. It is expected
+        that these files will have been move to an archive location (e.g., AWS glacier or tape etc.) but they
+        could have just be deleted. There is an option to update the path to the downloads if inputs are not
+        None but a check will not be performed as to whether the data is present at the new path.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files are located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def export2db(self, db_info_obj):
+        """
+        This function exports the existing database to the database specified by the
+        input database info object.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        raise EODataDownException("Not implemented.")
+
+    def import_append_db(self, db_info_obj):
+        """
+        This function imports from the database specified by the input database info object
+        and appends the data to the exisitng database. This might be used if data was processed
+        on another system (e.g., HPC cluster).
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        raise EODataDownException("Not implemented.")

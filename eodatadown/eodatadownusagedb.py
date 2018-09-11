@@ -64,7 +64,7 @@ class EODataDownUpdateUsageLogDB(object):
     def __init__(self, dbInfoObj):
         self.dbInfoObj = dbInfoObj
 
-    def initUsageLogDB(self):
+    def init_usage_log_db(self):
         """
         A function which will setup the system data base for each of the sensors.
         Note. this function should only be used to initialing the system.

@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 ########### Function for Pool ################
 def _check_new_data_qfunc(sensorObj):
-    sensorObj.check4NewData()
+    sensorObj.check_new_scns()
 ##############################################
 
 class EODataDownRun(object):
@@ -60,14 +60,14 @@ class EODataDownRun(object):
         logger.info("Running process to fund new downloads.")
         # Create the System 'Main' object and parse the configuration file.
         if not self.parsedConfig:
-            self.sysMainObj.parseConfig(config_file)
+            self.sysMainObj.parse_config(config_file)
             self.parsedConfig = True
             logger.debug("Parsed the system configuration.")
 
-        edd_usage_db = self.sysMainObj.getUsageDBObj()
+        edd_usage_db = self.sysMainObj.get_usage_db_obj()
         edd_usage_db.addEntry("Started: Finding Available Downloads.", start_block=True)
 
-        sensor_objs = self.sysMainObj.getSensors()
+        sensor_objs = self.sysMainObj.get_sensors()
         process_sensor = False
         sensor_objs_to_process = []
         for sensor_obj in sensor_objs:
@@ -75,7 +75,7 @@ class EODataDownRun(object):
             if sensors is None:
                 process_sensor = True
             if sensors is not None:
-                if sensor_obj.getSensorName() in sensors:
+                if sensor_obj.get_sensor_name() in sensors:
                     process_sensor = True
             if process_sensor:
                 sensor_objs_to_process.append(sensor_obj)
@@ -84,25 +84,25 @@ class EODataDownRun(object):
         edd_usage_db.addEntry("Finished: Finding Available Downloads.", end_block=True)
 
 
-    def perform_downloads(self, config_file, ncores, sensors):
+    def perform_downloads(self, config_file, n_cores, sensors):
         """
         A function which runs the process of performing the downloads of available scenes
         which have not yet been downloaded.
         :param config_file:
-        :param ncores:
+        :param n_cores:
         :param sensors:
         :return:
         """
         # Create the System 'Main' object and parse the configuration file.
         if not self.parsedConfig:
-            self.sysMainObj.parseConfig(config_file)
+            self.sysMainObj.parse_config(config_file)
             self.parsedConfig = True
             logger.debug("Parsed the system configuration.")
 
-        edd_usage_db = self.sysMainObj.getUsageDBObj()
+        edd_usage_db = self.sysMainObj.get_usage_db_obj()
         edd_usage_db.addEntry("Started: Downloading Available Scenes.", start_block=True)
 
-        sensor_objs = self.sysMainObj.getSensors()
+        sensor_objs = self.sysMainObj.get_sensors()
         process_sensor = False
         sensor_objs_to_process = []
         for sensor_obj in sensor_objs:
@@ -110,37 +110,37 @@ class EODataDownRun(object):
             if sensors is None:
                 process_sensor = True
             if sensors is not None:
-                if sensor_obj.getSensorName() in sensors:
+                if sensor_obj.get_sensor_name() in sensors:
                     process_sensor = True
             if process_sensor:
                 sensor_objs_to_process.append(sensor_obj)
 
         for sensorObj in sensor_objs_to_process:
             try:
-                sensorObj.downloadNewData(ncores)
+                sensorObj.download_all_avail(n_cores)
             except Exception as e:
-                logger.debug("Error occurred while downloading for sensor: "+sensorObj.getSensorName())
+                logger.debug("Error occurred while downloading for sensor: "+sensorObj.get_sensor_name())
                 logger.debug(e.__str__(), exc_info=True)
         edd_usage_db.addEntry("Finished: Downloading Available Scenes.", end_block=True)
 
 
-    def process_data_ard(self, config_file, ncores, sensors):
+    def process_data_ard(self, config_file, n_cores, sensors):
         """
         A function which runs the process of converting the downloaded scenes to an ARD product.
         :param config_file:
-        :param ncores:
+        :param n_cores:
         :param sensors:
         :return:
         """
         if not self.parsedConfig:
-            self.sysMainObj.parseConfig(config_file)
+            self.sysMainObj.parse_config(config_file)
             self.parsedConfig = True
             logger.debug("Parsed the system configuration.")
 
-        edd_usage_db = self.sysMainObj.getUsageDBObj()
+        edd_usage_db = self.sysMainObj.get_usage_db_obj()
         edd_usage_db.addEntry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
 
-        sensor_objs = self.sysMainObj.getSensors()
+        sensor_objs = self.sysMainObj.get_sensors()
         process_sensor = False
         sensor_objs_to_process = []
         for sensor_obj in sensor_objs:
@@ -148,16 +148,15 @@ class EODataDownRun(object):
             if sensors is None:
                 process_sensor = True
             if sensors is not None:
-                if sensor_obj.getSensorName() in sensors:
+                if sensor_obj.get_sensor_name() in sensors:
                     process_sensor = True
             if process_sensor:
                 sensor_objs_to_process.append(sensor_obj)
 
         for sensorObj in sensor_objs_to_process:
             try:
-                sensorObj.convertNewData2ARD(ncores)
+                sensorObj.scns2ard_all_avail(n_cores)
             except Exception as e:
-                logger.debug("Error occurred while converting to ARD for sensor: " + sensorObj.getSensorName())
+                logger.debug("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
                 logger.debug(e.__str__(), exc_info=True)
         edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
-

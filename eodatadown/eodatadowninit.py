@@ -51,13 +51,13 @@ def initialise_new_system(config_file):
 
     # Create the System 'Main' object and parse the configuration file.
     sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parseConfig(config_file, True)
+    sysMainObj.parse_config(config_file, True)
     logger.debug("Parsed the system configuration.")
 
     # Create and initialise the sensor databases
-    sysMainObj.initDBs()
+    sysMainObj.init_dbs()
     logger.debug("Initialised the sensor databases.")
-    edd_usage_db = sysMainObj.getUsageDBObj()
+    edd_usage_db = sysMainObj.get_usage_db_obj()
     edd_usage_db.addEntry("Started: Initialising the databases and configure files.", start_block=True)
     # I don't think there is anything which need doing - keeping start and end for consistency.
     edd_usage_db.addEntry("Finished: Initialising the databases and configure files.", end_block=True)
@@ -76,10 +76,10 @@ def update_existing_system(config_file):
 
     # Create the System 'Main' object and parse the configuration file.
     sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parseConfig(config_file, True)
+    sysMainObj.parse_config(config_file, True)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.getUsageDBObj()
+    edd_usage_db = sysMainObj.get_usage_db_obj()
     edd_usage_db.addEntry("Started: Updating initialisation of the configure files.", start_block=True)
     # I don't think there is anything which need doing - keeping start and end for consistency.
     edd_usage_db.addEntry("Finished: Updating initialisation of the configure files.", end_block=True)

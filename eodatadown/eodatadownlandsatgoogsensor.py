@@ -80,10 +80,14 @@ class EDDLandsatGoogle(Base):
     Download_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Downloaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Download_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
+    Archived = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     ARDProduct_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     ARDProduct = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
+    DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
 
@@ -188,20 +192,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
     An class which represents a the Landsat sensor being downloaded from the Google Cloud.
     """
 
-    def __init__(self, dbInfoObj):
+    def __init__(self, db_info_obj):
         """
-
-        :param dbInfoObj:
+        Function to initial the sensor.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
-        EODataDownSensor.__init__(self, dbInfoObj)
+        EODataDownSensor.__init__(self, db_info_obj)
         self.sensorName = "LandsatGOOG"
 
-    def parseSensorConfig(self, config_file, first_parse=False):
+    def parse_sensor_config(self, config_file, first_parse=False):
         """
-        A function to parse the LandsatGOOG JSON config file.
-        :param config_file:
-        :param first_parse:
-        :return:
+        Parse the JSON configuration file. If first_parse=True then a signature file will be created
+        which will be checked each time the system runs to ensure changes are not back to the
+        configuration file. If the signature does not match the input file then an expection will be
+        thrown. To update the configuration (e.g., extent date range or spatial area) run with first_parse=True.
+        :param config_file: string with the path to the JSON file.
+        :param first_parse: boolean as to whether the file has been previously parsed.
         """
         eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
@@ -226,15 +232,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             self.ardProjDefined = False
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "proj"]):
                 self.ardProjDefined = True
-                self.projabbv = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
-                self.projEPSG = int(json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "epsg"], 0, 1000000000))
+                self.projabbv = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
+                self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
+                                                                      ["eodatadown", "sensor", "ardparams", "proj",
+                                                                       "epsg"], 0, 1000000000))
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardtmp"])
+            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
+                                                                  ["eodatadown", "sensor", "paths", "download"])
+            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
+                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
+            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
+            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
+                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -259,10 +272,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                             ["eodatadown", "sensor", "download", "startdate"],
                                                             "%Y-%m-%d")
 
-            self.wrs2RowPaths = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor", "download", "wrs2"])
+            self.wrs2RowPaths = json_parse_helper.getListValue(config_data,
+                                                               ["eodatadown", "sensor", "download", "wrs2"])
             for wrs2 in self.wrs2RowPaths:
                 if (wrs2['path'] < 1) or (wrs2['path'] > 233):
-                    logger.debug("Path error: " +str(wrs2))
+                    logger.debug("Path error: " + str(wrs2))
                     raise EODataDownException("WRS2 paths must be between (including) 1 and 233.")
                 if (wrs2['row'] < 1) or (wrs2['row'] > 248):
                     logger.debug("Row error: " + str(wrs2))
@@ -270,15 +284,17 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.debug("Found search params from config file")
 
             logger.debug("Find Google Account params from config file")
-            self.googProjName = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "googleinfo", "projectname"])
-            self.googKeyJSON = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "googleinfo", "googlejsonkey"])
+            self.googProjName = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "googleinfo", "projectname"])
+            self.googKeyJSON = json_parse_helper.getStrValue(config_data,
+                                                             ["eodatadown", "sensor", "googleinfo", "googlejsonkey"])
             logger.debug("Found Google Account params from config file")
 
-
-    def initSensorDB(self):
+    def init_sensor_db(self):
         """
-        Initialise the sensor database table.
-        :return:
+        A function which initialises the database use the db_info_obj passed to __init__.
+        Be careful as running this function drops the table if it already exists and therefore
+        any data would be lost.
         """
         logger.debug("Creating Database Engine.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
@@ -290,7 +306,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 
-    def resolveDuplicatedSceneID(self, scn_id):
+    def resolve_duplicated_scene_id(self, scn_id):
         """
         A function to resolve a duplicated scene ID within the database.
         :param scn_id:
@@ -334,14 +350,10 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Completed processing of removing duplicate scene ids.")
 
-    def check4NewData(self):
+    def check_new_scns(self):
         """
-        A function which queries the Google Landsat BigQuery database (link below) and builds a local
-        database for the row/paths specified. If data already exists within the database then a query
-        will be run from the last acquisition date within the database to present.
-
-        https://bigquery.cloud.google.com/table/bigquery-public-data:cloud_storage_geo_index.landsat_index
-        :return:
+        Check whether there is new data available which is not within the existing database.
+        Scenes not within the database will be added.
         """
         logger.info("Checking for new data... 'LandsatGoog'")
         logger.debug("Export Google Environmental Variable.")
@@ -354,12 +366,14 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
 
-        logger.debug("Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
+        logger.debug(
+            "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
         ses = Session()
         if ses.query(EDDLandsatGoogle).first() is not None:
-            query_date = ses.query(EDDLandsatGoogle).order_by(EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
-        logger.info("Query with start at date: "+str(query_date))
+            query_date = ses.query(EDDLandsatGoogle).order_by(
+                EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
+        logger.info("Query with start at date: " + str(query_date))
 
         logger.debug("Perform google query...")
         goog_fields = "scene_id,product_id,spacecraft_id,sensor_id,date_acquired,sensing_time,collection_number," \
@@ -367,8 +381,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                       "east_lon,total_size,base_url"
         goog_db_str = "`bigquery-public-data.cloud_storage_geo_index.landsat_index`"
 
-        goog_filter_date = "PARSE_DATE('%Y-%m-%d', date_acquired) > DATE(\""+query_date.strftime("%Y-%m-%d")+"\")"
-        goog_filter_cloud = "cloud_cover < "+str(self.cloudCoverThres)
+        goog_filter_date = "PARSE_DATE('%Y-%m-%d', date_acquired) > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
+        goog_filter_cloud = "cloud_cover < " + str(self.cloudCoverThres)
         goog_filter_spacecraft = "spacecraft_id IN ("
         first = True
         for spacecraft_str in self.spacecraftLst:
@@ -404,57 +418,88 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         new_scns_avail = False
         for wrs2 in self.wrs2RowPaths:
-            logger.info("Finding scenes for Path: "+str(wrs2['path'])+" Row: "+str(wrs2['row']))
-            wrs2_filter = "wrs_path = "+str(wrs2['path'])+" AND wrs_row = " +str(wrs2['row'])
+            logger.info("Finding scenes for Path: " + str(wrs2['path']) + " Row: " + str(wrs2['row']))
+            wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])
             goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + " AND " + wrs2_filter
-            logger.debug("Query: '"+goog_query+"'")
+            logger.debug("Query: '" + goog_query + "'")
             query_results = client.query(goog_query)
             logger.debug("Performed google query")
-            
-            logger.debug("Process google query result and add to local database (Path: "+str(wrs2['path'])+", Row:"+str(wrs2['row'])+")")
+
+            logger.debug(
+                "Process google query result and add to local database (Path: " + str(wrs2['path']) + ", Row:" + str(
+                    wrs2['row']) + ")")
             if query_results.result():
                 db_records = []
                 for row in query_results.result():
-                    query_rtn = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID==row.scene_id).one_or_none()
+                    query_rtn = ses.query(EDDLandsatGoogle).filter(
+                        EDDLandsatGoogle.Scene_ID == row.scene_id).one_or_none()
                     if query_rtn is None:
-                        logger.debug("SceneID: "+row.scene_id+"\tProduct_ID: "+row.product_id)
+                        logger.debug("SceneID: " + row.scene_id + "\tProduct_ID: " + row.product_id)
                         sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                         db_records.append(
-                            EDDLandsatGoogle(Scene_ID=row.scene_id, Product_ID=row.product_id, Spacecraft_ID=row.spacecraft_id,
+                            EDDLandsatGoogle(Scene_ID=row.scene_id, Product_ID=row.product_id,
+                                             Spacecraft_ID=row.spacecraft_id,
                                              Sensor_ID=row.sensor_id,
-                                             Date_Acquired=datetime.datetime.strptime(row.date_acquired, "%Y-%m-%d").date(),
+                                             Date_Acquired=datetime.datetime.strptime(row.date_acquired,
+                                                                                      "%Y-%m-%d").date(),
                                              Collection_Number=row.collection_number,
                                              Collection_Catagory=row.collection_category,
-                                             Sensing_Time=datetime.datetime.strptime(sensing_time_tmp, "%Y-%m-%dT%H:%M:%S.%f"),
+                                             Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
+                                                                                     "%Y-%m-%dT%H:%M:%S.%f"),
                                              Data_Type=row.data_type, WRS_Path=row.wrs_path, WRS_Row=row.wrs_row,
-                                             Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat, South_Lat=row.south_lat,
+                                             Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat,
+                                             South_Lat=row.south_lat,
                                              East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
-                                             Remote_URL=row.base_url, Query_Date=datetime.datetime.now(), Download_Start_Date=None,
-                                             Download_End_Date=None, Downloaded=False, Download_Path="", ARDProduct_Start_Date=None,
-                                             ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path=""))
+                                             Remote_URL=row.base_url, Query_Date=datetime.datetime.now(),
+                                             Download_Start_Date=None,
+                                             Download_End_Date=None, Downloaded=False, Download_Path="",
+                                             Archived=False, ARDProduct_Start_Date=None,
+                                             ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path="",
+                                             DCLoaded_Start_Date=None, DCLoaded_End_Date=None, DCLoaded=False))
                 if len(db_records) > 0:
                     ses.add_all(db_records)
                     ses.commit()
                     new_scns_avail = True
-            logger.debug("Processed google query result and added to local database (Path: " + str(wrs2['path']) + ", Row:" + str(wrs2['row'])+")")
+            logger.debug("Processed google query result and added to local database (Path: " + str(
+                wrs2['path']) + ", Row:" + str(wrs2['row']) + ")")
 
-        logger.debug("Check for any duplicate scene ids which have been added to database and only keep the one processed more recently")
-        query_rtn = ses.query(sqlalchemy.func.count(EDDLandsatGoogle.Scene_ID), EDDLandsatGoogle.Scene_ID).group_by(EDDLandsatGoogle.Scene_ID).all()
+        logger.debug(
+            "Check for any duplicate scene ids which have been added to database and only keep the one processed more recently")
+        query_rtn = ses.query(sqlalchemy.func.count(EDDLandsatGoogle.Scene_ID), EDDLandsatGoogle.Scene_ID).group_by(
+            EDDLandsatGoogle.Scene_ID).all()
         for result in query_rtn:
             if result[0] > 1:
-                self.resolveDuplicatedSceneID(result[1])
+                self.resolve_duplicated_scene_id(result[1])
         logger.debug("Completed duplicate check/removal.")
 
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName, updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
+                              updated_lcl_db=True, scns_avail=new_scns_avail)
 
-    def downloadNewData(self, ncores):
+    def get_scnlist_download(self):
         """
-        A function which downloads the scenes which are within the database but not downloaded.
-        :param ncores:
-        :return:
+        A function which queries the database to retrieve a list of scenes which are within the
+        database but have yet to be downloaded.
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def download_scn(self, unq_id):
+        """
+        A function which downloads an individual scene and updates the database if download is successful.
+        :param unq_id: the unique ID of the scene to be downloaded.
+        :return: returns boolean indicating successful or otherwise download.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def download_all_avail(self, n_cores):
+        """
+        Queries the database to find all scenes which have not been downloaded and then downloads them.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous downloads to occur.
+        Be careful not use more cores than your internet connection and server can handle.
+        :param n_cores: The number of scenes to be simultaneously downloaded.
         """
         if not os.path.exists(self.baseDownloadPath):
             raise EODataDownException("The download path does not exist, please create and run again.")
@@ -512,18 +557,38 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
 
         logger.info("Start downloading the scenes.")
-        with multiprocessing.Pool(processes=ncores) as pool:
+        with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_download_scn_goog, dwnld_params)
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=True)
 
-
-    def convertNewData2ARD(self, ncores):
+    def get_scnlist_con2ard(self):
         """
-        A function to convert the available scenes to an ARD product using ARCSI.
-        :param ncores:
-        :return:
+        A function which queries the database to find scenes which have been downloaded but have not yet been
+        processed to an analysis ready data (ARD) format.
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scn2ard(self, unq_id):
+        """
+        A function which processes a single scene to an analysis ready data (ARD) format.
+        :param unq_id: the unique ID of the scene to be processed.
+        :return: returns boolean indicating successful or otherwise processing.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scns2ard_all_avail(self, n_cores):
+        """
+        Queries the database to find all scenes which have been downloaded but not processed to an
+        analysis ready data (ARD) format and then processed them to an ARD format.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous processing
+        of the scenes using a single core for each scene.
+        Be careful not use more cores than your system has or have I/O capacity for. The processing being
+        undertaken is I/O heavy in the ARD Work and tmp paths. If you have high speed storage (e.g., SSD)
+        available it is recommended the ARD work and tmp paths are located on this volume.
+        :param n_cores: The number of scenes to be simultaneously processed.
         """
         if not os.path.exists(self.ardFinalPath):
             raise EODataDownException("The ARD final path does not exist, please create and run again.")
@@ -585,9 +650,111 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
 
         logger.info("Start processing the scenes.")
-        with multiprocessing.Pool(processes=ncores) as pool:
+        with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_process_to_ard, ard_params)
         logger.info("Finished processing the scenes.")
 
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName, updated_lcl_db=True, convert_scns_ard=True)
+
+    def get_scnlist_add2datacube(self):
+        """
+        A function which queries the database to find scenes which have been processed to an ARD format
+        but have not yet been loaded into the system datacube (specifed in the configuration file).
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to be loaded.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scn2datacube(self, unq_id):
+        """
+        A function which loads a single scene into the datacube system.
+        :param unq_id: the unique ID of the scene to be loaded.
+        :return: returns boolean indicating successful or otherwise loading into the datacube.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scns2datacube_all_avail(self):
+        """
+        Queries the database to find all scenes which have been processed to an ARD format but not loaded
+        into the datacube and then loads these scenes into the datacube.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def get_scn_record(self, unq_id):
+        """
+        A function which queries the database using the unique ID of a scene returning the record
+        :param unq_id:
+        :return: Returns the database record object
+        """
+        raise EODataDownException("Not implemented.")
+
+    def query_scn_records_date(self, start_date, end_date):
+        """
+        A function which queries the database to find scenes within a specified date range.
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :return: list of database records.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
+        """
+        A function which queries the database to find scenes within a specified bounding box.
+        :param lat_north: double with latitude north
+        :param lat_south: double with latitude south
+        :param lon_east: double with longitude east
+        :param lon_west: double with longitude west
+        :return: list of database records.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def update_dwnld_path(self, replace_path, new_path):
+        """
+        If the path to the downloaded files is updated then this function will update the database
+        replacing the part of the path which has been changed. The files will also be moved (if they have
+        not already been moved) during the processing. If they are no present at the existing location
+        in the database or at the new path then this process will not complete.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files will be located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def update_ard_path(self, replace_path, new_path):
+        """
+        If the path to the ARD files is updated then this function will update the database
+        replacing the part of the path which has been changed. The files will also be moved (if they have
+        not already been moved) during the processing. If they are no present at the existing location
+        in the database or at the new path then this process will not complete.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files will be located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def dwnlds_archived(self, replace_path=None, new_path=None):
+        """
+        This function identifies scenes which have been downloaded but the download is no longer available
+        in the download path. It will set the archived option on the database for these files. It is expected
+        that these files will have been move to an archive location (e.g., AWS glacier or tape etc.) but they
+        could have just be deleted. There is an option to update the path to the downloads if inputs are not
+        None but a check will not be performed as to whether the data is present at the new path.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files are located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def export2db(self, db_info_obj):
+        """
+        This function exports the existing database to the database specified by the
+        input database info object.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        raise EODataDownException("Not implemented.")
+
+    def import_append_db(self, db_info_obj):
+        """
+        This function imports from the database specified by the input database info object
+        and appends the data to the exisitng database. This might be used if data was processed
+        on another system (e.g., HPC cluster).
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        raise EODataDownException("Not implemented.")

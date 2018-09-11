@@ -147,20 +147,23 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
     An class which represents a the Sentinel-1 sensor being downloaded from ESA Copernicus Open Access Hub.
     """
 
-    def __init__(self, dbInfoObj):
-        EODataDownSensor.__init__(self, dbInfoObj)
+    def __init__(self, db_info_obj):
+        """
+        Function to initial the sensor.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        EODataDownSensor.__init__(self, db_info_obj)
         self.sensorName = "Sentinel1ESA"
         self.base_api_url = "https://scihub.copernicus.eu/apihub/"
 
-    def getSensorName(self):
-        return self.sensorName
-
-    def parseSensorConfig(self, config_file, first_parse=False):
+    def parse_sensor_config(self, config_file, first_parse=False):
         """
-        A function to parse the Sentinel1ESA JSON config file.
-        :param config_file:
-        :param first_parse:
-        :return:
+        Parse the JSON configuration file. If first_parse=True then a signature file will be created
+        which will be checked each time the system runs to ensure changes are not back to the
+        configuration file. If the signature does not match the input file then an expection will be
+        thrown. To update the configuration (e.g., extent date range or spatial area) run with first_parse=True.
+        :param config_file: string with the path to the JSON file.
+        :param first_parse: boolean as to whether the file has been previously parsed.
         """
         eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
@@ -185,19 +188,27 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
             self.ardProjDefined = False
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "proj"]):
                 self.ardProjDefined = True
-                self.projabbv = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
-                self.projEPSG = int(json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "ardparams", "proj", "epsg"], 0, 1000000000))
+                self.projabbv = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "ardparams", "proj", "projabbv"])
+                self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
+                                                                      ["eodatadown", "sensor", "ardparams", "proj",
+                                                                       "epsg"], 0, 1000000000))
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardtmp"])
+            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
+                                                                  ["eodatadown", "sensor", "paths", "download"])
+            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
+                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
+            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
+                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
+            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
+                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
-            geo_bounds_lst = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor", "download", "geobounds"])
+            geo_bounds_lst = json_parse_helper.getListValue(config_data,
+                                                            ["eodatadown", "sensor", "download", "geobounds"])
             if not len(geo_bounds_lst) > 0:
                 raise EODataDownException("There must be at least 1 geographic boundary given.")
 
@@ -210,20 +221,26 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                 edd_bbox.setEastLon(json_parse_helper.getNumericValue(geo_bound_json, ["east_lon"], -180, 180))
                 self.geoBounds.append(edd_bbox)
 
-            self.boundsRelation = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "download", "geoboundsrelation"], ["intersects", "contains", "iswithin"])
-            self.startDate = json_parse_helper.getDateTimeValue(config_data, ["eodatadown", "sensor", "download", "startdate"], "%Y-%m-%d")
+            self.boundsRelation = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "download",
+                                                                              "geoboundsrelation"],
+                                                                ["intersects", "contains", "iswithin"])
+            self.startDate = json_parse_helper.getDateTimeValue(config_data,
+                                                                ["eodatadown", "sensor", "download", "startdate"],
+                                                                "%Y-%m-%d")
             logger.debug("Found search params from config file")
 
             logger.debug("Find ESA Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
             self.esaUser = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "esaaccount", "user"])
-            self.esaPass = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "esaaccount", "pass"]))
+            self.esaPass = edd_pass_encoder.unencodePassword(
+                json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "esaaccount", "pass"]))
             logger.debug("Found ESA Account params from config file")
 
-    def initSensorDB(self):
+    def init_sensor_db(self):
         """
-        Initialise the sensor database table.
-        :return:
+        A function which initialises the database use the db_info_obj passed to __init__.
+        Be careful as running this function drops the table if it already exists and therefore
+        any data would be lost.
         """
         logger.debug("Creating Database Engine.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
@@ -235,24 +252,24 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 
-    def createQueryURL(self, base_url, start_offset=0, n_rows=100):
+    def create_query_url(self, base_url, start_offset=0, n_rows=100):
         """
-
-        :param baseurl:
-        :param start_offset:
-        :param n_rows:
-        :return:
+        Create the URL being used to undertake the query on the ESA server.
+        :param base_url: the base server url (i.e., "https://scihub.copernicus.eu/apihub/")
+        :param start_offset: the offset in the number of scenes to step through 'pages'
+        :param n_rows: the maximum number of scenes (rows) to be returned as a 'page'.
+        :return: a string with the URL.
         """
         urloptions = "search?format=json&rows={0}&start={1}".format(n_rows, start_offset)
         return base_url+urloptions
 
-    def checkResponse(self, response, url):
+    def check_http_response(self, response, url):
         """
         Check the HTTP response and raise an exception with appropriate error message
         if request was not successful.
-        :param response:
-        :param url:
-        :return:
+        :param response: the http response object.
+        :param url: the URL called.
+        :return: boolean as to whether status is successful or otherwise.
         """
         try:
             response.raise_for_status()
@@ -272,12 +289,11 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
             raise api_error
         return success
 
-    def parseResponseJSON(self, rsp_json, sesobj, n_records):
+    def parse_json_response(self, rsp_json, sesobj, n_records):
         """
-        Parse the JSON response and populate the local database.
-        :param rsp_json:
-        :param sesobj:
-        :return:
+        Parse the JSON response and populate the local database with the scenes found in the response.
+        :param rsp_json: the JSON from the http response.
+        :param sesobj: A database session object.
         """
 
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
@@ -388,15 +404,15 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
             sesobj.commit()
             logger.debug("Written and committed records to the database.")
 
-    def check4NewData(self):
+    def check_new_scns(self):
         """
-        A function to check the EU Copernicus Open Access Hub for Sentinel-1 GRD data.
-        :return:
+        Check whether there is new data available which is not within the existing database.
+        Scenes not within the database will be added.
         """
         logger.debug("Creating HTTP Session Object.")
         session = requests.Session()
         session.auth = (self.esaUser, self.esaPass)
-        user_agent = "eoedatadown/"+str(eodatadown.EODATADOWN_VERSION)
+        user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
         session.headers["User-Agent"] = user_agent
 
         logger.debug("Creating Database Engine and Session.")
@@ -404,16 +420,17 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
         ses = Session()
 
-        logger.debug("Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
+        logger.debug(
+            "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
         if ses.query(EDDSentinel1ESA).first() is not None:
             query_date = ses.query(EDDSentinel1ESA).order_by(EDDSentinel1ESA.BeginPosition.desc()).first().BeginPosition
         logger.info("Query with start at date: " + str(query_date))
 
-        str_start_datetime = query_date.isoformat()+"Z"
-        str_now_datetime = datetime.datetime.now().isoformat()+"Z"
+        str_start_datetime = query_date.isoformat() + "Z"
+        str_now_datetime = datetime.datetime.now().isoformat() + "Z"
 
-        query_str_date = "beginPosition:["+str_start_datetime+" TO "+str_now_datetime+"]"
+        query_str_date = "beginPosition:[" + str_start_datetime + " TO " + str_now_datetime + "]"
         query_str_platform = "platformname:Sentinel-1"
         query_str_product = "producttype:GRD"
 
@@ -423,14 +440,14 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         n_step = 100
         for geo_bound in self.geoBounds:
             wkt_poly = geo_bound.getWKTPolygon()
-            logger.info("Checking for available scenes for \""+wkt_poly+"\"")
-            query_str_geobound = "footprint:\"Intersects("+wkt_poly+")\""
+            logger.info("Checking for available scenes for \"" + wkt_poly + "\"")
+            query_str_geobound = "footprint:\"Intersects(" + wkt_poly + ")\""
             query_str = query_str_date + ", " + query_str_platform + ", " + query_str_product + ", " + query_str_geobound
-            url = self.createQueryURL(self.base_api_url, 0, n_step)
+            url = self.create_query_url(self.base_api_url, 0, n_step)
             logger.debug("Going to use the following URL: " + url)
             logger.debug("Using the following query: " + query_str)
             response = session.post(url, {"q": query_str}, auth=session.auth)
-            if self.checkResponse(response, url):
+            if self.check_http_response(response, url):
                 rsp_json = response.json()["feed"]
                 if rsp_json["opensearch:totalResults"] is not None:
                     n_results = int(json_parse_helper.getNumericValue(rsp_json, ["opensearch:totalResults"]))
@@ -443,40 +460,40 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
                     n_records_expt = n_step
                     if n_results < n_step:
                         n_records_expt = n_results
-                    self.parseResponseJSON(rsp_json, ses, n_records_expt)
+                    self.parse_json_response(rsp_json, ses, n_records_expt)
                 if n_results > 100:
-                    n_remain_scns = int((n_results-n_step)%n_step)
-                    n_full_pages = int(((n_results-n_step)-n_remain_scns)/n_step)
+                    n_remain_scns = int((n_results - n_step) % n_step)
+                    n_full_pages = int(((n_results - n_step) - n_remain_scns) / n_step)
                     logger.debug("n_pages = {0} \t n_remain_scns = {1}".format(n_full_pages, n_remain_scns))
                     if n_full_pages > 0:
                         start_off = n_step
                         for i in range(n_full_pages):
-                            url = self.createQueryURL(self.base_api_url, start_off, n_step)
+                            url = self.create_query_url(self.base_api_url, start_off, n_step)
                             logger.debug("Going to use the following URL: " + url)
                             logger.debug("Using the following query: " + query_str)
                             response = session.post(url, {"q": query_str}, auth=session.auth)
-                            if self.checkResponse(response, url):
+                            if self.check_http_response(response, url):
                                 rsp_json = response.json()["feed"]
-                                self.parseResponseJSON(rsp_json, ses, n_step)
+                                self.parse_json_response(rsp_json, ses, n_step)
                             start_off = start_off + n_step
                     if n_remain_scns > 0:
                         start_off = n_results - n_remain_scns
                         n_scns = n_remain_scns
-                        url = self.createQueryURL(self.base_api_url, start_off, n_scns)
+                        url = self.create_query_url(self.base_api_url, start_off, n_scns)
                         logger.debug("Going to use the following URL: " + url)
                         logger.debug("Using the following query: " + query_str)
                         response = session.post(url, {"q": query_str}, auth=session.auth)
-                        if self.checkResponse(response, url):
+                        if self.check_http_response(response, url):
                             rsp_json = response.json()["feed"]
-                            self.parseResponseJSON(rsp_json, ses, n_remain_scns)
-            logger.debug("Processed query result and added to local database for \""+wkt_poly+"\"")
+                            self.parse_json_response(rsp_json, ses, n_remain_scns)
+            logger.debug("Processed query result and added to local database for \"" + wkt_poly + "\"")
 
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL == None).all()
         if query_result is not None:
             for record in query_result:
                 url = self.base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
                 response = session.get(url, auth=session.auth)
-                if not self.checkResponse(response, url):
+                if not self.check_http_response(response, url):
                     logger.error("Could not get the URL for scene: '{}'".format(record.UUID))
                 json_url_info = response.json()['d']
                 record.Remote_URL_MD5 = json_parse_helper.getStrValue(json_url_info, ["Checksum", "Value"])
@@ -486,13 +503,31 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName, updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
+                              updated_lcl_db=True, scns_avail=new_scns_avail)
 
-    def downloadNewData(self, ncores):
+    def get_scnlist_download(self):
         """
+        A function which queries the database to retrieve a list of scenes which are within the
+        database but have yet to be downloaded.
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
+        """
+        raise EODataDownException("Not implemented.")
 
-        :param ncores:
-        :return:
+    def download_scn(self, unq_id):
+        """
+        A function which downloads an individual scene and updates the database if download is successful.
+        :param unq_id: the unique ID of the scene to be downloaded.
+        :return: returns boolean indicating successful or otherwise download.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def download_all_avail(self, n_cores):
+        """
+        Queries the database to find all scenes which have not been downloaded and then downloads them.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous downloads to occur.
+        Be careful not use more cores than your internet connection and server can handle.
+        :param n_cores: The number of scenes to be simultaneously downloaded.
         """
         if not os.path.exists(self.baseDownloadPath):
             raise EODataDownException("The download path does not exist, please create and run again.")
@@ -525,18 +560,39 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         logger.debug("Closed the database session.")
 
         logger.info("Start downloading the scenes.")
-        with multiprocessing.Pool(processes=ncores) as pool:
+        with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_download_scn_esa, dwnld_params)
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
 
-    def convertNewData2ARD(self, ncores):
+    def get_scnlist_con2ard(self):
         """
+        A function which queries the database to find scenes which have been downloaded but have not yet been
+        processed to an analysis ready data (ARD) format.
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
+        """
+        raise EODataDownException("Not implemented.")
 
-        :param ncores:
-        :return:
+    def scn2ard(self, unq_id):
+        """
+        A function which processes a single scene to an analysis ready data (ARD) format.
+        :param unq_id: the unique ID of the scene to be processed.
+        :return: returns boolean indicating successful or otherwise processing.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scns2ard_all_avail(self, n_cores):
+        """
+        Queries the database to find all scenes which have been downloaded but not processed to an
+        analysis ready data (ARD) format and then processed them to an ARD format.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous processing
+        of the scenes using a single core for each scene.
+        Be careful not use more cores than your system has or have I/O capacity for. The processing being
+        undertaken is I/O heavy in the ARD Work and tmp paths. If you have high speed storage (e.g., SSD)
+        available it is recommended the ARD work and tmp paths are located on this volume.
+        :param n_cores: The number of scenes to be simultaneously processed.
         """
         if not os.path.exists(self.ardFinalPath):
             raise EODataDownException("The ARD final path does not exist, please create and run again.")
@@ -572,14 +628,110 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
             if not os.path.exists(tmp_ard_path):
                 os.mkdir(tmp_ard_path)
 
-            ##############################
-            ##############################
-            ###### IMPLEMENT HERE ########
-            ##############################
-            ##############################
+            # TODO IMPLEMENT ESA Sentinel-1 Processing.
 
         ses.close()
         raise EODataDownException("Not implemented.")
 
+    def get_scnlist_add2datacube(self):
+        """
+        A function which queries the database to find scenes which have been processed to an ARD format
+        but have not yet been loaded into the system datacube (specifed in the configuration file).
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to be loaded.
+        """
+        raise EODataDownException("Not implemented.")
 
+    def scn2datacube(self, unq_id):
+        """
+        A function which loads a single scene into the datacube system.
+        :param unq_id: the unique ID of the scene to be loaded.
+        :return: returns boolean indicating successful or otherwise loading into the datacube.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def scns2datacube_all_avail(self):
+        """
+        Queries the database to find all scenes which have been processed to an ARD format but not loaded
+        into the datacube and then loads these scenes into the datacube.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def get_scn_record(self, unq_id):
+        """
+        A function which queries the database using the unique ID of a scene returning the record
+        :param unq_id:
+        :return: Returns the database record object
+        """
+        raise EODataDownException("Not implemented.")
+
+    def query_scn_records_date(self, start_date, end_date):
+        """
+        A function which queries the database to find scenes within a specified date range.
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :return: list of database records.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
+        """
+        A function which queries the database to find scenes within a specified bounding box.
+        :param lat_north: double with latitude north
+        :param lat_south: double with latitude south
+        :param lon_east: double with longitude east
+        :param lon_west: double with longitude west
+        :return: list of database records.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def update_dwnld_path(self, replace_path, new_path):
+        """
+        If the path to the downloaded files is updated then this function will update the database
+        replacing the part of the path which has been changed. The files will also be moved (if they have
+        not already been moved) during the processing. If they are no present at the existing location
+        in the database or at the new path then this process will not complete.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files will be located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def update_ard_path(self, replace_path, new_path):
+        """
+        If the path to the ARD files is updated then this function will update the database
+        replacing the part of the path which has been changed. The files will also be moved (if they have
+        not already been moved) during the processing. If they are no present at the existing location
+        in the database or at the new path then this process will not complete.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files will be located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def dwnlds_archived(self, replace_path=None, new_path=None):
+        """
+        This function identifies scenes which have been downloaded but the download is no longer available
+        in the download path. It will set the archived option on the database for these files. It is expected
+        that these files will have been move to an archive location (e.g., AWS glacier or tape etc.) but they
+        could have just be deleted. There is an option to update the path to the downloads if inputs are not
+        None but a check will not be performed as to whether the data is present at the new path.
+        :param replace_path: The existing path to be replaced.
+        :param new_path: The new path where the downloaded files are located.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def export2db(self, db_info_obj):
+        """
+        This function exports the existing database to the database specified by the
+        input database info object.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        raise EODataDownException("Not implemented.")
+
+    def import_append_db(self, db_info_obj):
+        """
+        This function imports from the database specified by the input database info object
+        and appends the data to the exisitng database. This might be used if data was processed
+        on another system (e.g., HPC cluster).
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        raise EODataDownException("Not implemented.")
 

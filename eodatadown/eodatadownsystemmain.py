@@ -81,14 +81,14 @@ class EODataDownSystemMain(object):
         str_data = json.dumps(data, indent=4, sort_keys=True)
         return str_data
 
-    def getUsageDBObj(self):
+    def get_usage_db_obj(self):
         logger.debug("Creating Usage database object.")
         if self.dbInfoObj is None:
             raise EODataDownException("Need to parse the configuration file to find database information.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         return edd_usage_db
 
-    def parseConfig(self, config_file, first_parse=False):
+    def parse_config(self, config_file, first_parse=False):
         """
         Parse the inputted JSON configuration file
         :param config_file:
@@ -117,13 +117,13 @@ class EODataDownSystemMain(object):
             for sensor in config_data['eodatadown']['sensors']:
                 self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data, ['eodatadown', 'sensors', sensor, 'config'])
                 logger.debug("Getting sensor object: '" + sensor + "'")
-                sensorObj = self.getSensorObj(sensor)
+                sensorObj = self.get_sensor_obj(sensor)
                 logger.debug("Parse sensor config file: '" + sensor + "'")
-                sensorObj.parseSensorConfig(self.sensorConfigFiles[sensor], first_parse)
+                sensorObj.parse_sensor_config(self.sensorConfigFiles[sensor], first_parse)
                 self.sensors.append(sensorObj)
                 logger.debug("Parsed sensor config file: '" + sensor + "'")
 
-    def getSensorObj(self, sensor):
+    def get_sensor_obj(self, sensor):
         """
         Get an instance of an object for the sensor specified.
         :param sensor:
@@ -148,35 +148,35 @@ class EODataDownSystemMain(object):
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensorObj
 
-    def getSensors(self):
+    def get_sensors(self):
         """
         Function which returns the list of sensor objects.
         :return:
         """
         return self.sensors
 
-    def initDBs(self):
+    def init_dbs(self):
         """
         A function which will setup the system data base for each of the sensors.
         Note. this function should only be used to initialing the system.
         :return:
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_eng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(dbEng)
+        Base.metadata.drop_all(db_eng)
 
         logger.debug("Initialise the data usage database.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.initUsageLogDB()
+        edd_usage_db.init_usage_log_db()
 
         logger.debug("Creating System Details Database.")
-        Base.metadata.bind = dbEng
+        Base.metadata.bind = db_eng
         Base.metadata.create_all()
 
         logger.debug("Creating Database Session.")
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        Session = sqlalchemy.orm.sessionmaker(bind=db_eng)
         ses = Session()
 
         logger.debug("Adding System Details to Database.")
@@ -186,6 +186,6 @@ class EODataDownSystemMain(object):
         logger.debug("Committed and closed db session.")
 
         for sensorObj in self.sensors:
-            logger.debug("Initialise Sensor Database: '" + sensorObj.getSensorName() + "'")
-            sensorObj.initSensorDB()
-            logger.debug("Finished initialising the sensor database for '" + sensorObj.getSensorName() + "'")
+            logger.debug("Initialise Sensor Database: '" + sensorObj.get_sensor_name() + "'")
+            sensorObj.init_sensor_db()
+            logger.debug("Finished initialising the sensor database for '" + sensorObj.get_sensor_name() + "'")
