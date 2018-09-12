@@ -101,6 +101,9 @@ class EDDRapideyePlanet(Base):
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 class PlanetImageDownloadReference(object):
+    """
+    This class is to present the http response information.
+    """
 
     def __init__(self):
         self.analytic_img_dwn_url = ""

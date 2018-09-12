@@ -484,7 +484,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         database but have yet to be downloaded.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
+
+        scns2dwnld = []
+        if query_result is not None:
+            for record in query_result:
+                scns2dwnld.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2dwnld
 
     def download_scn(self, unq_id):
         """
@@ -492,7 +506,66 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: returns boolean indicating successful or otherwise download.
         """
-        raise EODataDownException("Not implemented.")
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
+        logger.debug("Import Google storage module and create storage object.")
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.googKeyJSON
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.googProjName
+        from google.cloud import storage
+        storage_client = storage.Client()
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID==unq_id).all()
+        ses.close()
+        success = False
+        if query_result is not None:
+            if len(query_result) == 1:
+                record = query_result[0]
+                logger.debug("Building download info for '" + record.Remote_URL + "'")
+                url_path = record.Remote_URL
+                url_path = url_path.replace("gs://", "")
+                url_path_parts = url_path.split("/")
+                bucket_name = url_path_parts[0]
+                if bucket_name != "gcp-public-data-landsat":
+                    logger.error("Incorrect bucket name '" + bucket_name + "'")
+                    raise EODataDownException(
+                        "The bucket specified in the URL is not the Google Public Landsat Bucket - something has gone wrong.")
+                bucket_prefix = url_path.replace(bucket_name + "/", "")
+                dwnld_out_dirname = url_path_parts[-1]
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
+
+                logger.debug("Get the storage bucket and blob objects.")
+                bucket_obj = storage_client.get_bucket(bucket_name)
+                bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
+                scn_dwnlds_filelst = []
+                for blob in bucket_blobs:
+                    if "$folder$" in blob.name:
+                        continue
+                    scnfilename = blob.name.replace(bucket_prefix + "/", "")
+                    dwnld_file = os.path.join(scn_lcl_dwnld_path, scnfilename)
+                    dwnld_dirpath = os.path.split(dwnld_file)[0]
+                    if not os.path.exists(dwnld_dirpath):
+                        os.makedirs(dwnld_dirpath, exist_ok=True)
+                    scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
+
+                    _download_scn_goog([record.Scene_ID, self.dbInfoObj, self.googKeyJSON, self.googProjName, bucket_name,
+                                     scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                success = True
+            else:
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - soomething has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return success
 
     def download_all_avail(self, n_cores):
         """
@@ -569,7 +642,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         processed to an analysis ready data (ARD) format.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True, EDDLandsatGoogle.ARDProduct == False).all()
+
+        scns2ard = []
+        if query_result is not None:
+            for record in query_result:
+                scns2ard.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2ard
 
     def scn2ard(self, unq_id):
         """
@@ -577,7 +664,67 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be processed.
         :return: returns boolean indicating successful or otherwise processing.
         """
-        raise EODataDownException("Not implemented.")
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
+        ses.close()
+
+        proj_wkt_file = None
+        if self.ardProjDefined:
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+
+        if query_result is not None:
+            if len(query_result) == 1:
+                record = query_result[0]
+                logger.debug("Create the specific output directories for the ARD processing.")
+                dt_obj = datetime.datetime.now()
+
+                work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+                if not os.path.exists(work_ard_path):
+                    os.mkdir(work_ard_path)
+
+                tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+                if not os.path.exists(tmp_ard_path):
+                    os.mkdir(tmp_ard_path)
+
+                logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
+                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
+                if not os.path.exists(final_ard_scn_path):
+                    os.mkdir(final_ard_scn_path)
+
+                work_ard_scn_path = os.path.join(work_ard_path, record.Product_ID)
+                if not os.path.exists(work_ard_scn_path):
+                    os.mkdir(work_ard_scn_path)
+
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Product_ID)
+                if not os.path.exists(tmp_ard_scn_path):
+                    os.mkdir(tmp_ard_scn_path)
+
+                if self.ardProjDefined:
+                    proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
+                    rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
+
+                _process_to_ard([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+            else:
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - soomething has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
 
     def scns2ard_all_avail(self, n_cores):
         """
@@ -663,6 +810,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         but have not yet been loaded into the system datacube (specifed in the configuration file).
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to be loaded.
         """
+        # TODO ADD DataCube Functionality
         raise EODataDownException("Not implemented.")
 
     def scn2datacube(self, unq_id):
@@ -671,6 +819,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be loaded.
         :return: returns boolean indicating successful or otherwise loading into the datacube.
         """
+        # TODO ADD DataCube Functionality
         raise EODataDownException("Not implemented.")
 
     def scns2datacube_all_avail(self):
@@ -678,6 +827,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Queries the database to find all scenes which have been processed to an ARD format but not loaded
         into the datacube and then loads these scenes into the datacube.
         """
+        # TODO ADD DataCube Functionality
         raise EODataDownException("Not implemented.")
 
     def get_scn_record(self, unq_id):
@@ -686,7 +836,28 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param unq_id:
         :return: Returns the database record object
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
+        ses.close()
+        success = False
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                    "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
+                raise EODataDownException(
+                    "There was more than 1 scene which has been found - soomething has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return scn_record
 
     def query_scn_records_date(self, start_date, end_date):
         """
@@ -748,6 +919,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         input database info object.
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
+        # TODO function to export data from DB.
         raise EODataDownException("Not implemented.")
 
     def import_append_db(self, db_info_obj):
@@ -757,4 +929,5 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         on another system (e.g., HPC cluster).
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
+        # TODO function to import data from a DB
         raise EODataDownException("Not implemented.")
