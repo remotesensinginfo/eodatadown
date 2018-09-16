@@ -739,3 +739,10 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
+    def create_gdal_gis_lyr(self, file_path, lyr_name):
+        """
+        A function to export the outlines and some attributes to a GDAL vector layer.
+        :param file_path: path to the output file.
+        :param lyr_name: the name of the layer within the output file.
+        """
+        raise EODataDownException("Not Implemented")

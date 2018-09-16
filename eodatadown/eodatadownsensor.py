@@ -112,3 +112,6 @@ class EODataDownSensor (object):
     @abstractmethod
     def import_append_db(self, db_info_obj): pass
 
+    @abstractmethod
+    def create_gdal_gis_lyr(self, file_path, lyr_name): pass
+

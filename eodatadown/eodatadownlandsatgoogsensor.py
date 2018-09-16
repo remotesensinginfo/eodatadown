@@ -796,10 +796,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Closed the database session.")
 
-        logger.info("Start processing the scenes.")
-        with multiprocessing.Pool(processes=n_cores) as pool:
-            pool.map(_process_to_ard, ard_params)
-        logger.info("Finished processing the scenes.")
+        if len(ard_params) > 0:
+            logger.info("Start processing the scenes.")
+            with multiprocessing.Pool(processes=n_cores) as pool:
+                pool.map(_process_to_ard, ard_params)
+            logger.info("Finished processing the scenes.")
 
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName, updated_lcl_db=True, convert_scns_ard=True)
@@ -931,3 +932,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         # TODO function to import data from a DB
         raise EODataDownException("Not implemented.")
+
+    def create_gdal_gis_lyr(self, file_path, lyr_name):
+        """
+        A function to export the outlines and some attributes to a GDAL vector layer.
+        :param file_path: path to the output file.
+        :param lyr_name: the name of the layer within the output file.
+        """
+        raise EODataDownException("Not Implemented")

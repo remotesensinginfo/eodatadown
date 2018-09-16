@@ -39,6 +39,7 @@ from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSens
 from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESASensor
 from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
 from eodatadown.eodatadownjaxasartiles import EODataDownJAXASARTileSensor
+from eodatadown.eodatadownotherdataset import EODataDownGenericDatasetSensor
 
 import logging
 import json
@@ -144,6 +145,8 @@ class EODataDownSystemMain(object):
             sensorObj = EODataDownRapideyeSensor(self.dbInfoObj)
         elif sensor == "JAXASARTiles":
             sensorObj = EODataDownJAXASARTileSensor(self.dbInfoObj)
+        elif sensor == "GenericDataset":
+            sensorObj = EODataDownGenericDatasetSensor(self.dbInfoObj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensorObj

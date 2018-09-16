@@ -15,9 +15,9 @@
         },
         "sensors":
         {
-            "JAXASARTiles":
+            "GenericDataset":
             {
-                "config":"/Users/pete/Temp/EODataDown/Sensors/JAXAPALSARTiles.json"
+                "config":"/Users/pete/Temp/EODataDown/Sensors/OtherSensor_CanopyCover.json"
             }
         }
     }
