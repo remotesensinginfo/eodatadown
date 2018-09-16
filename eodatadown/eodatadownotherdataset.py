@@ -39,7 +39,9 @@ import datetime
 import multiprocessing
 import shutil
 import rsgislib
-from osgeo.gdal import osr
+from osgeo import osr
+from osgeo import ogr
+from osgeo import gdal
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -569,10 +571,100 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def create_gdal_gis_lyr(self, file_path, lyr_name):
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False):
         """
         A function to export the outlines and some attributes to a GDAL vector layer.
         :param file_path: path to the output file.
         :param lyr_name: the name of the layer within the output file.
+        :param driver_name: name of the gdal driver
+        :param add_lyr: add the layer to the file
         """
-        raise EODataDownException("Not Implemented")
+        try:
+            gdal.UseExceptions()
+
+            vec_osr = osr.SpatialReference()
+            vec_osr.ImportFromEPSG(4326)
+
+            driver = ogr.GetDriverByName(driver_name)
+            if os.path.exists(file_path) and add_lyr:
+                out_data_source = gdal.OpenEx(file_path, gdal.OF_UPDATE)
+            elif os.path.exists(file_path):
+                driver.DeleteDataSource(file_path)
+                out_data_source = driver.CreateDataSource(file_path)
+            else:
+                out_data_source = driver.CreateDataSource(file_path)
+
+            out_vec_lyr = out_data_source.GetLayerByName(lyr_name)
+            if out_vec_lyr is None:
+                out_vec_lyr = out_data_source.CreateLayer(lyr_name, srs=vec_osr, geom_type=ogr.wkbPolygon )
+
+            basename_field_defn = ogr.FieldDefn("BaseName", ogr.OFTString)
+            basename_field_defn.SetWidth(128)
+            if out_vec_lyr.CreateField(basename_field_defn) != 0:
+                raise EODataDownException("Could not create 'BaseName' field in output vector lyr.")
+
+            sensor_field_defn = ogr.FieldDefn("Sensor", ogr.OFTString)
+            sensor_field_defn.SetWidth(128)
+            if out_vec_lyr.CreateField(sensor_field_defn) != 0:
+                raise EODataDownException("Could not create 'Sensor' field in output vector lyr.")
+
+            source_field_defn = ogr.FieldDefn("Source", ogr.OFTString)
+            source_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(source_field_defn) != 0:
+                raise EODataDownException("Could not create 'Source' field in output vector lyr.")
+
+            date_field_defn = ogr.FieldDefn("Date", ogr.OFTString)
+            date_field_defn.SetWidth(32)
+            if out_vec_lyr.CreateField(date_field_defn) != 0:
+                raise EODataDownException("Could not create 'Date' field in output vector lyr.")
+
+            down_file_field_defn = ogr.FieldDefn("DownFile", ogr.OFTString)
+            down_file_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(down_file_field_defn) != 0:
+                raise EODataDownException("Could not create 'DownFile' field in output vector lyr.")
+
+            ard_file_field_defn = ogr.FieldDefn("ARDFile", ogr.OFTString)
+            ard_file_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(ard_file_field_defn) != 0:
+                raise EODataDownException("Could not create 'ARDFile' field in output vector lyr.")
+
+            # Get the output Layer's Feature Definition
+            feature_defn = out_vec_lyr.GetLayerDefn()
+
+            logger.debug("Creating Database Engine and Session.")
+            dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+            Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+            ses = Session()
+
+            query_obj = sqlalchemy.select([self.generic_table])
+            query_rtn = ses.execute(query_obj).fetchall()
+
+            if len(query_rtn) > 0:
+                for record in query_rtn:
+                    ring = ogr.Geometry(ogr.wkbLinearRing)
+                    ring.AddPoint(record.West_Lon, record.North_Lat)
+                    ring.AddPoint(record.East_Lon, record.North_Lat)
+                    ring.AddPoint(record.East_Lon, record.South_Lat)
+                    ring.AddPoint(record.West_Lon, record.South_Lat)
+                    ring.AddPoint(record.West_Lon, record.North_Lat)
+                    # Create polygon.
+                    poly = ogr.Geometry(ogr.wkbPolygon)
+                    poly.AddGeometry(ring)
+                    # Add to output shapefile.
+                    out_feat = ogr.Feature(feature_defn)
+                    out_feat.SetField("BaseName", record.Base_Name)
+                    out_feat.SetField("Sensor", record.Sensor)
+                    out_feat.SetField("Source", record.Source)
+                    out_feat.SetField("Date", record.Source_Date.strftime('%Y-%m-%d'))
+                    out_feat.SetField("DownFile", record.Download_Path)
+                    if record.ARDProduct:
+                        out_feat.SetField("ARDFile", record.ARDProduct_Path)
+                    else:
+                        out_feat.SetField("ARDFile", "")
+                    out_feat.SetGeometry(poly)
+                    out_vec_lyr.CreateFeature(out_feat)
+                    out_feat = None
+            out_vec_lyr = None
+            out_data_source = None
+        except Exception as e:
+            raise e

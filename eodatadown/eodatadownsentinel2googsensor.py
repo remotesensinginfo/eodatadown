@@ -191,6 +191,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         EODataDownSensor.__init__(self, db_info_obj)
         self.sensorName = "Sentinel2GOOG"
+        self.dbTabName = "EDDSentinel2Google"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -645,10 +646,12 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def create_gdal_gis_lyr(self, file_path, lyr_name):
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False):
         """
         A function to export the outlines and some attributes to a GDAL vector layer.
         :param file_path: path to the output file.
         :param lyr_name: the name of the layer within the output file.
+        :param driver_name: name of the gdal driver
+        :param add_lyr: add the layer to the file
         """
         raise EODataDownException("Not Implemented")

@@ -55,7 +55,6 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
-
 class EDDSentinel1ESA(Base):
     __tablename__ = "EDDSentinel1ESA"
 
@@ -158,6 +157,7 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         """
         EODataDownSensor.__init__(self, db_info_obj)
         self.sensorName = "Sentinel1ESA"
+        self.dbTabName = "EDDSentinel1ESA"
         self.base_api_url = "https://scihub.copernicus.eu/apihub/"
 
     def parse_sensor_config(self, config_file, first_parse=False):
@@ -739,10 +739,12 @@ class EODataDownSentinel1ESASensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def create_gdal_gis_lyr(self, file_path, lyr_name):
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False):
         """
         A function to export the outlines and some attributes to a GDAL vector layer.
         :param file_path: path to the output file.
         :param lyr_name: the name of the layer within the output file.
+        :param driver_name: name of the gdal driver
+        :param add_lyr: add the layer to the file
         """
         raise EODataDownException("Not Implemented")

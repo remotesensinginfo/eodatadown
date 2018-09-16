@@ -516,6 +516,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         EODataDownSensor.__init__(self, db_info_obj)
         self.sensorName = "JAXASARTiles"
+        self.dbTabName = "EDDJAXASARTiles"
         self.avail_years = [1996, 2007, 2008, 2009, 2010, 2015, 2016, 2017]
         self.jaxa_ftp = "ftp.eorc.jaxa.jp"
         self.ftp_paths = dict()
@@ -955,10 +956,12 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def create_gdal_gis_lyr(self, file_path, lyr_name):
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False):
         """
         A function to export the outlines and some attributes to a GDAL vector layer.
         :param file_path: path to the output file.
         :param lyr_name: the name of the layer within the output file.
+        :param driver_name: name of the gdal driver
+        :param add_lyr: add the layer to the file
         """
         raise EODataDownException("Not Implemented")

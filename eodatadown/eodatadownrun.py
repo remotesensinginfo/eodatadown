@@ -160,3 +160,35 @@ class EODataDownRun(object):
                 logger.debug("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
                 logger.debug(e.__str__(), exc_info=True)
         edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
+
+    def export_image_footprints_vector(self, config_file, sensor, table, vector_file, vector_lyr, vector_driver, add_layer):
+        """
+
+        :param config_file:
+        :param sensor:
+        :param vector_file:
+        :param vector_lyr:
+        :param vector_driver:
+        :param add_layer:
+        """
+        if not self.parsedConfig:
+            self.sysMainObj.parse_config(config_file)
+            self.parsedConfig = True
+            logger.debug("Parsed the system configuration.")
+
+        edd_usage_db = self.sysMainObj.get_usage_db_obj()
+        edd_usage_db.addEntry("Starting: Export vector footprints.", start_block=True)
+
+        sensor_objs = self.sysMainObj.get_sensors()
+        for sensor_obj in sensor_objs:
+            if sensor_obj.get_sensor_name() == sensor:
+                if (table == "") or (table is None) or (sensor_obj.get_db_table_name() == table):
+                    try:
+                        logger.info("Exporting footprints for {}.".format(sensor))
+                        sensor_obj.create_gdal_gis_lyr(vector_file, vector_lyr, vector_driver, add_layer)
+                        logger.info("Exported footprints for {}.".format(sensor))
+                    except Exception as e:
+                        logger.debug("Error occurred while Export vector footprints for sensor: " + sensor_obj.get_sensor_name())
+                        logger.debug(e.__str__(), exc_info=True)
+                    break
+        edd_usage_db.addEntry("Finished: Export vector footprints.", end_block=True)

@@ -43,6 +43,7 @@ class EODataDownSensor (object):
 
     def __init__(self, db_info_obj):
         self.sensorName = "AbstractBase"
+        self.dbTabName = "AbstractTableName"
         self.dbInfoObj = db_info_obj
 
     def get_sensor_name(self):
@@ -51,6 +52,13 @@ class EODataDownSensor (object):
         :return: string
         """
         return self.sensorName
+
+    def get_db_table_name(self):
+        """
+        Gets the
+        :return:
+        """
+        return self.dbTabName
 
     @abstractmethod
     def parse_sensor_config(self, config_file, first_parse=False): pass
@@ -113,5 +121,4 @@ class EODataDownSensor (object):
     def import_append_db(self, db_info_obj): pass
 
     @abstractmethod
-    def create_gdal_gis_lyr(self, file_path, lyr_name): pass
-
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False): pass
