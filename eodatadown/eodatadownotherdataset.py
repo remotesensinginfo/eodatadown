@@ -628,6 +628,22 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
             if out_vec_lyr.CreateField(ard_file_field_defn) != 0:
                 raise EODataDownException("Could not create 'ARDFile' field in output vector lyr.")
 
+            north_field_defn = ogr.FieldDefn("North_Lat", ogr.OFTReal)
+            if out_vec_lyr.CreateField(north_field_defn) != 0:
+                raise EODataDownException("Could not create 'North_Lat' field in output vector lyr.")
+
+            south_field_defn = ogr.FieldDefn("South_Lat", ogr.OFTReal)
+            if out_vec_lyr.CreateField(south_field_defn) != 0:
+                raise EODataDownException("Could not create 'South_Lat' field in output vector lyr.")
+
+            east_field_defn = ogr.FieldDefn("East_Lon", ogr.OFTReal)
+            if out_vec_lyr.CreateField(east_field_defn) != 0:
+                raise EODataDownException("Could not create 'East_Lon' field in output vector lyr.")
+
+            west_field_defn = ogr.FieldDefn("West_Lon", ogr.OFTReal)
+            if out_vec_lyr.CreateField(west_field_defn) != 0:
+                raise EODataDownException("Could not create 'West_Lon' field in output vector lyr.")
+
             # Get the output Layer's Feature Definition
             feature_defn = out_vec_lyr.GetLayerDefn()
 
@@ -641,29 +657,30 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
 
             if len(query_rtn) > 0:
                 for record in query_rtn:
-                    ring = ogr.Geometry(ogr.wkbLinearRing)
-                    ring.AddPoint(record.West_Lon, record.North_Lat)
-                    ring.AddPoint(record.East_Lon, record.North_Lat)
-                    ring.AddPoint(record.East_Lon, record.South_Lat)
-                    ring.AddPoint(record.West_Lon, record.South_Lat)
-                    ring.AddPoint(record.West_Lon, record.North_Lat)
-                    # Create polygon.
-                    poly = ogr.Geometry(ogr.wkbPolygon)
-                    poly.AddGeometry(ring)
-                    # Add to output shapefile.
-                    out_feat = ogr.Feature(feature_defn)
-                    out_feat.SetField("BaseName", record.Base_Name)
-                    out_feat.SetField("Sensor", record.Sensor)
-                    out_feat.SetField("Source", record.Source)
-                    out_feat.SetField("Date", record.Source_Date.strftime('%Y-%m-%d'))
-                    out_feat.SetField("DownFile", record.Download_Path)
-                    if record.ARDProduct:
-                        out_feat.SetField("ARDFile", record.ARDProduct_Path)
-                    else:
-                        out_feat.SetField("ARDFile", "")
-                    out_feat.SetGeometry(poly)
-                    out_vec_lyr.CreateFeature(out_feat)
-                    out_feat = None
+                    geoBBOX = eodatadown.eodatadownutils.EDDGeoBBox()
+                    geoBBOX.setBBOX(record.North_Lat, record.South_Lat, record.West_Lon, record.East_Lon)
+                    bboxs = geoBBOX.getGeoBBoxsCut4LatLonBounds()
+
+                    for bbox in bboxs:
+                        poly = bbox.getOGRPolygon()
+                        # Add to output shapefile.
+                        out_feat = ogr.Feature(feature_defn)
+                        out_feat.SetField("BaseName", record.Base_Name)
+                        out_feat.SetField("Sensor", record.Sensor)
+                        out_feat.SetField("Source", record.Source)
+                        out_feat.SetField("Date", record.Source_Date.strftime('%Y-%m-%d'))
+                        out_feat.SetField("DownFile", record.Download_Path)
+                        if record.ARDProduct:
+                            out_feat.SetField("ARDFile", record.ARDProduct_Path)
+                        else:
+                            out_feat.SetField("ARDFile", "")
+                        out_feat.SetField("North_Lat", record.North_Lat)
+                        out_feat.SetField("South_Lat", record.South_Lat)
+                        out_feat.SetField("East_Lon", record.East_Lon)
+                        out_feat.SetField("West_Lon", record.West_Lon)
+                        out_feat.SetGeometry(poly)
+                        out_vec_lyr.CreateFeature(out_feat)
+                        out_feat = None
             out_vec_lyr = None
             out_data_source = None
         except Exception as e:

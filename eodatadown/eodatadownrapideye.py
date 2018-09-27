@@ -393,16 +393,11 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                         grid_cell = json_parse_helper.getStrValue(record, ["properties", "grid_cell"])
                         item_type = json_parse_helper.getStrValue(record, ["properties", "item_type"])
                         provider = json_parse_helper.getStrValue(record, ["properties", "provider"])
-                        acquired_str = json_parse_helper.getStrValue(record, ["properties", "acquired"]).replace('Z',
-                                                                                                                 '')[
-                                       :-1]
+                        acquired_str = json_parse_helper.getStrValue(record, ["properties", "acquired"]).replace('Z','')[:-1]
                         acquired = datetime.datetime.strptime(acquired_str, "%Y-%m-%dT%H:%M:%S")
-                        published_str = json_parse_helper.getStrValue(record, ["properties", "published"]).replace('Z',
-                                                                                                                   '')[
-                                        :-1]
+                        published_str = json_parse_helper.getStrValue(record, ["properties", "published"]).replace('Z','')[:-1]
                         published = datetime.datetime.strptime(published_str, "%Y-%m-%dT%H:%M:%S")
-                        updated_str = json_parse_helper.getStrValue(record, ["properties", "updated"]).replace('Z', '')[
-                                      :-1]
+                        updated_str = json_parse_helper.getStrValue(record, ["properties", "updated"]).replace('Z', '')[:-1]
                         updated = datetime.datetime.strptime(updated_str, "%Y-%m-%dT%H:%M:%S")
                         anomalous_pixels = json_parse_helper.getNumericValue(record, ["properties", "anomalous_pixels"])
                         black_fill = json_parse_helper.getNumericValue(record, ["properties", "black_fill"])

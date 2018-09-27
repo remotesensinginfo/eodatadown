@@ -152,6 +152,19 @@ class EODataDownUtils(object):
         logger.debug("Executed tar (gz) data extraction.")
         os.chdir(cwd)
 
+    def isNumber(self, str_val):
+        """
+        A function which tests whether the input string contains a number of not.
+        """
+        try:
+            float(str_val)  # for int, long and float
+        except ValueError:
+            try:
+                complex(str_val)  # for complex
+            except ValueError:
+                return False
+        return True
+
 
 class EODataDownDatabaseInfo(object):
 
@@ -594,6 +607,69 @@ class EDDGeoBBox(object):
         """
         return self.east_lon
 
+    def getGeoBBoxsCut4LatLonBounds(self, thres=90):
+        """
+        Where the polygons go over the boundary and therefore looping around the world the wrong way (i.e., creating
+        a large polygon).
+        :param thres: the threshold over which to define a 'large' polygon.
+        :return: a list of EDDGeoBBox objects (must have at least 1).
+        """
+        # Does East / West cross -180/180 border.
+        cut_east_west = False
+        cut_east_west_lgr_poly = False
+        if (self.east_lon - self.west_lon) > thres:
+            cut_east_west = True
+            cut_east_west_lgr_poly = True
+
+        # Does North/South cross -90/90 border.
+        cut_north_south = False
+        cut_north_south_lgr_poly = False
+        if (self.north_lat - self.south_lat) > thres:
+            cut_north_south = True
+            cut_north_south_lgr_poly = True
+
+        out_bboxs = []
+        if cut_east_west or cut_north_south:
+            out_tmp_bboxs = []
+            if cut_east_west_lgr_poly:
+                geoBBOXWest = EDDGeoBBox()
+                geoBBOXWest.setBBOX(self.north_lat, self.south_lat, -180, self.west_lon)
+                out_tmp_bboxs.append(geoBBOXWest)
+                geoBBOXEast = EDDGeoBBox()
+                geoBBOXEast.setBBOX(self.north_lat, self.south_lat, self.east_lon, 180)
+                out_tmp_bboxs.append(geoBBOXEast)
+            if cut_north_south_lgr_poly:
+                for tmpBBOX in out_tmp_bboxs:
+                    geoBBOXSouth = EDDGeoBBox()
+                    geoBBOXSouth.setBBOX(90, self.north_lat, tmpBBOX.west_lon, tmpBBOX.east_lon)
+                    out_bboxs.append(geoBBOXSouth)
+                    geoBBOXNorth = EDDGeoBBox()
+                    geoBBOXNorth.setBBOX(self.south_lat, -90, tmpBBOX.west_lon, tmpBBOX.east_lon)
+                    out_bboxs.append(geoBBOXNorth)
+            else:
+                out_bboxs = out_tmp_bboxs
+        else:
+            out_bboxs.append(self)
+
+        return out_bboxs
+
+    def getOGRPolygon(self):
+        """
+        Create an OGR polygon object.
+        :return: OGR Polygon.
+        """
+        import osgeo.ogr as ogr
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(self.west_lon, self.north_lat)
+        ring.AddPoint(self.east_lon, self.north_lat)
+        ring.AddPoint(self.east_lon, self.south_lat)
+        ring.AddPoint(self.west_lon, self.south_lat)
+        ring.AddPoint(self.west_lon, self.north_lat)
+        # Create polygon.
+        poly = ogr.Geometry(ogr.wkbPolygon)
+        poly.AddGeometry(ring)
+        return poly
+
     def getWKTPolygon(self):
         """
         Get the bounding bbox represented as a polygon as a WKT string.
@@ -610,7 +686,10 @@ class EDDGeoBBox(object):
         :param wkt_poly:
         :return:
         """
-        wkt_poly = wkt_poly.replace("POLYGON ((", "").replace("))", "")
+        wkt_poly = wkt_poly.upper()
+        wkt_poly = wkt_poly.replace("POLYGON ((", "")
+        wkt_poly = wkt_poly.replace("POLYGON((", "")
+        wkt_poly = wkt_poly.replace("))", "")
         pts = wkt_poly.split(",")
         min_lon = 0.0
         max_lon = 0.0
@@ -705,6 +784,18 @@ class EDDGeoBBox(object):
         self.south_lat = min_lat
         self.west_lon = min_lon
         self.east_lon = max_lon
+
+    def getCSVPolygon(self):
+        """
+        Get the bounding bbox represented as a polygon as a CSV string.
+        :return:
+        """
+        csv_str = str(self.west_lon) + "," + str(self.north_lat) + "," + \
+                  str(self.east_lon) + "," + str(self.north_lat) + "," + \
+                  str(self.east_lon) + "," + str(self.south_lat) + "," + \
+                  str(self.west_lon) + "," + str(self.south_lat) + "," + \
+                  str(self.west_lon) + "," + str(self.north_lat)
+        return csv_str
 
 
 class EDDHTTPDownload(object):
@@ -885,6 +976,89 @@ class EDDHTTPDownload(object):
         else:
             logger.info("MD5 did not match: ".format(temp_dwnld_path))
         return False
+
+    def downloadFileNoMD5Continue(self, input_url, out_file_path, username, password, exp_file_size, check_file_size_exists=True, continue_download=True):
+        """
+
+        :param input_url:
+        :param out_file_path:
+        :param username:
+        :param password:
+        :param exp_file_size:
+        :param continue_download:
+        :return:
+        """
+        if os.path.exists(out_file_path):
+            logger.debug("Output file is already present")
+            if check_file_size_exists:
+                logger.debug("Checking file size")
+                file_size = os.path.getsize(out_file_path)
+                if file_size == exp_file_size:
+                    logger.info("The output file already exists and the file size matched so not downloading: {}".format(out_file_path))
+                    return True
+                else:
+                    logger.debug("The file exists and the file size did not match so deleting ready for download.")
+                    os.remove(out_file_path)
+            else:
+                logger.debug("The file exists so deleting ready for download.")
+                os.remove(out_file_path)
+
+
+        logger.debug("Creating HTTP Session Object.")
+        session = requests.Session()
+        session.auth = (username, password)
+        user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
+        session.headers["User-Agent"] = user_agent
+
+        temp_dwnld_path = out_file_path + '.incomplete'
+        needs_downloading = True
+        if os.path.exists(temp_dwnld_path) and continue_download:
+            if os.path.getsize(temp_dwnld_path) > exp_file_size:
+                os.remove(temp_dwnld_path)
+                needs_downloading = True
+                logger.debug("There was an existing file but too large removed and starting download again: " + out_file_path)
+            else:
+                logger.debug("There was an existing temp file which was incomplete so will try to continue from where is was: " + out_file_path)
+                needs_downloading = True
+
+        if needs_downloading:
+            continuing_download = False
+            headers = {}
+            downloaded_bytes = 0
+            if os.path.exists(temp_dwnld_path):
+                continuing_download = True
+                logger.debug("Continuing the Download")
+                downloaded_bytes = os.path.getsize(temp_dwnld_path)
+                headers = {'Range': 'bytes={}-'.format(downloaded_bytes)}
+
+            usr_update_step = exp_file_size/10
+            next_update = downloaded_bytes
+            usr_step_feedback = round((downloaded_bytes/exp_file_size)*100, 0)
+
+            with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
+                self.checkResponse(r, input_url)
+                chunk_size = 2 ** 20
+                if continuing_download:
+                    mode = 'ab'
+                else:
+                    mode = 'wb'
+                with open(temp_dwnld_path, mode) as f:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if chunk:  # filter out keep-alive new chunks
+                            f.write(chunk)
+                            downloaded_bytes = downloaded_bytes + len(chunk)
+
+                            if downloaded_bytes > next_update:
+                                usr_step_feedback = round((downloaded_bytes / exp_file_size) * 100, 0)
+                                logger.info("Downloaded {} % of {}".format(usr_step_feedback, temp_dwnld_path))
+                                next_update = next_update + usr_update_step
+            logger.info("Download Complete: ".format(temp_dwnld_path))
+            if os.path.getsize(temp_dwnld_path) >= exp_file_size:
+                logger.info("File size is at least as big as expected: ".format(out_file_path))
+                os.rename(temp_dwnld_path, out_file_path)
+                logger.info("Renamed download: ".format(out_file_path))
+                return True
+            return False
 
 
 class EODDFTPDownload(object):

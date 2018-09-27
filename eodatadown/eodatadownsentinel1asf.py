@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-EODataDown - a sensor class for Sentinel-1 data downloaded from ESA.
+EODataDown - a sensor class for Sentinel-1 data downloaded from Alaska Satellite Facility (AFS).
 """
 # This file is part of 'EODataDown'
 # A tool for automating Earth Observation Data Downloading.
@@ -27,7 +27,7 @@ EODataDown - a sensor class for Sentinel-1 data downloaded from ESA.
 #
 # Author: Pete Bunting
 # Email: pfb@aber.ac.uk
-# Date: 11/08/2018
+# Date: 23/09/2018
 # Version: 1.0
 #
 # History:
@@ -55,38 +55,38 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
-class EDDSentinel1ESA(Base):
-    __tablename__ = "EDDSentinel1ESA"
+class EDDSentinel1ASF(Base):
+    __tablename__ = "EDDSentinel1ASF"
 
     PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
-    UUID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    Identifier = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    FileName = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    FileFormat = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    InstrumentShortName = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    InstrumentName = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    MissionDataTakeID = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    OrbitNumber = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    LastOrbitNumber = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    RelativeOrbitNumber = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    LastRelativeOrbitNumber = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    SliceNumber = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
-    SensorOperationalMode = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    SwathIdentifier = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    PlatformIdentifier = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    OrbitDirection = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    PolarisationMode = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    ProductClass = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    ProductType = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    PlatformName = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    IngestionDate = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
-    BeginPosition = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
+    Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Product_Name = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Product_File_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    ABS_Orbit = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    Rel_Orbit = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    Doppler = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    Flight_Direction = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Granule_Name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Granule_Type = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Incidence_Angle = sqlalchemy.Column(sqlalchemy.Float, nullable=True)
+    Look_Direction = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Platform = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Polarization = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Process_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    Process_Description = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Process_Level = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Process_Type = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Process_Type_Disp = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Acquisition_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    Sensor = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    BeginPosition = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     EndPosition = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     North_Lat = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     South_Lat = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     East_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     West_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     Remote_URL = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Remote_FileName = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Remote_URL_MD5 = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Total_Size = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
@@ -104,26 +104,38 @@ class EDDSentinel1ESA(Base):
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
-def _download_scn_esa(params):
+def _download_scn_asf(params):
     """
     Function which is used with multiprocessing pool object for downloading landsat data from Google.
     :param params:
     :return:
     """
-    uuid = params[0]
+    product_file_id = params[0]
     remote_url = params[1]
-    remote_url_md5 = params[2]
-    remote_filesize = params[3]
-    dbInfoObj = params[4]
-    scn_lcl_dwnld_path = params[5]
-    esa_user = params[6]
-    esa_pass = params[7]
-    continue_downloads = params[8]
+    total_file_size_mb = params[2]
+    check_file_size = True
+    if total_file_size_mb is not None:
+        total_file_size = total_file_size_mb * 1000000
+    else:
+        total_file_size = 0
+        check_file_size = False
 
+    dbInfoObj = params[3]
+    scn_lcl_dwnld_path = params[4]
+    asf_user = params[5]
+    asf_pass = params[6]
+    continue_downloads = params[7]
+    success = False
+
+    print(remote_url)
+    """
     eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
 
     start_date = datetime.datetime.now()
-    success = eodd_http_downloader.downloadFileContinue(remote_url, remote_url_md5, scn_lcl_dwnld_path, esa_user, esa_pass, remote_filesize, continue_downloads)
+    try:
+        success = eodd_http_downloader.downloadFileNoMD5Continue(remote_url, scn_lcl_dwnld_path, asf_user, asf_pass, total_file_size, check_file_size, continue_downloads)
+    except Exception as e:
+        logger.error("An error has occured while downloading from ASF: '{}'".format(e))
     end_date = datetime.datetime.now()
 
     if success and os.path.exists(scn_lcl_dwnld_path):
@@ -131,9 +143,9 @@ def _download_scn_esa(params):
         dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
         ses = Session()
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid).one_or_none()
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Product_File_ID == product_file_id).one_or_none()
         if query_result is None:
-            logger.error("Could not find the scene within local database: " + uuid)
+            logger.error("Could not find the scene within local database: " + product_file_id)
         query_result.Downloaded = True
         query_result.Download_Start_Date = start_date
         query_result.Download_End_Date = end_date
@@ -143,9 +155,9 @@ def _download_scn_esa(params):
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
         logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
+    """
 
-
-class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
+class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
     """
     An class which represents a the Sentinel-1 sensor being downloaded from ESA Copernicus Open Access Hub.
     """
@@ -156,9 +168,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "Sentinel1ESA"
-        self.dbTabName = "EDDSentinel1ESA"
-        self.base_api_url = "https://scihub.copernicus.eu/apihub/"
+        self.sensorName = "Sentinel1ASF"
+        self.dbTabName = "EDDSentinel1ASF"
+        self.base_api_url = "https://api.daac.asf.alaska.edu/services/search/param"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -181,9 +193,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-            logger.debug("Testing config file is for 'Sentinel1ESA'")
+            logger.debug("Testing config file is for 'Sentinel1ASF'")
             json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
-            logger.debug("Have the correct config file for 'Sentinel1ESA'")
+            logger.debug("Have the correct config file for 'Sentinel1ASF'")
 
             logger.debug("Find ARD processing params from config file")
             self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "dem"])
@@ -233,12 +245,12 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                                                                 "%Y-%m-%d")
             logger.debug("Found search params from config file")
 
-            logger.debug("Find ESA Account params from config file")
+            logger.debug("Find ASF Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
-            self.esaUser = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "esaaccount", "user"])
-            self.esaPass = edd_pass_encoder.unencodePassword(
-                json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "esaaccount", "pass"]))
-            logger.debug("Found ESA Account params from config file")
+            self.asfUser = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "user"])
+            #self.asfPass = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "pass"]))
+            self.asfPass = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "pass"])
+            logger.debug("Found ASF Account params from config file")
 
     def init_sensor_db(self):
         """
@@ -252,20 +264,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         logger.debug("Drop system table if within the existing database.")
         Base.metadata.drop_all(dbEng)
 
-        logger.debug("Creating Sentinel1ESA Database.")
+        logger.debug("Creating Sentinel1ASF Database.")
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
-
-    def create_query_url(self, base_url, start_offset=0, n_rows=100):
-        """
-        Create the URL being used to undertake the query on the ESA server.
-        :param base_url: the base server url (i.e., "https://scihub.copernicus.eu/apihub/")
-        :param start_offset: the offset in the number of scenes to step through 'pages'
-        :param n_rows: the maximum number of scenes (rows) to be returned as a 'page'.
-        :return: a string with the URL.
-        """
-        urloptions = "search?format=json&rows={0}&start={1}".format(n_rows, start_offset)
-        return base_url+urloptions
 
     def check_http_response(self, response, url):
         """
@@ -293,121 +294,6 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             raise api_error
         return success
 
-    def parse_json_response(self, rsp_json, sesobj, n_records):
-        """
-        Parse the JSON response and populate the local database with the scenes found in the response.
-        :param rsp_json: the JSON from the http response.
-        :param sesobj: A database session object.
-        """
-
-        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-        db_records = []
-        entryLst = []
-        if n_records == 1:
-            entryLst.append(rsp_json['entry'])
-        else:
-            entryLst = rsp_json['entry']
-
-        for entry in entryLst:
-            found, uuid_val = json_parse_helper.findStringValueESALst(entry["str"], "uuid")
-            if not found:
-                raise EODataDownException("Could not find uuid for {}".format(entry['title']))
-            found, identifier_val = json_parse_helper.findStringValueESALst(entry["str"], "identifier")
-            if not found:
-                raise EODataDownException("Could not find identifier for {}".format(entry['title']))
-            found, filename_val = json_parse_helper.findStringValueESALst(entry["str"], "filename")
-            if not found:
-                raise EODataDownException("Could not find filename for {}".format(entry['title']))
-            found, fileformat_val = json_parse_helper.findStringValueESALst(entry["str"], "fileformat")
-            found, instrumentshortname_val = json_parse_helper.findStringValueESALst(entry["str"], "instrumentshortname")
-            found, instrumentname_val = json_parse_helper.findStringValueESALst(entry["str"], "instrumentname")
-            found, missiondatatakeid_val = json_parse_helper.findIntegerValueESALst(entry["int"], "missiondatatakeid")
-            found, orbitnumber_val = json_parse_helper.findIntegerValueESALst(entry["int"], "orbitnumber")
-            found, lastorbitnumber_val = json_parse_helper.findIntegerValueESALst(entry["int"], "lastorbitnumber")
-            found, relativeorbitnumber_val = json_parse_helper.findIntegerValueESALst(entry["int"], "relativeorbitnumber")
-            found, lastrelativeorbitnumber_val = json_parse_helper.findIntegerValueESALst(entry["int"], "lastrelativeorbitnumber")
-            found, slicenumber_val = json_parse_helper.findIntegerValueESALst(entry["int"], "slicenumber")
-
-            found, sensoroperationalmode_val = json_parse_helper.findStringValueESALst(entry["str"], "sensoroperationalmode")
-            found, swathidentifier_val = json_parse_helper.findStringValueESALst(entry["str"], "swathidentifier")
-            found, platformidentifier_val = json_parse_helper.findStringValueESALst(entry["str"], "platformidentifier")
-            found, orbitdirection_val = json_parse_helper.findStringValueESALst(entry["str"], "orbitdirection")
-            found, polarisationmode_val = json_parse_helper.findStringValueESALst(entry["str"], "polarisationmode")
-            found, productclass_val = json_parse_helper.findStringValueESALst(entry["str"], "productclass")
-            found, producttype_val = json_parse_helper.findStringValueESALst(entry["str"], "producttype")
-            found, platformname_val = json_parse_helper.findStringValueESALst(entry["str"], "platformname")
-            found, ingestiondate_str_val = json_parse_helper.findStringValueESALst(entry["date"], "ingestiondate")
-            if found:
-                ingestiondate_str_val = ingestiondate_str_val.replace('Z', '')[:-1]
-                if ingestiondate_str_val.count(".") == 1:
-                    if ingestiondate_str_val.split(".")[1] == "":
-                        ingestiondate_str_val = ingestiondate_str_val.split(".")[0]
-                        ingestiondate_date_val = datetime.datetime.strptime(ingestiondate_str_val, "%Y-%m-%dT%H:%M:%S")
-                    else:
-                        ingestiondate_date_val = datetime.datetime.strptime(ingestiondate_str_val, "%Y-%m-%dT%H:%M:%S.%f")
-                else:
-                    ingestiondate_date_val = datetime.datetime.strptime(ingestiondate_str_val, "%Y-%m-%dT%H:%M:%S")
-            else:
-                raise EODataDownException("Could not find ingestiondate for {}".format(entry['title']))
-            found, beginposition_str_val = json_parse_helper.findStringValueESALst(entry["date"], "beginposition")
-            if found:
-                beginposition_str_val = beginposition_str_val.replace('Z', '')[:-1]
-                if beginposition_str_val.count(".") == 1:
-                    if beginposition_str_val.split(".")[1] == "":
-                        beginposition_str_val = beginposition_str_val.split(".")[0]
-                        beginposition_date_val = datetime.datetime.strptime(beginposition_str_val, "%Y-%m-%dT%H:%M:%S")
-                    else:
-                        beginposition_date_val = datetime.datetime.strptime(beginposition_str_val, "%Y-%m-%dT%H:%M:%S.%f")
-                else:
-                    beginposition_date_val = datetime.datetime.strptime(beginposition_str_val, "%Y-%m-%dT%H:%M:%S")
-            else:
-                raise EODataDownException("Could not find beginposition for {}".format(entry['title']))
-            found, endposition_str_val = json_parse_helper.findStringValueESALst(entry["date"], "endposition")
-            if found:
-                endposition_str_val = endposition_str_val.replace('Z', '')[:-1]
-                if endposition_str_val.count(".") == 1:
-                    if endposition_str_val.split(".")[1] == "":
-                        endposition_str_val = endposition_str_val.split(".")[0]
-                        endposition_date_val = datetime.datetime.strptime(endposition_str_val, "%Y-%m-%dT%H:%M:%S")
-                    else:
-                        endposition_date_val = datetime.datetime.strptime(endposition_str_val, "%Y-%m-%dT%H:%M:%S.%f")
-                else:
-                    endposition_date_val = datetime.datetime.strptime(endposition_str_val, "%Y-%m-%dT%H:%M:%S")
-            else:
-                raise EODataDownException("Could not find endposition for {}".format(entry['title']))
-
-            found, footprint_val = json_parse_helper.findStringValueESALst(entry["str"], "footprint")
-            if found:
-                edd_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
-                edd_bbox.parseWKTPolygon(footprint_val)
-                ent_north_Lat = edd_bbox.getNorthLat()
-                ent_south_Lat = edd_bbox.getSouthLat()
-                ent_west_lon = edd_bbox.getWestLon()
-                ent_east_lon = edd_bbox.getEastLon()
-            else:
-                raise EODataDownException("Could not find footprint for {}".format(entry['title']))
-            query_rtn = sesobj.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid_val).one_or_none()
-            if query_rtn is None:
-                db_records.append(
-                    EDDSentinel1ESA(UUID=uuid_val, Identifier=identifier_val, FileName=filename_val, FileFormat=fileformat_val,
-                                    InstrumentShortName=instrumentshortname_val, InstrumentName=instrumentname_val,
-                                    MissionDataTakeID=missiondatatakeid_val, OrbitNumber=orbitnumber_val,
-                                    LastOrbitNumber=lastorbitnumber_val, RelativeOrbitNumber = relativeorbitnumber_val,
-                                    LastRelativeOrbitNumber=lastrelativeorbitnumber_val, SliceNumber=slicenumber_val,
-                                    SensorOperationalMode=sensoroperationalmode_val, SwathIdentifier=swathidentifier_val,
-                                    PlatformIdentifier=platformidentifier_val, OrbitDirection=orbitdirection_val,
-                                    PolarisationMode=polarisationmode_val, ProductClass=productclass_val, ProductType=producttype_val,
-                                    PlatformName=platformname_val, IngestionDate=ingestiondate_date_val,
-                                    BeginPosition=beginposition_date_val, EndPosition=endposition_date_val,
-                                    North_Lat=ent_north_Lat, South_Lat=ent_south_Lat, East_Lon=ent_east_lon, West_Lon=ent_west_lon,
-                                    Query_Date=datetime.datetime.now(), Download_Start_Date=None, Download_End_Date=None, Downloaded=False,
-                                    Download_Path="", ARDProduct_Start_Date=None, ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path=""))
-        if len(db_records) > 0:
-            logger.debug("Writing records to the database.")
-            sesobj.add_all(db_records)
-            sesobj.commit()
-            logger.debug("Written and committed records to the database.")
-
     def check_new_scns(self):
         """
         Check whether there is new data available which is not within the existing database.
@@ -415,7 +301,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         """
         logger.debug("Creating HTTP Session Object.")
         session = requests.Session()
-        session.auth = (self.esaUser, self.esaPass)
+        session.auth = (self.asfUser, self.asfPass)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
         session.headers["User-Agent"] = user_agent
 
@@ -427,88 +313,105 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
-        if ses.query(EDDSentinel1ESA).first() is not None:
-            query_date = ses.query(EDDSentinel1ESA).order_by(EDDSentinel1ESA.BeginPosition.desc()).first().BeginPosition
+        if ses.query(EDDSentinel1ASF).first() is not None:
+            query_date = ses.query(EDDSentinel1ASF).order_by(EDDSentinel1ASF.BeginPosition.desc()).first().BeginPosition
         logger.info("Query with start at date: " + str(query_date))
 
-        str_start_datetime = query_date.isoformat() + "Z"
-        str_now_datetime = datetime.datetime.now().isoformat() + "Z"
-
-        query_str_date = "beginPosition:[" + str_start_datetime + " TO " + str_now_datetime + "]"
-        query_str_platform = "platformname:Sentinel-1"
-        query_str_product = "producttype:GRD"
-
+        str_start_datetime = query_date.isoformat()+"UTC"
+        str_now_datetime = datetime.datetime.utcnow().isoformat()+"UTC"
+        query_str_date = "start="+str_start_datetime+"\&end="+str_now_datetime
+        query_str_product = "processingLevel=GRD_HD"
+        query_str_platform = "platform=SA,SB"
+        query_datetime = datetime.datetime.now()
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+        eoed_utils = eodatadown.eodatadownutils.EODataDownUtils()
 
         new_scns_avail = False
-        n_step = 100
+        db_records = []
         for geo_bound in self.geoBounds:
-            wkt_poly = geo_bound.getWKTPolygon()
-            logger.info("Checking for available scenes for \"" + wkt_poly + "\"")
-            query_str_geobound = "footprint:\"Intersects(" + wkt_poly + ")\""
-            query_str = query_str_date + ", " + query_str_platform + ", " + query_str_product + ", " + query_str_geobound
-            url = self.create_query_url(self.base_api_url, 0, n_step)
-            logger.debug("Going to use the following URL: " + url)
-            logger.debug("Using the following query: " + query_str)
-            response = session.post(url, {"q": query_str}, auth=session.auth)
-            if self.check_http_response(response, url):
-                rsp_json = response.json()["feed"]
-                if rsp_json["opensearch:totalResults"] is not None:
-                    n_results = int(json_parse_helper.getNumericValue(rsp_json, ["opensearch:totalResults"]))
-                    logger.info("There are {0} scenes for the query.".format(n_results))
-                else:
-                    raise EODataDownResponseException("JSON returned was not in expected format.", response)
+            csv_poly = geo_bound.getCSVPolygon()
+            logger.info("Checking for available scenes for \"" + csv_poly + "\"")
+            query_str_geobound = "polygon="+ csv_poly
+            query_str = query_str_geobound + "&" + query_str_platform + "&" + query_str_product + "&" + query_str_date + "&output=json"
+            query_url = self.base_api_url + "?" + query_str
+            logger.debug("Going to use the following URL: " + query_url)
+            response = session.get(query_url, auth=session.auth)
+            if self.check_http_response(response, query_url):
+                rsp_json = response.json()[0]
+                for scn_json in rsp_json:
+                    product_file_id_val = json_parse_helper.getStrValue(scn_json, ["product_file_id"])
+                    query_rtn = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Product_File_ID == product_file_id_val).one_or_none()
+                    if query_rtn is None:
+                        scene_id_val = json_parse_helper.getStrValue(scn_json, ["sceneId"])
+                        product_name_val = json_parse_helper.getStrValue(scn_json, ["productName"])
+                        absolute_orbit_val = int(json_parse_helper.getNumericValue(scn_json, ["absoluteOrbit"]))
+                        relative_orbit_val = int(json_parse_helper.getNumericValue(scn_json, ["relativeOrbit"]))
+                        doppler_val = int(json_parse_helper.getNumericValue(scn_json, ["doppler"]))
+                        flight_direction_val = json_parse_helper.getStrValue(scn_json, ["flightDirection"])
+                        granule_name_val = json_parse_helper.getStrValue(scn_json, ["granuleName"])
+                        granule_type_val = json_parse_helper.getStrValue(scn_json, ["granuleType"])
+                        incidence_angle_strval = json_parse_helper.getStrValue(scn_json, ["incidenceAngle"])
+                        if (incidence_angle_strval == "") or (incidence_angle_strval == "NA"):
+                            incidence_angle_val = None
+                        elif eoed_utils.isNumber(incidence_angle_strval):
+                            incidence_angle_val = float(incidence_angle_strval)
+                        else:
+                            incidence_angle_val = None
+                        look_direction_val = json_parse_helper.getStrValue(scn_json, ["lookDirection"])
+                        platform_val = json_parse_helper.getStrValue(scn_json, ["platform"])
+                        polarization_val = json_parse_helper.getStrValue(scn_json, ["polarization"])
+                        processing_date_val = json_parse_helper.getDateTimeValue(scn_json, ["processingDate"], "%Y-%m-%dT%H:%M:%S.%f")
+                        processing_description_val = json_parse_helper.getStrValue(scn_json, ["processingDescription"])
+                        processing_level_val = json_parse_helper.getStrValue(scn_json, ["processingLevel"])
+                        processing_type_val = json_parse_helper.getStrValue(scn_json, ["processingType"])
+                        processing_type_disp_val = json_parse_helper.getStrValue(scn_json, ["processingTypeDisplay"])
+                        scene_date_val = json_parse_helper.getDateTimeValue(scn_json, ["sceneDate"], "%Y-%m-%dT%H:%M:%S.%f")
+                        sensor_val = json_parse_helper.getStrValue(scn_json, ["sensor"])
+                        start_time_val = json_parse_helper.getDateTimeValue(scn_json, ["startTime"], "%Y-%m-%dT%H:%M:%S.%f")
+                        stop_time_val = json_parse_helper.getDateTimeValue(scn_json, ["stopTime"], "%Y-%m-%dT%H:%M:%S.%f")
+                        footprint_wkt_val = json_parse_helper.getStrValue(scn_json, ["stringFootprint"])
+                        edd_footprint_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
+                        edd_footprint_bbox.parseWKTPolygon(footprint_wkt_val)
+                        download_url_val = json_parse_helper.getStrValue(scn_json, ["downloadUrl"])
+                        file_name_val = json_parse_helper.getStrValue(scn_json, ["fileName"])
+                        download_file_size_mb_strval = json_parse_helper.getStrValue(scn_json, ["sizeMB"])
+                        if eoed_utils.isNumber(download_file_size_mb_strval):
+                            download_file_size_mb_val = float(download_file_size_mb_strval)
+                        else:
+                            logger.debug("sizeMB is not numeric with value '{}'".format(download_file_size_mb_strval))
+                            download_file_size_mb_val = None
 
-                if n_results > 0:
+
+                        db_records.append(EDDSentinel1ASF(Scene_ID=scene_id_val,
+                                                          Product_Name=product_name_val, Product_File_ID=product_file_id_val,
+                                                          ABS_Orbit=absolute_orbit_val, Rel_Orbit=relative_orbit_val,
+                                                          Doppler=doppler_val, Flight_Direction=flight_direction_val,
+                                                          Granule_Name=granule_name_val, Granule_Type=granule_type_val,
+                                                          Incidence_Angle=incidence_angle_val, Look_Direction=look_direction_val,
+                                                          Platform=platform_val, Polarization=polarization_val,
+                                                          Process_Date=processing_date_val, Process_Description=processing_description_val,
+                                                          Process_Level=processing_level_val, Process_Type=processing_type_val,
+                                                          Process_Type_Disp=processing_type_disp_val, Acquisition_Date=scene_date_val,
+                                                          Sensor=sensor_val, BeginPosition=start_time_val, EndPosition=stop_time_val,
+                                                          North_Lat=edd_footprint_bbox.getNorthLat(), South_Lat=edd_footprint_bbox.getSouthLat(),
+                                                          East_Lon=edd_footprint_bbox.getEastLon(), West_Lon=edd_footprint_bbox.getWestLon(),
+                                                          Remote_URL=download_url_val, Remote_FileName=file_name_val,
+                                                          Total_Size=download_file_size_mb_val, Query_Date=query_datetime))
+
+                if len(db_records) > 0:
+                    logger.debug("Writing records to the database.")
+                    ses.add_all(db_records)
+                    ses.commit()
+                    logger.debug("Written and committed records to the database.")
                     new_scns_avail = True
-                    n_records_expt = n_step
-                    if n_results < n_step:
-                        n_records_expt = n_results
-                    self.parse_json_response(rsp_json, ses, n_records_expt)
-                if n_results > 100:
-                    n_remain_scns = int((n_results - n_step) % n_step)
-                    n_full_pages = int(((n_results - n_step) - n_remain_scns) / n_step)
-                    logger.debug("n_pages = {0} \t n_remain_scns = {1}".format(n_full_pages, n_remain_scns))
-                    if n_full_pages > 0:
-                        start_off = n_step
-                        for i in range(n_full_pages):
-                            url = self.create_query_url(self.base_api_url, start_off, n_step)
-                            logger.debug("Going to use the following URL: " + url)
-                            logger.debug("Using the following query: " + query_str)
-                            response = session.post(url, {"q": query_str}, auth=session.auth)
-                            if self.check_http_response(response, url):
-                                rsp_json = response.json()["feed"]
-                                self.parse_json_response(rsp_json, ses, n_step)
-                            start_off = start_off + n_step
-                    if n_remain_scns > 0:
-                        start_off = n_results - n_remain_scns
-                        n_scns = n_remain_scns
-                        url = self.create_query_url(self.base_api_url, start_off, n_scns)
-                        logger.debug("Going to use the following URL: " + url)
-                        logger.debug("Using the following query: " + query_str)
-                        response = session.post(url, {"q": query_str}, auth=session.auth)
-                        if self.check_http_response(response, url):
-                            rsp_json = response.json()["feed"]
-                            self.parse_json_response(rsp_json, ses, n_remain_scns)
-            logger.debug("Processed query result and added to local database for \"" + wkt_poly + "\"")
 
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL == None).all()
-        if query_result is not None:
-            for record in query_result:
-                url = self.base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
-                response = session.get(url, auth=session.auth)
-                if not self.check_http_response(response, url):
-                    logger.error("Could not get the URL for scene: '{}'".format(record.UUID))
-                json_url_info = response.json()['d']
-                record.Remote_URL_MD5 = json_parse_helper.getStrValue(json_url_info, ["Checksum", "Value"])
-                record.Remote_URL = json_parse_helper.getStrValue(json_url_info, ["__metadata", "media_src"])
-                record.Total_Size = int(json_parse_helper.getNumericValue(json_url_info, ["ContentLength"]))
-            ses.commit()
+        ses.commit()
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
                               updated_lcl_db=True, scns_avail=new_scns_avail)
+
 
     def get_scnlist_download(self):
         """
@@ -543,19 +446,16 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
         ses = Session()
 
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == False).filter(EDDSentinel1ESA.Remote_URL != None).all()
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == False).filter(EDDSentinel1ASF.Remote_URL != None).all()
         dwnld_params = []
         if query_result is not None:
-            logger.debug("Create the output directory for this download.")
-            dt_obj = datetime.datetime.now()
-
             for record in query_result:
-                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Identifier)
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Product_File_ID)
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
-                out_filename = record.Identifier+".zip"
+                out_filename = record.Remote_FileName
                 downloaded_new_scns = True
-                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.dbInfoObj, os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
+                dwnld_params.append([record.Product_File_ID, record.Remote_URL, record.Total_Size, self.dbInfoObj, os.path.join(scn_lcl_dwnld_path, out_filename), self.asfUser, self.asfPass, continue_downloads])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
@@ -565,7 +465,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
 
         logger.info("Start downloading the scenes.")
         with multiprocessing.Pool(processes=n_cores) as pool:
-            pool.map(_download_scn_esa, dwnld_params)
+            pool.map(_download_scn_asf, dwnld_params)
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
         edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
@@ -613,7 +513,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         ses = Session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == True, EDDSentinel1ESA.ARDProduct == False).all()
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == True, EDDSentinel1ASF.ARDProduct == False).all()
 
         proj_wkt_file = None
         if self.ardProjDefined:

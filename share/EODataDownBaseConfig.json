@@ -15,9 +15,9 @@
         },
         "sensors":
         {
-            "GenericDataset":
+            "Sentinel1ASF":
             {
-                "config":"/Users/pete/Temp/EODataDown/Sensors/OtherSensor_CanopyCover.json"
+                "config":"/Users/pete/Temp/EODataDown/Sensors/Sentinel1ASF.json"
             }
         }
     }
