@@ -30,7 +30,6 @@ EODataDown - Utilities used within the EODataDown System.
 # History:
 # Version 1.0 - Created.
 
-import Crypto.Cipher.AES
 import base64
 import hashlib
 import os.path
@@ -193,18 +192,13 @@ class EODataDownDatabaseInfo(object):
 
 
 class EDDPasswordTools(object):
-    secret_key = "I7Cpan66nlslFqKyuUIkc1puFzeUHlg4"
 
     def encodePassword(self, plaintxt):
-        if len(plaintxt) % 16 != 0:
-            raise EODataDownException("Number of characters within the text must be a multiple of 16.")
-        cipher = Crypto.Cipher.AES.new(self.secret_key, Crypto.Cipher.AES.MODE_ECB)
-        txtencoded = base64.b64encode(cipher.encrypt(plaintxt)).decode()
+        txtencoded = base64.b64encode(plaintxt.encode()).decode()
         return txtencoded
 
     def unencodePassword(self, txtencoded):
-        cipher = Crypto.Cipher.AES.new(self.secret_key, Crypto.Cipher.AES.MODE_ECB)
-        plaintxt = cipher.decrypt(base64.b64decode(txtencoded)).decode()
+        plaintxt = base64.b64decode(txtencoded.encode()).decode()
         return plaintxt
 
 
@@ -1171,4 +1165,52 @@ class EODDFTPDownload(object):
         except:
             logger.error("An error occurred when downloading {}.".format(os.path.join(url, remote_path)))
             success = False
+        return success
+
+class EODDWGetDownload(object):
+
+    def downloadFile(self, input_url, out_file_path, username=None, password=None, try_number="10", time_out="60", input_url_md5=None):
+        """
+        A function which downloads a file from a url using the wget command line tool.
+        If a username or password are provided then both must be provided.
+        :param input_url: string with the URL to be downloaded.
+        :param out_file_path: output file name and path.
+        :param username: username for the download, if required. Default is None meaning it will be ignored.
+        :param password: password for the download, if required. Default is None meaning it will be ignored.
+        :param try_number: number of attempts at the download. Default is 10.
+        :param time_out: number of seconds to time out Default is 60.
+        :return: value 1 as success and 0 as not successful.
+        """
+        try_number = str(try_number)
+        time_out = str(time_out)
+        success = False
+        command = ["wget", "-c", "-P", out_file_path, "-t", try_number, "-T", time_out, "--no-check-certificate"]
+        if (username is not None) and (password is not None):
+            command.append("--user")
+            command.append(username)
+            command.append("--password")
+            command.append(password)
+        command.append(input_url)
+        download_state = -1
+        try:
+            download_state = subprocess.call(command)
+        except Exception as e:
+            logger.debug(e.__str__())
+            logger.info("Download of file ({0}) failed.".format(out_file_path))
+        if download_state == 0:
+            logger.info("Successfully downloaded file: {}".format(out_file_path))
+            if input_url_md5 is not None:
+                eddFileChecker = EDDCheckFileHash()
+                md5_match = eddFileChecker.check_checksum(out_file_path, input_url_md5)
+                if md5_match:
+                    logger.info("MD5 matches for the downloaded file: {}".format(out_file_path))
+                    success = True
+                else:
+                    logger.info("MD5 does not match for the downloaded file: {}".format(out_file_path))
+                    success = False
+            else:
+                success = True
+        else:
+            success = False
+            logger.info("File being downloaded did not successfully complete: {}".format(out_file_path))
         return success

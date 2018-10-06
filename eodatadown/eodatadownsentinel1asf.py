@@ -61,7 +61,7 @@ class EDDSentinel1ASF(Base):
     PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
     Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Product_Name = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    Product_File_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Product_File_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False, unique=True)
     ABS_Orbit = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     Rel_Orbit = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     Doppler = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
@@ -112,28 +112,16 @@ def _download_scn_asf(params):
     """
     product_file_id = params[0]
     remote_url = params[1]
-    total_file_size_mb = params[2]
-    check_file_size = True
-    if total_file_size_mb is not None:
-        total_file_size = total_file_size_mb * 1000000
-    else:
-        total_file_size = 0
-        check_file_size = False
-
-    dbInfoObj = params[3]
-    scn_lcl_dwnld_path = params[4]
-    asf_user = params[5]
-    asf_pass = params[6]
-    continue_downloads = params[7]
+    dbInfoObj = params[2]
+    scn_lcl_dwnld_path = params[3]
+    asf_user = params[4]
+    asf_pass = params[5]
     success = False
 
-    print(remote_url)
-    """
-    eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
-
+    eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
     start_date = datetime.datetime.now()
     try:
-        success = eodd_http_downloader.downloadFileNoMD5Continue(remote_url, scn_lcl_dwnld_path, asf_user, asf_pass, total_file_size, check_file_size, continue_downloads)
+        success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=asf_user, password=asf_pass, try_number="10", time_out="60")
     except Exception as e:
         logger.error("An error has occured while downloading from ASF: '{}'".format(e))
     end_date = datetime.datetime.now()
@@ -146,16 +134,17 @@ def _download_scn_asf(params):
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Product_File_ID == product_file_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + product_file_id)
-        query_result.Downloaded = True
-        query_result.Download_Start_Date = start_date
-        query_result.Download_End_Date = end_date
-        query_result.Download_Path = scn_lcl_dwnld_path
-        ses.commit()
+        else:
+            query_result.Downloaded = True
+            query_result.Download_Start_Date = start_date
+            query_result.Download_End_Date = end_date
+            query_result.Download_Path = scn_lcl_dwnld_path
+            ses.commit()
         ses.close()
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
         logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
-    """
+
 
 class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
     """
@@ -248,8 +237,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
             logger.debug("Find ASF Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
             self.asfUser = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "user"])
-            #self.asfPass = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "pass"]))
-            self.asfPass = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "pass"])
+            self.asfPass = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "pass"]))
             logger.debug("Found ASF Account params from config file")
 
     def init_sensor_db(self):
@@ -338,10 +326,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
             response = session.get(query_url, auth=session.auth)
             if self.check_http_response(response, query_url):
                 rsp_json = response.json()[0]
+                product_file_ids = dict()
                 for scn_json in rsp_json:
                     product_file_id_val = json_parse_helper.getStrValue(scn_json, ["product_file_id"])
                     query_rtn = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Product_File_ID == product_file_id_val).one_or_none()
-                    if query_rtn is None:
+                    if (query_rtn is None) and (not(product_file_id_val in product_file_ids)):
+                        product_file_ids[product_file_id_val] = True
                         scene_id_val = json_parse_helper.getStrValue(scn_json, ["sceneId"])
                         product_name_val = json_parse_helper.getStrValue(scn_json, ["productName"])
                         absolute_orbit_val = int(json_parse_helper.getNumericValue(scn_json, ["absoluteOrbit"]))
@@ -439,8 +429,6 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
         if not os.path.exists(self.baseDownloadPath):
             raise EODataDownException("The download path does not exist, please create and run again.")
 
-        continue_downloads = True
-
         logger.debug("Creating Database Engine and Session.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
@@ -455,7 +443,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Remote_FileName
                 downloaded_new_scns = True
-                dwnld_params.append([record.Product_File_ID, record.Remote_URL, record.Total_Size, self.dbInfoObj, os.path.join(scn_lcl_dwnld_path, out_filename), self.asfUser, self.asfPass, continue_downloads])
+                dwnld_params.append([record.Product_File_ID, record.Remote_URL, self.dbInfoObj, os.path.join(scn_lcl_dwnld_path, out_filename), self.asfUser, self.asfPass])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
