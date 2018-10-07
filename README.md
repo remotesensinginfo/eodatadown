@@ -4,13 +4,13 @@ A tool for automatically downloading Earth Observation imagery and products.
 
 ## Dependencies
 
-* PyCrypto [https://www.dlitz.net/software/pycrypto/]
 * SQLAlchemy [http://www.sqlalchemy.org]
 * RSGISLib [http://www.rsgislib.org]
 * ARCSI [http://arcsi.remotesensing.info]
 * Requests [http://www.python-requests.org]
 * Planet [https://github.com/planetlabs/planet-client-python]
 * pycurl [http://pycurl.io]
+* wget [https://www.gnu.org/software/wget/]
 
 ### Google Services
 For google services the following dependencies need to installed. 
@@ -30,7 +30,7 @@ For google services the following dependencies need to installed.
 Using conda and conda-forge the dependencies can be installed within the following command:
 
 ```bash
-conda install -c conda-forge pycrypto pycurl sqlalchemy google-cloud-storage google-cloud-bigquery arcsi
+conda install -c conda-forge pycurl sqlalchemy google-cloud-storage google-cloud-bigquery arcsi wget
 pip install planet
 ```
 ## Configuration
