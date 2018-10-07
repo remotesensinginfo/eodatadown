@@ -96,7 +96,6 @@ pg_ctl -D <path to data> -l logfile start
 
 ```bash 
 createdb eodd_dev_db
-psql
 ```
 
 ### Setup User
