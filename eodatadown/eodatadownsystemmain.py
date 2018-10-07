@@ -74,10 +74,7 @@ class EODataDownSystemMain(object):
 
     def __repr__(self):
 
-        db_info = {'connection':self.dbInfoObj.getDBConnection(),
-                   'name':self.dbInfoObj.getDBName(),
-                   'pass':self.dbInfoObj.getEncodedDBPass(),
-                   'user':self.dbInfoObj.getDBUser()}
+        db_info = {'connection':self.dbInfoObj.getDBConnection()}
         sys_info = {'name:':self.name, 'description':self.description}
         data = {'database':db_info, 'details':sys_info, 'sensors':self.sensorConfigFiles}
         str_data = json.dumps(data, indent=4, sort_keys=True)
@@ -110,10 +107,8 @@ class EODataDownSystemMain(object):
             # Get Database Information
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
 
-            self.dbInfoObj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection']),
-                                                                               json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'user']),
-                                                                               edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data,['eodatadown', 'database', 'pass'])),
-                                                                               json_parse_helper.getStrValue(config_data,['eodatadown', 'database', 'name']))
+            db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
+            self.dbInfoObj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
 
             # Get Sensor Configuration File List
             for sensor in config_data['eodatadown']['sensors']:

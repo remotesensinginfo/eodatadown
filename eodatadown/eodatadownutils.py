@@ -167,28 +167,11 @@ class EODataDownUtils(object):
 
 class EODataDownDatabaseInfo(object):
 
-    def __init__(self, dbConn, dbUser, dbPass, dbName):
+    def __init__(self, dbConn):
         self.dbConn = dbConn
-        self.dbUser = dbUser
-        self.dbPass = dbPass
-        self.dbName = dbName
 
     def getDBConnection(self):
         return self.dbConn
-
-    def getDBUser(self):
-        return self.dbUser
-
-    def getDBPass(self):
-        return self.dbPass
-
-    def getEncodedDBPass(self):
-        eddPassEncoder = EDDPasswordTools()
-        encodedPass = eddPassEncoder.encodePassword(self.dbPass)
-        return encodedPass
-
-    def getDBName(self):
-        return self.dbName
 
 
 class EDDPasswordTools(object):

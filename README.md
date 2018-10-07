@@ -11,6 +11,8 @@ A tool for automatically downloading Earth Observation imagery and products.
 * Planet [https://github.com/planetlabs/planet-client-python]
 * pycurl [http://pycurl.io]
 * wget [https://www.gnu.org/software/wget/]
+* postgresql [https://www.postgresql.org]
+* psycopg2 [http://initd.org/psycopg/]
 
 ### Google Services
 For google services the following dependencies need to installed. 
@@ -70,4 +72,46 @@ https://cloud.google.com/resource-manager/docs/creating-managing-projects
 And then the following page for setting up your credentials:
   
 https://cloud.google.com/bigquery/docs/reference/libraries
+
+## Setting up Postgresql Database 
+
+### New database system
+
+To initialise a database use the `initdb` command.
+
+```bash
+initdb -D <path to data>
+```
+### Start database 
+
+```bash
+postgres -D <path to data>
+```
+Alternatively, you can start the database as a background service.
+```bash
+pg_ctl -D <path to data> -l logfile start
+```
+
+### Create database
+
+```bash 
+createdb eodd_dev_db
+psql
+```
+
+### Setup User
+
+```bash 
+psql
+```
+
+```SQL
+CREATE USER eodduser WITH PASSWORD '<password>';
+GRANT ALL PRIVILEGES ON DATABASE eodd_dev_db TO eodduser;
+
+```
+
+
+
+
 
