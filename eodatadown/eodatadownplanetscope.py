@@ -24,7 +24,7 @@ EODataDown - a sensor class for Rapideye data downloaded from Planet.
 #
 # Author: Pete Bunting
 # Email: pfb@aber.ac.uk
-# Date: 12/08/2018
+# Date: 11/10/2018
 # Version: 1.0
 #
 # History:
@@ -45,6 +45,7 @@ import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
+from eodatadown.eodatadownrapideye import PlanetImageDownloadReference
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -53,12 +54,11 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
-class EDDRapideyePlanet(Base):
-    __tablename__ = "EDDRapideyePlanet"
+class EDDPlanetScope(Base):
+    __tablename__ = "EDDPlanetScope"
 
     PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
     Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    Catalog_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Satellite_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Strip_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Grid_Cell = sqlalchemy.Column(sqlalchemy.String, nullable=False)
@@ -100,23 +100,8 @@ class EDDRapideyePlanet(Base):
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
-class PlanetImageDownloadReference(object):
-    """
-    This class is to present the http response information.
-    """
 
-    def __init__(self):
-        self.analytic_img_dwn_url = ""
-        self.analytic_img_md5 = ""
-        self.analytic_img_dwn_perm = False
-        self.analytic_xml_dwn_url = ""
-        self.analytic_xml_md5 = ""
-        self.analytic_xml_dwn_perm = False
-        self.analytic_img_act_url = ""
-        self.analytic_xml_act_url = ""
-        self.activated = "inactive"
-
-def _getREIdentifierFileSize(xml_file):
+def _getPSIdentifierFileSize(xml_file):
     """
 
     :param xml_file:
@@ -125,13 +110,13 @@ def _getREIdentifierFileSize(xml_file):
     tree = ET.parse(xml_file)
     root = tree.getroot()
     schemaURL = root.attrib['{http://www.w3.org/2001/XMLSchema-instance}schemaLocation'].strip().split()[0]
-    rapideyeUrl = '{' + schemaURL + '}'
+    planetscopeUrl = '{' + schemaURL + '}'
     metaDataProperty = root.find('{http://www.opengis.net/gml}metaDataProperty')
-    eoMetaData = metaDataProperty.find(rapideyeUrl + 'EarthObservationMetaData')
+    eoMetaData = metaDataProperty.find(planetscopeUrl + 'EarthObservationMetaData')
     scn_identifier = eoMetaData.find('{http://earth.esa.int/eop}identifier').text.strip()
-    productInfo = root.find('{http://www.opengis.net/gml}resultOf').find(rapideyeUrl + 'EarthObservationResult').find('{http://earth.esa.int/eop}product').find(rapideyeUrl + 'ProductInformation')
-    file_size_kb = float(productInfo.find('{http://earth.esa.int/eop}size').text.strip())
-    return scn_identifier, file_size_kb
+    productInfo = root.find('{http://www.opengis.net/gml}resultOf').find(planetscopeUrl + 'EarthObservationResult').find('{http://earth.esa.int/eop}product').find(planetscopeUrl + 'ProductInformation')
+    fileName = productInfo.find('{http://earth.esa.int/eop}fileName').text.strip()
+    return scn_identifier, fileName
 
 def _download_scn_planet(params):
     """
@@ -153,17 +138,14 @@ def _download_scn_planet(params):
     eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
     xml_file_out = os.path.join(lcl_dwnld_path, scene_id + ".xml")
     success_xml = eodd_http_downloader.downloadFile(analytic_xml_dwn_url, analytic_xml_md5, xml_file_out, planetAPIKey, "")
-
     if success_xml:
-        scn_identifier, tif_file_size_kb = _getREIdentifierFileSize(xml_file_out)
+        scn_identifier, tif_file_name = _getPSIdentifierFileSize(xml_file_out)
         xml_file_out_tmp = xml_file_out
         xml_file_out = os.path.join(lcl_dwnld_path, scn_identifier + "_metadata.xml")
         os.rename(xml_file_out_tmp, xml_file_out)
 
-        tif_file_size_bytes = tif_file_size_kb * 1000
-
         img_file_out = os.path.join(lcl_dwnld_path, scn_identifier + ".tif")
-        success_img = eodd_http_downloader.downloadFileContinue(analytic_img_dwn_url, analytic_img_md5, img_file_out, planetAPIKey, "", exp_file_size=tif_file_size_bytes, continue_download=True)
+        success_img = eodd_http_downloader.downloadFile(analytic_img_dwn_url, analytic_img_md5, img_file_out, planetAPIKey, "")
     end_date = datetime.datetime.now()
     logger.info("Finished Downloading " + scene_id)
 
@@ -172,7 +154,7 @@ def _download_scn_planet(params):
         dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
         ses = Session()
-        query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
+        query_result = ses.query(EDDPlanetScope).filter(EDDPlanetScope.Scene_ID == scene_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + scene_id)
         query_result.Downloaded = True
@@ -222,7 +204,7 @@ def _process_to_ard(params):
     dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
     Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
     ses = Session()
-    query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
+    query_result = ses.query(EDDPlanetScope).filter(EDDPlanetScope.Scene_ID == scene_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scene_id)
     query_result.ARDProduct = True
@@ -234,7 +216,7 @@ def _process_to_ard(params):
     logger.debug("Finished download and updated database.")
 
 
-class EODataDownRapideyeSensor (EODataDownSensor):
+class EODataDownPlanetScopeSensor (EODataDownSensor):
     """
     A class which represents a the Rapideye sensor being downloaded via the Planet API.
     """
@@ -245,8 +227,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "RapideyePlanet"
-        self.dbTabName = "EDDRapideyePlanet"
+        self.sensorName = "PlanetScope"
+        self.dbTabName = "EDDPlanetScope"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -269,9 +251,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-            logger.debug("Testing config file is for 'RapideyePlanet'")
+            logger.debug("Testing config file is for 'PlanetScope'")
             json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
-            logger.debug("Have the correct config file for 'RapideyePlanet'")
+            logger.debug("Have the correct config file for 'PlanetScope'")
 
             logger.debug("Find ARD processing params from config file")
             self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "dem"])
@@ -338,7 +320,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         logger.debug("Drop system table if within the existing database.")
         Base.metadata.drop_all(dbEng)
 
-        logger.debug("Creating EDDRapideyePlanet Database.")
+        logger.debug("Creating EDDPlanetScope Database.")
         Base.metadata.bind = dbEng
         Base.metadata.create_all()
 
@@ -348,7 +330,6 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         Scenes not within the database will be added.
         """
         import planet.api
-
         logger.debug("Creating Database Engine and Session.")
         dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
         Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
@@ -357,8 +338,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
-        if ses.query(EDDRapideyePlanet).first() is not None:
-            query_date = ses.query(EDDRapideyePlanet).order_by(EDDRapideyePlanet.Acquired.desc()).first().Acquired
+        if ses.query(EDDPlanetScope).first() is not None:
+            query_date = ses.query(EDDPlanetScope).order_by(EDDPlanetScope.Acquired.desc()).first().Acquired
         logger.info("Query with start at date: " + str(query_date))
 
         os.environ['PL_API_KEY'] = self.planetAPIKey
@@ -370,13 +351,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             roi_json_str = geo_bound.getGeoJSONPolygonStr()
             logger.info("Checking for available scenes for \"" + roi_json_str + "\"")
 
-            query = planet.api.filters.and_filter(planet.api.filters.geom_filter(roi_json),
-                                                  planet.api.filters.date_range('acquired', gt=query_date),
-                                                  planet.api.filters.range_filter('cloud_cover', lt=(
-                                                              float(self.cloudCoverThres) / 100.0)),
-                                                  planet.api.filters.permission_filter('assets:download'))
+            query = planet.api.filters.and_filter(planet.api.filters.geom_filter(roi_json), planet.api.filters.date_range('acquired', gt=query_date), planet.api.filters.range_filter('cloud_cover', lt=(float(self.cloudCoverThres) / 100.0)))#, planet.api.filters.permission_filter('assets:download'))
 
-            request = planet.api.filters.build_search_request(query, ["REOrthoTile"])
+            request = planet.api.filters.build_search_request(query, ["PSOrthoTile"])
             results = client.quick_search(request)
 
             db_records = []
@@ -384,17 +361,16 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             for record in results.items_iter(limit=1000000000):
                 if json_parse_helper.doesPathExist(record, ["id"]):
                     scene_id = json_parse_helper.getStrValue(record, ["id"])
-                    query_rtn = ses.query(EDDRapideyePlanet).filter(
-                        EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
+                    query_rtn = ses.query(EDDPlanetScope).filter(
+                        EDDPlanetScope.Scene_ID == scene_id).one_or_none()
                     if query_rtn is None:
-                        catalog_id = json_parse_helper.getStrValue(record, ["properties", "catalog_id"])
                         satellite_id = json_parse_helper.getStrValue(record, ["properties", "satellite_id"])
                         strip_id = json_parse_helper.getStrValue(record, ["properties", "strip_id"])
                         grid_cell = json_parse_helper.getStrValue(record, ["properties", "grid_cell"])
                         item_type = json_parse_helper.getStrValue(record, ["properties", "item_type"])
                         provider = json_parse_helper.getStrValue(record, ["properties", "provider"])
                         acquired_str = json_parse_helper.getStrValue(record, ["properties", "acquired"]).replace('Z','')[:-1]
-                        acquired = datetime.datetime.strptime(acquired_str, "%Y-%m-%dT%H:%M:%S")
+                        acquired = datetime.datetime.strptime(acquired_str, "%Y-%m-%dT%H:%M:%S.%f")
                         published_str = json_parse_helper.getStrValue(record, ["properties", "published"]).replace('Z','')[:-1]
                         published = datetime.datetime.strptime(published_str, "%Y-%m-%dT%H:%M:%S")
                         updated_str = json_parse_helper.getStrValue(record, ["properties", "updated"]).replace('Z', '')[:-1]
@@ -422,7 +398,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                         remote_url = json_parse_helper.getStrValue(record, ["_links", "assets"])
 
                         db_records.append(
-                            EDDRapideyePlanet(Scene_ID=scene_id, Catalog_ID=catalog_id, Satellite_ID=satellite_id,
+                            EDDPlanetScope(Scene_ID=scene_id, Satellite_ID=satellite_id,
                                               Strip_ID=strip_id, Grid_Cell=grid_cell, Item_Type=item_type,
                                               Provider=provider,
                                               Acquired=acquired, Published=published, Updated=updated,
@@ -461,15 +437,15 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         analytic_status = json_parse_helper.getStrValue(http_json, ["analytic", "status"], ["active", "inactive", "activating"])
         analytic_xml_status = json_parse_helper.getStrValue(http_json, ["analytic_xml", "status"], ["active", "inactive", "activating"])
         if analytic_status == "inactive" or analytic_xml_status == "inactive":
-            logger.debug("Download is inactive and needs to be activated.")
+            logger.info("Download is inactive and needs to be activated.")
             dwnld_img_obj.activated = "inactive"
             dwnld_img_obj.analytic_img_act_url = json_parse_helper.getStrValue(http_json, ["analytic", "_links", "activate"])
             dwnld_img_obj.analytic_xml_act_url = json_parse_helper.getStrValue(http_json, ["analytic_xml", "_links", "activate"])
         elif analytic_status == "activating" or analytic_xml_status == "activating":
-            logger.debug("Download is activating.")
+            logger.info("Download is activating.")
             dwnld_img_obj.activated = "activating"
         else:
-            logger.debug("Download is activate.")
+            logger.info("Download is activate.")
             dwnld_img_obj.activated = "active"
             dwnld_img_obj.analytic_img_dwn_url = json_parse_helper.getStrValue(http_json,["analytic", "location"])
             dwnld_img_obj.analytic_img_md5 = json_parse_helper.getStrValue(http_json,["analytic", "md5_digest"])
@@ -532,7 +508,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         downloaded_new_scns = False
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == False).all()
+        query_result = ses.query(EDDPlanetScope).filter(EDDPlanetScope.Downloaded == False).all()
         eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
 
         dwnld_params = []
@@ -615,7 +591,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         ses = Session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
-        query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == True, EDDRapideyePlanet.ARDProduct == False).all()
+        query_result = ses.query(EDDPlanetScope).filter(EDDPlanetScope.Downloaded == True, EDDPlanetScope.ARDProduct == False).all()
 
         proj_wkt_file = None
         if self.ardProjDefined:

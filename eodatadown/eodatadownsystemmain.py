@@ -39,6 +39,7 @@ from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSens
 from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESAProcessorSensor
 from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
 from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
+from eodatadown.eodatadownplanetscope import EODataDownPlanetScopeSensor
 from eodatadown.eodatadownjaxasartiles import EODataDownJAXASARTileSensor
 from eodatadown.eodatadownotherdataset import EODataDownGenericDatasetSensor
 
@@ -142,6 +143,9 @@ class EODataDownSystemMain(object):
         elif sensor == "RapideyePlanet":
             logger.debug("Found sensor RapideyePlanet")
             sensorObj = EODataDownRapideyeSensor(self.dbInfoObj)
+        elif sensor == "PlanetScope":
+            logger.debug("Found sensor PlanetScope")
+            sensorObj = EODataDownPlanetScopeSensor(self.dbInfoObj)
         elif sensor == "JAXASARTiles":
             sensorObj = EODataDownJAXASARTileSensor(self.dbInfoObj)
         elif sensor == "GenericDataset":

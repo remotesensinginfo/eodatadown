@@ -728,34 +728,38 @@ class EDDGeoBBox(object):
         :param coords_dict:
         :return:
         """
-        if not geo_json_poly["type"].lower() == "polygon":
-            raise EODataDownException("GwoJSON should be of type polygon.")
-        pts = geo_json_poly["coordinates"][0]
         min_lon = 0.0
         max_lon = 0.0
         min_lat = 0.0
         max_lat = 0.0
-        first = True
-        for pt in pts:
-            lon = pt[0]
-            lat = pt[1]
-            lat_val = float(lat)
-            lon_val = float(lon)
-            if first:
-                min_lon = lon_val
-                max_lon = lon_val
-                min_lat = lat_val
-                max_lat = lat_val
-                first = False
-            else:
-                if lon_val < min_lon:
-                    min_lon = lon_val
-                if lon_val > max_lon:
-                    max_lon = lon_val
-                if lat_val < min_lat:
-                    min_lat = lat_val
-                if lat_val > max_lat:
-                    max_lat = lat_val
+
+        if (geo_json_poly["type"].lower() == "polygon") or (geo_json_poly["type"].lower() == "multipolygon"):
+            first = True
+            for pts in geo_json_poly["coordinates"]:
+                if (geo_json_poly["type"].lower() == "multipolygon"):
+                    pts = pts[0]
+                for pt in pts:
+                    lon = pt[0]
+                    lat = pt[1]
+                    lat_val = float(lat)
+                    lon_val = float(lon)
+                    if first:
+                        min_lon = lon_val
+                        max_lon = lon_val
+                        min_lat = lat_val
+                        max_lat = lat_val
+                        first = False
+                    else:
+                        if lon_val < min_lon:
+                            min_lon = lon_val
+                        if lon_val > max_lon:
+                            max_lon = lon_val
+                        if lat_val < min_lat:
+                            min_lat = lat_val
+                        if lat_val > max_lat:
+                            max_lat = lat_val
+        else:
+            raise EODataDownException("GeoJSON should be of type polygon.")
 
         self.north_lat = max_lat
         self.south_lat = min_lat
@@ -928,7 +932,7 @@ class EDDHTTPDownload(object):
         headers = {}
         downloaded_bytes = 0
 
-        usr_update_step = 500000
+        usr_update_step = 5000000
         next_update = usr_update_step
 
         with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
