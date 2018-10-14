@@ -45,6 +45,7 @@ import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
+import eodatadown.eodatadownrunarcsi
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -57,7 +58,7 @@ class EDDRapideyePlanet(Base):
     __tablename__ = "EDDRapideyePlanet"
 
     PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
-    Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False, unique=True)
     Catalog_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Satellite_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Strip_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
@@ -211,7 +212,7 @@ def _process_to_ard(params):
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
-    eodatadown.eodatadownrunarcsi.move_arcsi_products(output_dir, final_ard_path)
+    eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path)
     # Remove Remaining files.
     shutil.rmtree(output_dir)
     shutil.rmtree(tmp_dir)

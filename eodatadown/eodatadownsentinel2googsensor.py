@@ -156,7 +156,7 @@ def _process_to_ard(params):
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
-    eodatadown.eodatadownrunarcsi.move_arcsi_products(output_dir, final_ard_path)
+    eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path)
     # Remove Remaining files.
     shutil.rmtree(output_dir)
     shutil.rmtree(tmp_dir)

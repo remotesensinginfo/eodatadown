@@ -46,6 +46,7 @@ from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 from eodatadown.eodatadownrapideye import PlanetImageDownloadReference
+import eodatadown.eodatadownrunarcsi
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -58,7 +59,7 @@ class EDDPlanetScope(Base):
     __tablename__ = "EDDPlanetScope"
 
     PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
-    Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Scene_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False, unique=True)
     Satellite_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Strip_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Grid_Cell = sqlalchemy.Column(sqlalchemy.String, nullable=False)
@@ -177,43 +178,46 @@ def _process_to_ard(params):
     file_identifier = params[1]
     dbInfoObj = params[2]
     scn_path = params[3]
-    dem_file = params[4]
-    output_dir = params[5]
-    tmp_dir = params[6]
-    final_ard_path = params[7]
-    reproj_outputs = params[8]
-    proj_wkt_file = params[9]
-    projabbv = params[10]
+    output_dir = params[4]
+    tmp_dir = params[5]
+    final_ard_path = params[6]
+    reproj_outputs = params[7]
+    proj_wkt_file = params[8]
+    projabbv = params[9]
 
-    eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
-    input_xml = eddUtils.findFile(scn_path, file_identifier+"*.xml")
+    try:
+        eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
+        input_xml = eddUtils.findFile(scn_path, file_identifier+"*metadata.xml")
 
-    start_date = datetime.datetime.now()
-    eodatadown.eodatadownrunarcsi.run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs, proj_wkt_file, projabbv)
+        start_date = datetime.datetime.now()
+        eodatadown.eodatadownrunarcsi.run_arcsi_planetscope(input_xml, output_dir, tmp_dir, reproj_outputs, proj_wkt_file, projabbv)
 
-    logger.debug("Move final ARD files to specified location.")
-    # Move ARD files to be kept.
-    eodatadown.eodatadownrunarcsi.move_arcsi_products(output_dir, final_ard_path)
-    # Remove Remaining files.
-    shutil.rmtree(output_dir)
-    shutil.rmtree(tmp_dir)
-    logger.debug("Moved final ARD files to specified location.")
-    end_date = datetime.datetime.now()
+        logger.debug("Move final ARD files to specified location.")
+        # Move ARD files to be kept.
+        eodatadown.eodatadownrunarcsi.move_arcsi_dos_products(output_dir, final_ard_path)
+        # Remove Remaining files.
+        shutil.rmtree(output_dir)
+        shutil.rmtree(tmp_dir)
+        logger.debug("Moved final ARD files to specified location.")
+        end_date = datetime.datetime.now()
 
-    logger.debug("Set up database connection and update record.")
-    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-    ses = Session()
-    query_result = ses.query(EDDPlanetScope).filter(EDDPlanetScope.Scene_ID == scene_id).one_or_none()
-    if query_result is None:
-        logger.error("Could not find the scene within local database: " + scene_id)
-    query_result.ARDProduct = True
-    query_result.ARDProduct_Start_Date = start_date
-    query_result.ARDProduct_End_Date = end_date
-    query_result.ARDProduct_Path = final_ard_path
-    ses.commit()
-    ses.close()
-    logger.debug("Finished download and updated database.")
+        logger.debug("Set up database connection and update record.")
+        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+        query_result = ses.query(EDDPlanetScope).filter(EDDPlanetScope.Scene_ID == scene_id).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: " + scene_id)
+            raise EODataDownException("Could not find the scene within local database: " + scene_id)
+        query_result.ARDProduct = True
+        query_result.ARDProduct_Start_Date = start_date
+        query_result.ARDProduct_End_Date = end_date
+        query_result.ARDProduct_Path = final_ard_path
+        ses.commit()
+        ses.close()
+        logger.debug("Finished download and updated database.")
+    except Exception as e:
+        logger.error(e.__str__())
 
 
 class EODataDownPlanetScopeSensor (EODataDownSensor):
@@ -270,19 +274,14 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
-                                                                  ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
-                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
-                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
-                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
+            self.baseDownloadPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "download"])
+            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardwork"])
+            self.ardFinalPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardfinal"])
+            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "paths", "ardtmp"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
-            geo_bounds_lst = json_parse_helper.getListValue(config_data,
-                                                            ["eodatadown", "sensor", "download", "geobounds"])
+            geo_bounds_lst = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor", "download", "geobounds"])
             if not len(geo_bounds_lst) > 0:
                 raise EODataDownException("There must be at least 1 geographic boundary given.")
 
@@ -294,18 +293,13 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
                 edd_bbox.setWestLon(json_parse_helper.getNumericValue(geo_bound_json, ["west_lon"], -180, 180))
                 edd_bbox.setEastLon(json_parse_helper.getNumericValue(geo_bound_json, ["east_lon"], -180, 180))
                 self.geoBounds.append(edd_bbox)
-            self.cloudCoverThres = int(
-                json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "download", "cloudcover"], 0,
-                                                  100))
-            self.startDate = json_parse_helper.getDateTimeValue(config_data,
-                                                                ["eodatadown", "sensor", "download", "startdate"],
-                                                                "%Y-%m-%d")
+            self.cloudCoverThres = int(json_parse_helper.getNumericValue(config_data, ["eodatadown", "sensor", "download", "cloudcover"], 0, 100))
+            self.startDate = json_parse_helper.getDateTimeValue(config_data, ["eodatadown", "sensor", "download", "startdate"], "%Y-%m-%d")
             logger.debug("Found search params from config file")
 
             logger.debug("Find Planet Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
-            self.planetAPIKey = edd_pass_encoder.unencodePassword(
-                json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "planetaccount", "apikey"]))
+            self.planetAPIKey = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "planetaccount", "apikey"]))
             logger.debug("Found Planet Account params from config file")
 
     def init_sensor_db(self):
@@ -629,15 +623,16 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Scene_ID+"_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                ard_params.append([record.Scene_ID, record.File_Identifier, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                ard_params.append([record.Scene_ID, record.File_Identifier, self.dbInfoObj, record.Download_Path, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
         logger.debug("Closed the database session.")
 
         logger.info("Start processing the scenes.")
-        with multiprocessing.Pool(processes=n_cores) as pool:
-            pool.map(_process_to_ard, ard_params)
+        if len(ard_params) > 0:
+            with multiprocessing.Pool(processes=n_cores) as pool:
+                pool.map(_process_to_ard, ard_params)
         logger.info("Finished processing the scenes.")
 
         edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)

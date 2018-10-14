@@ -30,18 +30,9 @@ EODataDown - provide the main class where the functionality of EODataDown is acc
 # History:
 # Version 1.0 - Created.
 
-
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
-from eodatadown.eodatadownlandsatgoogsensor import EODataDownLandsatGoogSensor
-from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor
-from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESAProcessorSensor
-from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
-from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
-from eodatadown.eodatadownplanetscope import EODataDownPlanetScopeSensor
-from eodatadown.eodatadownjaxasartiles import EODataDownJAXASARTileSensor
-from eodatadown.eodatadownotherdataset import EODataDownGenericDatasetSensor
 
 import logging
 import json
@@ -130,25 +121,35 @@ class EODataDownSystemMain(object):
         sensorObj = None
         if sensor == "LandsatGOOG":
             logger.debug("Found sensor LandsatGOOG")
+            from eodatadown.eodatadownlandsatgoogsensor import EODataDownLandsatGoogSensor
             sensorObj = EODataDownLandsatGoogSensor(self.dbInfoObj)
         elif sensor == "Sentinel2GOOG":
             logger.debug("Found sensor Sentinel2GOOG")
+            from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor
             sensorObj = EODataDownSentinel2GoogSensor(self.dbInfoObj)
         elif sensor == "Sentinel1ESA":
             logger.debug("Found sensor Sentinel1ESA")
+            from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESAProcessorSensor
             sensorObj = EODataDownSentinel1ESAProcessorSensor(self.dbInfoObj)
         elif sensor == "Sentinel1ASF":
             logger.debug("Found sensor Sentinel1ASF")
+            from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
             sensorObj = EODataDownSentinel1ASFProcessorSensor(self.dbInfoObj)
         elif sensor == "RapideyePlanet":
             logger.debug("Found sensor RapideyePlanet")
+            from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
             sensorObj = EODataDownRapideyeSensor(self.dbInfoObj)
         elif sensor == "PlanetScope":
             logger.debug("Found sensor PlanetScope")
+            from eodatadown.eodatadownplanetscope import EODataDownPlanetScopeSensor
             sensorObj = EODataDownPlanetScopeSensor(self.dbInfoObj)
         elif sensor == "JAXASARTiles":
+            logger.debug("Found sensor JAXASARTiles")
+            from eodatadown.eodatadownjaxasartiles import EODataDownJAXASARTileSensor
             sensorObj = EODataDownJAXASARTileSensor(self.dbInfoObj)
         elif sensor == "GenericDataset":
+            logger.debug("Found sensor GenericDataset")
+            from eodatadown.eodatadownotherdataset import EODataDownGenericDatasetSensor
             sensorObj = EODataDownGenericDatasetSensor(self.dbInfoObj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
