@@ -91,5 +91,7 @@ if __name__ == "__main__":
             logger.error('Failed to download the available data.', exc_info=True)
     else:
         logger.error('Did not recognise the process specified.', exc_info=True)
+    rsgisUtils = rsgislib.RSGISPyUtils()
+    rsgisUtils.writeList2File(cmds_lst, args.output)
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddgenscncmds.py.')
 

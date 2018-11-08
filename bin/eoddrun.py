@@ -112,9 +112,9 @@ if __name__ == "__main__":
     if args.performdownload:
         try:
             if process_single_scn:
-                logger.info('Running single download for scene "{}".'.format())
+                logger.info('Running single download for scene "{}".'.format(args.sceneid))
                 eodatadown.eodatadownrun.perform_scene_download(config_file, single_scn_sensor, args.sceneid)
-                logger.info('Finished single download for scene "{}".'.format())
+                logger.info('Finished single download for scene "{}".'.format(args.sceneid))
             else:
                 logger.info('Running process to download the available data.')
                 eodatadown.eodatadownrun.perform_downloads(config_file, ncores, args.sensors)
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     if args.processard:
         try:
             if process_single_scn:
-                raise Exception('Error no implementation - should be processing to ARD "{}""'.format(args.sceneid))
+                raise Exception('Error no implementation - should be processing to ARD "{}"'.format(args.sceneid))
             else:
                 logger.info('Running process to data to an ARD product.')
                 eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     if args.loaddc:
         try:
             if process_single_scn:
-                raise Exception('Error no implementation - should be loading into ODC "{}""'.format(args.sceneid))
+                raise Exception('Error no implementation - should be loading into ODC "{}"'.format(args.sceneid))
             else:
                 logger.info('Running process to load data into a datacube.')
                 eodatadown.eodatadownrun.datacube_load_data(config_file, args.sensors)

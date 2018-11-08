@@ -39,6 +39,11 @@ import eodatadown.eodatadownsystemmain
 
 logger = logging.getLogger(__name__)
 
+# Start: Function for Pool
+def _check_new_data_qfunc(sensorObj):
+    sensorObj.check_new_scns()
+# End: Function for Pool
+
 def find_new_downloads(config_file, ncores, sensors):
     """
     A function to run the process of finding new data to download.
@@ -69,11 +74,6 @@ def find_new_downloads(config_file, ncores, sensors):
         if process_sensor:
             sensor_objs_to_process.append(sensor_obj)
 
-    # Start: Function for Pool
-    def _check_new_data_qfunc(sensorObj):
-        sensorObj.check_new_scns()
-    # End: Function for Pool
-
     with multiprocessing.Pool(processes=ncores) as pool:
         pool.map(_check_new_data_qfunc, sensor_objs_to_process)
     edd_usage_db.addEntry("Finished: Finding Available Downloads.", end_block=True)
@@ -94,7 +94,7 @@ def get_sensor_obj(config_file, sensor):
     sensor_objs = sysMainObj.get_sensors()
     sensor_obj_to_process = None
     for sensor_obj in sensor_objs:
-        if sensor_obj.get_sensor_name() is sensor:
+        if sensor_obj.get_sensor_name() == sensor:
             sensor_obj_to_process = sensor_obj
             break
 
@@ -164,7 +164,7 @@ def perform_scene_download(config_file, sensor, scene_id):
     sensor_objs = sysMainObj.get_sensors()
     sensor_obj_to_process = None
     for sensor_obj in sensor_objs:
-        if sensor_obj.get_sensor_name() is sensor:
+        if sensor_obj.get_sensor_name() == sensor:
             sensor_obj_to_process = sensor_obj
             break
 
@@ -235,7 +235,7 @@ def process_scene_ard(config_file, sensor, scene_id):
     sensor_objs = sysMainObj.get_sensors()
     sensor_obj_to_process = None
     for sensor_obj in sensor_objs:
-        if sensor_obj.get_sensor_name() is sensor:
+        if sensor_obj.get_sensor_name() == sensor:
             sensor_obj_to_process = sensor_obj
             break
 
