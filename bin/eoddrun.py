@@ -56,6 +56,8 @@ if __name__ == "__main__":
                         help="Specify that the system should process downloads to and ARD product.")
     parser.add_argument("--loaddc", action='store_true', default=False,
                         help="Specify that the system should load available scenes into the associated datacube.")
+    parser.add_argument("--sceneid", type=str, default=None,
+                        help="Specify an ID of a scene to be processed.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -73,6 +75,19 @@ if __name__ == "__main__":
     if args.ncores > ncores:
         ncores = args.ncores
 
+    process_single_scn = False
+    single_scn_sensor = ""
+    if args.sceneid is not None:
+        process_single_scn = True
+        if process_single_scn is "":
+            raise Exception("The specified scene ID is an empty string.")
+        if args.sensors == None:
+            raise Exception("If a scene ID has been specified then a sensor must be specified.")
+        elif len(args.sensors) != 1:
+            raise Exception("If a scene ID has been specified then a single scene is being processed which can only be from a single sensor.")
+        else:
+            single_scn_sensor = args.sensors[0]
+
     if ncores == 0:
         logger.info("The number of cores has not been specified. Either use -n or the variable EDD_NCORES.")
         raise Exception("The number of cores to use has not been specified.")
@@ -86,30 +101,44 @@ if __name__ == "__main__":
     t.start(True)
     if args.finddownloads:
         try:
-            logger.info('Running process to find new downloads.')
-            eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors)
-            logger.info('Finished process to find new downloads.')
+            if process_single_scn:
+                raise Exception('It is not possible to find new downloads for a given scene ID - this does not make sense.')
+            else:
+                logger.info('Running process to find new downloads.')
+                eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors)
+                logger.info('Finished process to find new downloads.')
         except Exception as e:
             logger.error('Failed to complete the process of finding new downloads.', exc_info=True)
     if args.performdownload:
         try:
-            logger.info('Running process to download the available data.')
-            eodatadown.eodatadownrun.perform_downloads(config_file, ncores, args.sensors)
-            logger.info('Finished process to download the available data.')
+            if process_single_scn:
+                logger.info('Running single download for scene "{}".'.format())
+                eodatadown.eodatadownrun.perform_scene_download(config_file, single_scn_sensor, args.sceneid)
+                logger.info('Finished single download for scene "{}".'.format())
+            else:
+                logger.info('Running process to download the available data.')
+                eodatadown.eodatadownrun.perform_downloads(config_file, ncores, args.sensors)
+                logger.info('Finished process to download the available data.')
         except Exception as e:
             logger.error('Failed to download the available data.', exc_info=True)
     if args.processard:
         try:
-            logger.info('Running process to data to an ARD product.')
-            eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
-            logger.info('Finished process to data to an ARD product.')
+            if process_single_scn:
+                raise Exception('Error no implementation - should be processing to ARD "{}""'.format(args.sceneid))
+            else:
+                logger.info('Running process to data to an ARD product.')
+                eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
+                logger.info('Finished process to data to an ARD product.')
         except Exception as e:
             logger.error('Failed to process data to ARD products.', exc_info=True)
     if args.loaddc:
         try:
-            logger.info('Running process to load data into a datacube.')
-            eodatadown.eodatadownrun.datacube_load_data(config_file, args.sensors)
-            logger.info('Finished process to load data into a datacube.')
+            if process_single_scn:
+                raise Exception('Error no implementation - should be loading into ODC "{}""'.format(args.sceneid))
+            else:
+                logger.info('Running process to load data into a datacube.')
+                eodatadown.eodatadownrun.datacube_load_data(config_file, args.sensors)
+                logger.info('Finished process to load data into a datacube.')
         except Exception as e:
             logger.error('Failed to load data into a datacube.', exc_info=True)
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrun.py.')

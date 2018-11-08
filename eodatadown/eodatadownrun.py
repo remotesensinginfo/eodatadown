@@ -39,11 +39,6 @@ import eodatadown.eodatadownsystemmain
 
 logger = logging.getLogger(__name__)
 
-########### Function for Pool ################
-def _check_new_data_qfunc(sensorObj):
-    sensorObj.check_new_scns()
-##############################################
-
 def find_new_downloads(config_file, ncores, sensors):
     """
     A function to run the process of finding new data to download.
@@ -73,9 +68,43 @@ def find_new_downloads(config_file, ncores, sensors):
                 process_sensor = True
         if process_sensor:
             sensor_objs_to_process.append(sensor_obj)
+
+    # Start: Function for Pool
+    def _check_new_data_qfunc(sensorObj):
+        sensorObj.check_new_scns()
+    # End: Function for Pool
+
     with multiprocessing.Pool(processes=ncores) as pool:
         pool.map(_check_new_data_qfunc, sensor_objs_to_process)
     edd_usage_db.addEntry("Finished: Finding Available Downloads.", end_block=True)
+
+
+def get_sensor_obj(config_file, sensor):
+    """
+    A function to get a sensor object.
+    :param config_file:
+    :param sensor:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sysMainObj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    sensor_objs = sysMainObj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        if sensor_obj.get_sensor_name() is sensor:
+            sensor_obj_to_process = sensor_obj
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    return sensor_obj_to_process
+
+
 
 def perform_downloads(config_file, n_cores, sensors):
     """
@@ -111,9 +140,44 @@ def perform_downloads(config_file, n_cores, sensors):
         try:
             sensorObj.download_all_avail(n_cores)
         except Exception as e:
-            logger.debug("Error occurred while downloading for sensor: "+sensorObj.get_sensor_name())
+            logger.error("Error occurred while downloading for sensor: "+sensorObj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
     edd_usage_db.addEntry("Finished: Downloading Available Scenes.", end_block=True)
+
+
+def perform_scene_download(config_file, sensor, scene_id):
+    """
+    A function which performs the download for the specified scene.
+    :param config_file:
+    :param sensor:
+    :param scene_id:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sysMainObj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sysMainObj.get_usage_db_obj()
+    edd_usage_db.addEntry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+
+    sensor_objs = sysMainObj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        if sensor_obj.get_sensor_name() is sensor:
+            sensor_obj_to_process = sensor_obj
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    try:
+        sensor_obj_to_process.download_scn(scene_id)
+    except Exception as e:
+        logger.error("Error occurred while downloading scene ({0}) for sensor: ({1})".format(scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.addEntry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
 
 def process_data_ard(config_file, n_cores, sensors):
     """
@@ -148,9 +212,43 @@ def process_data_ard(config_file, n_cores, sensors):
         try:
             sensorObj.scns2ard_all_avail(n_cores)
         except Exception as e:
-            logger.debug("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
+            logger.error("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
     edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
+
+def process_scene_ard(config_file, sensor, scene_id):
+    """
+    A function which runs the process of converting the specified scene to an ARD product.
+    :param config_file:
+    :param sensor:
+    :param scene_id:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sysMainObj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sysMainObj.get_usage_db_obj()
+    edd_usage_db.addEntry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+
+    sensor_objs = sysMainObj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        if sensor_obj.get_sensor_name() is sensor:
+            sensor_obj_to_process = sensor_obj
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    try:
+        sensor_obj_to_process.scn2ard(scene_id)
+    except Exception as e:
+        logger.error("Error occurred while converting scene ({0}) to ARD for sensor: ({1})".format(scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.addEntry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
 
 def datacube_load_data(config_file, sensors):
     """
@@ -184,7 +282,7 @@ def datacube_load_data(config_file, sensors):
         try:
             sensorObj.scns2datacube_all_avail()
         except Exception as e:
-            logger.debug("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
+            logger.error("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
     edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
 
@@ -216,7 +314,7 @@ def export_image_footprints_vector(config_file, sensor, table, vector_file, vect
                     sensor_obj.create_gdal_gis_lyr(vector_file, vector_lyr, vector_driver, add_layer)
                     logger.info("Exported footprints for {}.".format(sensor))
                 except Exception as e:
-                    logger.debug("Error occurred while Export vector footprints for sensor: " + sensor_obj.get_sensor_name())
+                    logger.error("Error occurred while Export vector footprints for sensor: " + sensor_obj.get_sensor_name())
                     logger.debug(e.__str__(), exc_info=True)
                 break
     edd_usage_db.addEntry("Finished: Export vector footprints.", end_block=True)

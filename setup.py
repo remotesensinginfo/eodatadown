@@ -37,11 +37,11 @@ from distutils.core import setup
 import os
 
 setup(name='EODataDown',
-    version='0.4.0',
+    version='0.5.0',
     description='A tool for automating Earth Observation Data Downloading.',
     author='Pete Bunting',
     author_email='pfb@aber.ac.uk',
-    scripts=['bin/eoddsetup.py', 'bin/eoddrun.py', 'bin/eoddpassencode.py', 'bin/eoddexport.py'],
+    scripts=['bin/eoddsetup.py', 'bin/eoddrun.py', 'bin/eoddpassencode.py', 'bin/eoddexport.py', 'bin/eoddgenscncmds.py'],
     packages=['eodatadown'],
     package_dir={'eodatadown': 'eodatadown'},
     data_files=[],
