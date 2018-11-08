@@ -74,11 +74,10 @@ if __name__ == "__main__":
 
     t = rsgislib.RSGISTime()
     t.start(True)
-    edd_run_obj = eodatadown.eodatadownrun.EODataDownRun()
     if args.exportvector:
         try:
             logger.info('Running process to export vector footprints.')
-            edd_run_obj.export_image_footprints_vector(config_file, args.sensor, args.table, args.file, args.layer, args.driver, args.add_layer)
+            eodatadown.eodatadownrun.export_image_footprints_vector(config_file, args.sensor, args.table, args.file, args.layer, args.driver, args.add_layer)
             logger.info('Finished process to export vector footprints.')
         except Exception as e:
             logger.error('Failed to complete the process to export vector footprints.', exc_info=True)

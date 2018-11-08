@@ -14,6 +14,7 @@ A tool for automatically downloading Earth Observation imagery and products.
 * postgresql [https://www.postgresql.org]
 * psycopg2 [http://initd.org/psycopg/]
 * Google Cloud Services [https://github.com/GoogleCloudPlatform/google-cloud-python]
+* PyYAML [https://pyyaml.org]
 
 ### Google Cloud Services
 For google cloud services the following dependencies need to installed. 
@@ -33,7 +34,7 @@ For google cloud services the following dependencies need to installed.
 Using conda and conda-forge the dependencies can be installed within the following command:
 
 ```bash
-conda install -c conda-forge pycurl postgresql psycopg2 sqlalchemy google-cloud-storage google-cloud-bigquery arcsi wget
+conda install -c conda-forge pycurl postgresql psycopg2 sqlalchemy google-cloud-storage google-cloud-bigquery arcsi wget pyyaml
 pip install planet
 ```
 ## Configuration

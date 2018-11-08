@@ -54,6 +54,8 @@ if __name__ == "__main__":
                         help="Specify that the system should downloads files which have not been downloaded.")
     parser.add_argument("--processard", action='store_true', default=False,
                         help="Specify that the system should process downloads to and ARD product.")
+    parser.add_argument("--loaddc", action='store_true', default=False,
+                        help="Specify that the system should load available scenes into the associated datacube.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -75,34 +77,40 @@ if __name__ == "__main__":
         logger.info("The number of cores has not been specified. Either use -n or the variable EDD_NCORES.")
         raise Exception("The number of cores to use has not been specified.")
 
-    if (not args.finddownloads) and (not args.performdownload) and (not args.processard):
-        logger.info("At least one of --finddownloads, --performdownload or --processard needs to be specified.")
-        raise Exception("At least one of --finddownloads, --performdownload or --processard needs to be specified.")
+    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc):
+        logger.info("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
+        raise Exception("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
 
 
     t = rsgislib.RSGISTime()
     t.start(True)
-    edd_run_obj = eodatadown.eodatadownrun.EODataDownRun()
     if args.finddownloads:
         try:
             logger.info('Running process to find new downloads.')
-            edd_run_obj.find_new_downloads(config_file, ncores, args.sensors)
+            eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors)
             logger.info('Finished process to find new downloads.')
         except Exception as e:
             logger.error('Failed to complete the process of finding new downloads.', exc_info=True)
     if args.performdownload:
         try:
             logger.info('Running process to download the available data.')
-            edd_run_obj.perform_downloads(config_file, ncores, args.sensors)
+            eodatadown.eodatadownrun.perform_downloads(config_file, ncores, args.sensors)
             logger.info('Finished process to download the available data.')
         except Exception as e:
             logger.error('Failed to download the available data.', exc_info=True)
     if args.processard:
         try:
             logger.info('Running process to data to an ARD product.')
-            edd_run_obj.process_data_ard(config_file, ncores, args.sensors)
+            eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
             logger.info('Finished process to data to an ARD product.')
         except Exception as e:
             logger.error('Failed to process data to ARD products.', exc_info=True)
+    if args.loaddc:
+        try:
+            logger.info('Running process to load data into a datacube.')
+            eodatadown.eodatadownrun.datacube_load_data(config_file, args.sensors)
+            logger.info('Finished process to load data into a datacube.')
+        except Exception as e:
+            logger.error('Failed to load data into a datacube.', exc_info=True)
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrun.py.')
 

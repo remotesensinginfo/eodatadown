@@ -38,6 +38,8 @@ import datetime
 import multiprocessing
 import shutil
 import rsgislib
+import uuid
+import yaml
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -811,8 +813,24 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         but have not yet been loaded into the system datacube (specifed in the configuration file).
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to be loaded.
         """
-        # TODO ADD DataCube Functionality
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
+                                                          EDDLandsatGoogle.DCLoaded == False).all()
+        scns2dcload = []
+        if query_result is not None:
+            for record in query_result:
+                scns2dcload.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2dcload
+
+    def create_dc_load_yaml(self, ardpath):
+        print("Hello World.")
 
     def scn2datacube(self, unq_id):
         """
@@ -828,8 +846,68 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Queries the database to find all scenes which have been processed to an ARD format but not loaded
         into the datacube and then loads these scenes into the datacube.
         """
-        # TODO ADD DataCube Functionality
-        raise EODataDownException("Not implemented.")
+        rsgisUtils = rsgislib.RSGISPyUtils()
+
+        logger.debug("Creating Database Engine and Session.")
+        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        ses = Session()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
+                                                          EDDLandsatGoogle.DCLoaded == False).all()
+
+        if query_result is not None:
+            logger.debug("Create the yaml files for the data cube to enable import.")
+            dt_obj = datetime.datetime.now()
+
+            yaml_scn_files = []
+
+            for record in query_result:
+                scn_id = str(str(uuid.uuid5(uuid.NAMESPACE_URL, record.ARDProduct_Path)))
+                print("{}: {}".format(record.Scene_ID, scn_id))
+                img_file = rsgisUtils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.kea')
+                yaml_file = os.path.splitext(img_file)[0]+"_yaml.yaml"
+                epsg_code = rsgisUtils.getEPSGCode(img_file)
+                lcl_proj_bbox = rsgisUtils.getImageBBOX(img_file)
+
+                scn_info = {
+                    'id': scn_id,
+                    'processing_level': 'LEVEL_2',
+                    'product_type': 'arcsi_ard',
+                    'creation_dt': record.ARDProduct_End_Date.strftime("%Y-%m-%d %H:%M:%S"),
+                    'label': record.Scene_ID,
+                    'platform': {'code': record.Spacecraft_ID},
+                    'instrument': {'name': record.Sensor_ID},
+                    'extent': {
+                        'from_dt': record.Sensing_Time.strftime("%Y-%m-%d %H:%M:%S"),
+                        'to_dt': record.Sensing_Time.strftime("%Y-%m-%d %H:%M:%S"),
+                        'center_dt': record.Sensing_Time.strftime("%Y-%m-%d %H:%M:%S"),
+                        'coord': {
+                            'll': {'lat': record.South_Lat, 'lon': record.West_Lon},
+                            'lr': {'lat': record.South_Lat, 'lon': record.East_Lon},
+                            'ul': {'lat': record.North_Lat, 'lon': record.West_Lon},
+                            'ur': {'lat': record.North_Lat, 'lon': record.East_Lon}
+                        }
+                    },
+                    'format': {'name': 'KEA'},
+                    'grid_spatial': {
+                        'projection': {
+                            'spatial_reference': 'EPSG:{}'.format(epsg_code),
+                            'geo_ref_points': {
+                                'll': {'x': lcl_proj_bbox[0], 'y': lcl_proj_bbox[2]},
+                                'lr': {'x': lcl_proj_bbox[1], 'y': lcl_proj_bbox[2]},
+                                'ul': {'x': lcl_proj_bbox[0], 'y': lcl_proj_bbox[3]},
+                                'ur': {'x': lcl_proj_bbox[1], 'y': lcl_proj_bbox[3]}
+                            }
+                        }
+                    },
+                    'image': {'path': img_file},
+                    'lineage': {'source_datasets': {}},
+                }
+                with open(yaml_file, 'w') as stream:
+                    yaml.dump(scn_info, stream)
+                yaml_scn_files.append(yaml_file)
 
     def get_scn_record(self, unq_id):
         """

@@ -250,6 +250,7 @@ class EDDCheckFileHash(object):
                 md5.update(block_data)
         return md5.hexdigest()
 
+
 class EDDJSONParseHelper(object):
 
     def readGZIPJSON(self, file_path):
@@ -1154,6 +1155,7 @@ class EODDFTPDownload(object):
             success = False
         return success
 
+
 class EODDWGetDownload(object):
 
     def downloadFile(self, input_url, out_file_path, username=None, password=None, try_number="10", time_out="60", input_url_md5=None):
@@ -1201,3 +1203,4 @@ class EODDWGetDownload(object):
             success = False
             logger.info("File being downloaded did not successfully complete: {}".format(out_file_path))
         return success
+
