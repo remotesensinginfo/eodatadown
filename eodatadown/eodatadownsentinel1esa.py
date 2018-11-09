@@ -114,7 +114,7 @@ def _download_scn_esa(params):
     remote_url = params[1]
     remote_url_md5 = params[2]
     remote_filesize = params[3]
-    dbInfoObj = params[4]
+    db_info_obj = params[4]
     scn_lcl_dwnld_path = params[5]
     esa_user = params[6]
     esa_pass = params[7]
@@ -128,9 +128,9 @@ def _download_scn_esa(params):
 
     if success and os.path.exists(scn_lcl_dwnld_path):
         logger.debug("Set up database connection and update record.")
-        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + uuid)
@@ -156,8 +156,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "Sentinel1ESA"
-        self.dbTabName = "EDDSentinel1ESA"
+        self.sensor_name = "Sentinel1ESA"
+        self.db_tab_name = "EDDSentinel1ESA"
         self.base_api_url = "https://scihub.copernicus.eu/apihub/"
 
     def parse_sensor_config(self, config_file, first_parse=False):
@@ -169,20 +169,20 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         :param config_file: string with the path to the JSON file.
         :param first_parse: boolean as to whether the file has been previously parsed.
         """
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
         if first_parse:
-            eddFileChecker.createFileSig(config_file)
+            edd_file_checker.createFileSig(config_file)
             logger.debug("Created signature file for config file.")
 
-        if not eddFileChecker.checkFileSig(config_file):
+        if not edd_file_checker.checkFileSig(config_file):
             raise EODataDownException("Input config did not match the file signature.")
 
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             logger.debug("Testing config file is for 'Sentinel1ESA'")
-            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
+            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensor_name])
             logger.debug("Have the correct config file for 'Sentinel1ESA'")
 
             logger.debug("Find ARD processing params from config file")
@@ -247,13 +247,13 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         any data would be lost.
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(dbEng)
+        Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating Sentinel1ESA Database.")
-        Base.metadata.bind = dbEng
+        Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
     def create_query_url(self, base_url, start_offset=0, n_rows=100):
@@ -296,19 +296,20 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
     def parse_json_response(self, rsp_json, sesobj, n_records):
         """
         Parse the JSON response and populate the local database with the scenes found in the response.
+        :param n_records:
         :param rsp_json: the JSON from the http response.
         :param sesobj: A database session object.
         """
 
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
         db_records = []
-        entryLst = []
+        entry_lst = []
         if n_records == 1:
-            entryLst.append(rsp_json['entry'])
+            entry_lst.append(rsp_json['entry'])
         else:
-            entryLst = rsp_json['entry']
+            entry_lst = rsp_json['entry']
 
-        for entry in entryLst:
+        for entry in entry_lst:
             found, uuid_val = json_parse_helper.findStringValueESALst(entry["str"], "uuid")
             if not found:
                 raise EODataDownException("Could not find uuid for {}".format(entry['title']))
@@ -420,9 +421,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         session.headers["User-Agent"] = user_agent
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
@@ -492,7 +493,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                             self.parse_json_response(rsp_json, ses, n_remain_scns)
             logger.debug("Processed query result and added to local database for \"" + wkt_poly + "\"")
 
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL == None).all()
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL is None).all()
         if query_result is not None:
             for record in query_result:
                 url = self.base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
@@ -506,9 +507,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             ses.commit()
         ses.close()
         logger.debug("Closed Database session")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
-                              updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, scns_avail=new_scns_avail)
 
     def get_scnlist_download(self):
         """
@@ -539,11 +540,12 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         continue_downloads = True
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == False).filter(EDDSentinel1ESA.Remote_URL != None).all()
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == False).filter(
+            EDDSentinel1ESA.Remote_URL is not None).all()
         dwnld_params = []
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
@@ -555,7 +557,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Identifier+".zip"
                 downloaded_new_scns = True
-                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.dbInfoObj, os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
+                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.db_info_obj, os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
@@ -567,8 +569,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_download_scn_esa, dwnld_params)
         logger.info("Finished downloading the scenes.")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
 
     def get_scnlist_con2ard(self):
@@ -608,9 +610,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == True, EDDSentinel1ESA.ARDProduct == False).all()

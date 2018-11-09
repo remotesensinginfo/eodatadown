@@ -61,7 +61,7 @@ def _process_to_ard(params):
     :param params:
     """
     base_name = params[0]
-    dbInfoObj = params[1]
+    db_info_obj = params[1]
     download_file = params[2]
     ard_work_path = params[3]
     ard_final_path = params[4]
@@ -121,9 +121,9 @@ def _process_to_ard(params):
 
 
         logger.debug("Set up database connection and update record.")
-        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         query_obj = generic_table.update().where(generic_table.c.Base_Name == base_name).values(North_Lat=north_lat,
                                                                                                 South_Lat=south_lat,
                                                                                                 East_Lon=east_lon,
@@ -150,7 +150,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "GenericDataset"
+        self.sensor_name = "GenericDataset"
         self.metadata =  sqlalchemy.MetaData()
 
     def parse_sensor_config(self, config_file, first_parse=False):
@@ -162,24 +162,24 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         :param config_file: string with the path to the JSON file.
         :param first_parse: boolean as to whether the file has been previously parsed.
         """
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
         if first_parse:
-            eddFileChecker.createFileSig(config_file)
+            edd_file_checker.createFileSig(config_file)
             logger.debug("Created signature file for config file.")
 
-        if not eddFileChecker.checkFileSig(config_file):
+        if not edd_file_checker.checkFileSig(config_file):
             raise EODataDownException("Input config did not match the file signature.")
 
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             logger.debug("Testing config file is for 'GenericDataset'")
-            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
+            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensor_name])
             logger.debug("Have the correct config file for 'GenericDataset'")
 
             logger.debug("Get database table name from  config file.")
-            self.dbTabName = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "dbtabname"])
+            self.db_tab_name = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "dbtabname"])
             logger.debug("Got database table name from  config file.")
 
             logger.debug("Find ARD processing params from config file")
@@ -221,7 +221,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
             self.sensorDate = json_parse_helper.getDateValue(config_data, ["eodatadown", "sensor", "info", "date"], self.sensorDateParse)
             logger.debug("Found info params from config file")
 
-            self.generic_table = sqlalchemy.Table(self.dbTabName, self.metadata,
+            self.generic_table = sqlalchemy.Table(self.db_tab_name, self.metadata,
                                                   sqlalchemy.Column('PID', sqlalchemy.Integer, primary_key=True),
                                                   sqlalchemy.Column('Base_Name', sqlalchemy.String, nullable=False),
                                                   sqlalchemy.Column('Sensor', sqlalchemy.String, nullable=False),
@@ -260,13 +260,13 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         any data would be lost.
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        self.metadata.drop_all(dbEng)
+        self.metadata.drop_all(db_engine)
 
-        logger.debug("Creating {} Database.".format(self.dbTabName))
-        self.metadata.bind = dbEng
+        logger.debug("Creating {} Database.".format(self.db_tab_name))
+        self.metadata.bind = db_engine
         self.metadata.create_all()
 
     def check_new_scns(self):
@@ -275,9 +275,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         Scenes not within the database will be added.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         file_lst = glob.glob(self.downloadSearchPath)
         new_scns_avail = False
         for tmp_file in file_lst:
@@ -294,9 +294,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         ses.commit()
         ses.close()
         logger.debug("Closed Database session")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.dbTabName,
-                              updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.db_tab_name,
+                               updated_lcl_db=True, scns_avail=new_scns_avail)
 
     def get_scnlist_download(self):
         """
@@ -313,9 +313,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         :return: returns boolean indicating successful or otherwise download.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.PID == unq_id)
         query_rtn = ses.execute(query_obj).fetchall()
         if len(query_rtn) == 1:
@@ -340,9 +340,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         logger.debug("Perform query to find scenes which need downloading.")
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.Downloaded == True, self.generic_table.c.ARDProduct == False)
         query_rtn = ses.execute(query_obj).fetchall()
@@ -368,9 +368,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
             raise EODataDownException("The ARD work path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.PID == unq_id)
         query_rtn = ses.execute(query_obj).fetchall()
@@ -395,7 +395,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Base_Name + "_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                _process_to_ard([record.Base_Name, self.dbInfoObj, record.Download_Path, work_ard_scn_path,
+                _process_to_ard([record.Base_Name, self.db_info_obj, record.Download_Path, work_ard_scn_path,
                                  self.ardFinalPath, self.ardProjDefined, proj_wkt_file, self.projabbv,
                                  self.outImgRes, self.reprojInterp, self.generic_table])
             else:
@@ -423,9 +423,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
             raise EODataDownException("The ARD work path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.Downloaded == True and
                                                                   self.generic_table.c.ARDProduct == False)
@@ -451,7 +451,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Base_Name + "_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                ard_params.append([record.Base_Name, self.dbInfoObj, record.Download_Path, work_ard_scn_path,
+                ard_params.append([record.Base_Name, self.db_info_obj, record.Download_Path, work_ard_scn_path,
                              self.ardFinalPath, self.ardProjDefined, proj_wkt_file, self.projabbv,
                              self.outImgRes, self.reprojInterp, self.generic_table])
         else:
@@ -465,9 +465,9 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                 pool.map(_process_to_ard, ard_params)
             logger.info("Finished processing the scenes.")
 
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.dbTabName,
-                              updated_lcl_db=True, convert_scns_ard=True)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.db_tab_name,
+                               updated_lcl_db=True, convert_scns_ard=True)
 
     def get_scnlist_add2datacube(self):
         """
@@ -648,18 +648,18 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
             feature_defn = out_vec_lyr.GetLayerDefn()
 
             logger.debug("Creating Database Engine and Session.")
-            dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-            Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-            ses = Session()
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses= session()
 
             query_obj = sqlalchemy.select([self.generic_table])
             query_rtn = ses.execute(query_obj).fetchall()
 
             if len(query_rtn) > 0:
                 for record in query_rtn:
-                    geoBBOX = eodatadown.eodatadownutils.EDDGeoBBox()
-                    geoBBOX.setBBOX(record.North_Lat, record.South_Lat, record.West_Lon, record.East_Lon)
-                    bboxs = geoBBOX.getGeoBBoxsCut4LatLonBounds()
+                    geo_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
+                    geo_bbox.setBBOX(record.North_Lat, record.South_Lat, record.West_Lon, record.East_Lon)
+                    bboxs = geo_bbox.getGeoBBoxsCut4LatLonBounds()
 
                     for bbox in bboxs:
                         poly = bbox.getOGRPolygon()

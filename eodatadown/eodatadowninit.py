@@ -45,22 +45,22 @@ def initialise_new_system(config_file):
     :return:
     """
     # Create the signature file for the configuration file.
-    eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
-    eddFileChecker.createFileSig(config_file)
+    edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
+    edd_file_checker.createFileSig(config_file)
     logger.debug("Created signature file for config file.")
 
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file, True)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file, True)
     logger.debug("Parsed the system configuration.")
 
     # Create and initialise the sensor databases
-    sysMainObj.init_dbs()
+    sys_main_obj.init_dbs()
     logger.debug("Initialised the sensor databases.")
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Started: Initialising the databases and configure files.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Initialising the databases and configure files.", start_block=True)
     # I don't think there is anything which need doing - keeping start and end for consistency.
-    edd_usage_db.addEntry("Finished: Initialising the databases and configure files.", end_block=True)
+    edd_usage_db.add_entry("Finished: Initialising the databases and configure files.", end_block=True)
 
 
 def update_existing_system(config_file):
@@ -70,17 +70,17 @@ def update_existing_system(config_file):
     :return:
     """
     # Create the signature file for the configuration file.
-    eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
-    eddFileChecker.createFileSig(config_file)
+    edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
+    edd_file_checker.createFileSig(config_file)
     logger.debug("Created signature file for config file.")
 
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file, True)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file, True)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Started: Updating initialisation of the configure files.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Updating initialisation of the configure files.", start_block=True)
     # I don't think there is anything which need doing - keeping start and end for consistency.
-    edd_usage_db.addEntry("Finished: Updating initialisation of the configure files.", end_block=True)
+    edd_usage_db.add_entry("Finished: Updating initialisation of the configure files.", end_block=True)
 

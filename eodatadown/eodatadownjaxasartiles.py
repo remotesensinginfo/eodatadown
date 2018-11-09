@@ -107,7 +107,7 @@ def _download_scn_jaxa(params):
     server_path = params[0]
     server_url = params[1]
     scn_lcl_dwnld_path = params[2]
-    dbInfoObj = params[3]
+    db_info_obj = params[3]
 
     logger.info("Downloading "+server_path)
     start_date = datetime.datetime.now()
@@ -125,9 +125,9 @@ def _download_scn_jaxa(params):
 
     if success:
         logger.debug("Set up database connection and update record.")
-        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Server_File_Path == server_path).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + server_path)
@@ -136,8 +136,8 @@ def _download_scn_jaxa(params):
         query_result.Download_End_Date = end_date
         query_result.Download_Path = scn_lcl_dwnld_path
         query_result.Remote_URL = os.path.join(server_url, server_path)
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
-        query_result.Remote_URL_MD5 = eddFileChecker.calcMD5Checksum(scn_lcl_dwnld_path)
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        query_result.Remote_URL_MD5 = edd_file_checker.calcMD5Checksum(scn_lcl_dwnld_path)
         ses.commit()
         ses.close()
         logger.debug("Finished download and updated database.")
@@ -152,7 +152,7 @@ def _process_to_ard(params):
     pid = params[0]
     tile_name = params[1]
     year = params[2]
-    dbInfoObj = params[3]
+    db_info_obj = params[3]
     download_path = params[4]
     work_ard_scn_path = params[5]
     tmp_ard_scn_path = params[6]
@@ -433,9 +433,9 @@ def _process_to_ard(params):
         shutil.rmtree(tmp_ard_scn_path)
 
         logger.debug("Set up database connection and update record.")
-        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.PID == pid).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + pid)
@@ -515,8 +515,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "JAXASARTiles"
-        self.dbTabName = "EDDJAXASARTiles"
+        self.sensor_name = "JAXASARTiles"
+        self.db_tab_name = "EDDJAXASARTiles"
         self.avail_years = [1996, 2007, 2008, 2009, 2010, 2015, 2016, 2017]
         self.jaxa_ftp = "ftp.eorc.jaxa.jp"
         self.ftp_paths = dict()
@@ -547,20 +547,20 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         :param config_file: string with the path to the JSON file.
         :param first_parse: boolean as to whether the file has been previously parsed.
         """
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
         if first_parse:
-            eddFileChecker.createFileSig(config_file)
+            edd_file_checker.createFileSig(config_file)
             logger.debug("Created signature file for config file.")
 
-        if not eddFileChecker.checkFileSig(config_file):
+        if not edd_file_checker.checkFileSig(config_file):
             raise EODataDownException("Input config did not match the file signature.")
 
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             logger.debug("Testing config file is for 'JAXASARTiles'")
-            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
+            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensor_name])
             logger.debug("Have the correct config file for 'JAXASARTiles'")
 
             logger.debug("Find ARD processing params from config file")
@@ -619,13 +619,13 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         any data would be lost.
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(dbEng)
+        Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating JAXASARTiles Database.")
-        Base.metadata.bind = dbEng
+        Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
     def check_new_scns(self):
@@ -634,9 +634,9 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         Scenes not within the database will be added.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         query_rtn = ses.query(EDDJAXASARTiles.Year).group_by(EDDJAXASARTiles.Year).all()
         years_in_db = []
@@ -695,9 +695,9 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
         ses.close()
         logger.debug("Closed Database session")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
-                              updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, scns_avail=new_scns_avail)
 
     def get_scnlist_download(self):
         """
@@ -725,9 +725,9 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         if not os.path.exists(self.baseDownloadPath):
             raise EODataDownException("The download path does not exist, please create and run again.")
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == False).all()
@@ -739,7 +739,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                 if self.all_jaxa_tiles or (record.Tile_Name in self.tile_lst):
                     logger.debug("Building download info for '"+record.File_Name+"'")
                     local_file_path = os.path.join(self.baseDownloadPath, record.File_Name)
-                    dwnld_params.append([record.Server_File_Path, self.jaxa_ftp, local_file_path, self.dbInfoObj])
+                    dwnld_params.append([record.Server_File_Path, self.jaxa_ftp, local_file_path, self.db_info_obj])
         else:
             logger.info("There are no scenes to be downloaded.")
 
@@ -752,8 +752,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                 pool.map(_download_scn_jaxa, dwnld_params)
             download_new_scns = True
         logger.info("Finished downloading the scenes.")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=download_new_scns)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name, updated_lcl_db=True, downloaded_new_scns=download_new_scns)
 
     def get_scnlist_con2ard(self):
         """
@@ -792,9 +792,9 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == True,
@@ -838,7 +838,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                         proj_wkt_file = os.path.join(work_ard_scn_path, unique_name + "_wkt.wkt")
                         rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                    ard_params.append([record.PID, record.Tile_Name, record.Year, self.dbInfoObj, record.Download_Path, work_ard_scn_path,
+                    ard_params.append([record.PID, record.Tile_Name, record.Year, self.db_info_obj, record.Download_Path, work_ard_scn_path,
                          tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv, self.outImgRes])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
@@ -850,9 +850,9 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             pool.map(_process_to_ard, ard_params)
         logger.info("Finished processing the scenes.")
 
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName,
-                              updated_lcl_db=True, convert_scns_ard=True)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, convert_scns_ard=True)
 
     def get_scnlist_add2datacube(self):
         """

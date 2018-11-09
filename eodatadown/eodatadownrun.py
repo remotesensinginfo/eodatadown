@@ -39,30 +39,31 @@ import eodatadown.eodatadownsystemmain
 
 logger = logging.getLogger(__name__)
 
+
 # Start: Function for Pool
-def _check_new_data_qfunc(sensorObj):
-    sensorObj.check_new_scns()
+def _check_new_data_qfunc(sensor_obj):
+    sensor_obj.check_new_scns()
 # End: Function for Pool
 
-def find_new_downloads(config_file, ncores, sensors):
+
+def find_new_downloads(config_file, n_cores, sensors):
     """
     A function to run the process of finding new data to download.
     :param config_file:
-    :param ncores:
+    :param n_cores:
     :param sensors:
     :return:
     """
     logger.info("Running process to fund new downloads.")
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Started: Finding Available Downloads.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Finding Available Downloads.", start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
-    process_sensor = False
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_objs_to_process = []
     for sensor_obj in sensor_objs:
         process_sensor = False
@@ -74,9 +75,9 @@ def find_new_downloads(config_file, ncores, sensors):
         if process_sensor:
             sensor_objs_to_process.append(sensor_obj)
 
-    with multiprocessing.Pool(processes=ncores) as pool:
+    with multiprocessing.Pool(processes=n_cores) as pool:
         pool.map(_check_new_data_qfunc, sensor_objs_to_process)
-    edd_usage_db.addEntry("Finished: Finding Available Downloads.", end_block=True)
+    edd_usage_db.add_entry("Finished: Finding Available Downloads.", end_block=True)
 
 
 def get_sensor_obj(config_file, sensor):
@@ -87,11 +88,11 @@ def get_sensor_obj(config_file, sensor):
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    sensor_objs = sysMainObj.get_sensors()
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_obj_to_process = None
     for sensor_obj in sensor_objs:
         if sensor_obj.get_sensor_name() == sensor:
@@ -105,7 +106,6 @@ def get_sensor_obj(config_file, sensor):
     return sensor_obj_to_process
 
 
-
 def perform_downloads(config_file, n_cores, sensors):
     """
     A function which runs the process of performing the downloads of available scenes
@@ -116,15 +116,14 @@ def perform_downloads(config_file, n_cores, sensors):
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Started: Downloading Available Scenes.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Downloading Available Scenes.", start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
-    process_sensor = False
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_objs_to_process = []
     for sensor_obj in sensor_objs:
         process_sensor = False
@@ -136,13 +135,13 @@ def perform_downloads(config_file, n_cores, sensors):
         if process_sensor:
             sensor_objs_to_process.append(sensor_obj)
 
-    for sensorObj in sensor_objs_to_process:
+    for sensor_obj in sensor_objs_to_process:
         try:
-            sensorObj.download_all_avail(n_cores)
+            sensor_obj.download_all_avail(n_cores)
         except Exception as e:
-            logger.error("Error occurred while downloading for sensor: "+sensorObj.get_sensor_name())
+            logger.error("Error occurred while downloading for sensor: "+sensor_obj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.addEntry("Finished: Downloading Available Scenes.", end_block=True)
+    edd_usage_db.add_entry("Finished: Downloading Available Scenes.", end_block=True)
 
 
 def perform_scene_download(config_file, sensor, scene_id):
@@ -154,14 +153,14 @@ def perform_scene_download(config_file, sensor, scene_id):
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_obj_to_process = None
     for sensor_obj in sensor_objs:
         if sensor_obj.get_sensor_name() == sensor:
@@ -175,9 +174,11 @@ def perform_scene_download(config_file, sensor, scene_id):
     try:
         sensor_obj_to_process.download_scn(scene_id)
     except Exception as e:
-        logger.error("Error occurred while downloading scene ({0}) for sensor: ({1})".format(scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.error("Error occurred while downloading scene ({0}) for sensor: ({1})".format(
+                     scene_id, sensor_obj_to_process.get_sensor_name()))
         logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.addEntry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+    edd_usage_db.add_entry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+
 
 def process_data_ard(config_file, n_cores, sensors):
     """
@@ -188,15 +189,14 @@ def process_data_ard(config_file, n_cores, sensors):
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
-    process_sensor = False
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_objs_to_process = []
     for sensor_obj in sensor_objs:
         process_sensor = False
@@ -208,13 +208,14 @@ def process_data_ard(config_file, n_cores, sensors):
         if process_sensor:
             sensor_objs_to_process.append(sensor_obj)
 
-    for sensorObj in sensor_objs_to_process:
+    for sensor_obj in sensor_objs_to_process:
         try:
-            sensorObj.scns2ard_all_avail(n_cores)
+            sensor_obj.scns2ard_all_avail(n_cores)
         except Exception as e:
-            logger.error("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
+            logger.error("Error occurred while converting to ARD for sensor: " + sensor_obj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
+    edd_usage_db.add_entry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
+
 
 def process_scene_ard(config_file, sensor, scene_id):
     """
@@ -225,14 +226,14 @@ def process_scene_ard(config_file, sensor, scene_id):
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_obj_to_process = None
     for sensor_obj in sensor_objs:
         if sensor_obj.get_sensor_name() == sensor:
@@ -246,9 +247,11 @@ def process_scene_ard(config_file, sensor, scene_id):
     try:
         sensor_obj_to_process.scn2ard(scene_id)
     except Exception as e:
-        logger.error("Error occurred while converting scene ({0}) to ARD for sensor: ({1})".format(scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.error("Error occurred while converting scene ({0}) to ARD for sensor: ({1})".format(
+                     scene_id, sensor_obj_to_process.get_sensor_name()))
         logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.addEntry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+    edd_usage_db.add_entry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+
 
 def datacube_load_data(config_file, sensors):
     """
@@ -258,15 +261,14 @@ def datacube_load_data(config_file, sensors):
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
-    process_sensor = False
+    sensor_objs = sys_main_obj.get_sensors()
     sensor_objs_to_process = []
     for sensor_obj in sensor_objs:
         process_sensor = False
@@ -278,18 +280,19 @@ def datacube_load_data(config_file, sensors):
         if process_sensor:
             sensor_objs_to_process.append(sensor_obj)
 
-    for sensorObj in sensor_objs_to_process:
+    for sensor_obj in sensor_objs_to_process:
         try:
-            sensorObj.scns2datacube_all_avail()
+            sensor_obj.scns2datacube_all_avail()
         except Exception as e:
-            logger.error("Error occurred while converting to ARD for sensor: " + sensorObj.get_sensor_name())
+            logger.error("Error occurred while converting to ARD for sensor: " + sensor_obj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.addEntry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
+    edd_usage_db.add_entry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
 
 
 def export_image_footprints_vector(config_file, sensor, table, vector_file, vector_lyr, vector_driver, add_layer):
     """
 
+    :param table:
     :param config_file:
     :param sensor:
     :param vector_file:
@@ -298,14 +301,14 @@ def export_image_footprints_vector(config_file, sensor, table, vector_file, vect
     :param add_layer:
     """
     # Create the System 'Main' object and parse the configuration file.
-    sysMainObj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-    sysMainObj.parse_config(config_file)
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    edd_usage_db = sysMainObj.get_usage_db_obj()
-    edd_usage_db.addEntry("Starting: Export vector footprints.", start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Export vector footprints.", start_block=True)
 
-    sensor_objs = sysMainObj.get_sensors()
+    sensor_objs = sys_main_obj.get_sensors()
     for sensor_obj in sensor_objs:
         if sensor_obj.get_sensor_name() == sensor:
             if (table == "") or (table is None) or (sensor_obj.get_db_table_name() == table):
@@ -314,8 +317,9 @@ def export_image_footprints_vector(config_file, sensor, table, vector_file, vect
                     sensor_obj.create_gdal_gis_lyr(vector_file, vector_lyr, vector_driver, add_layer)
                     logger.info("Exported footprints for {}.".format(sensor))
                 except Exception as e:
-                    logger.error("Error occurred while Export vector footprints for sensor: " + sensor_obj.get_sensor_name())
+                    logger.error("Error occurred while Export vector footprints for sensor: {}".format(
+                                sensor_obj.get_sensor_name()))
                     logger.debug(e.__str__(), exc_info=True)
                 break
-    edd_usage_db.addEntry("Finished: Export vector footprints.", end_block=True)
+    edd_usage_db.add_entry("Finished: Export vector footprints.", end_block=True)
 

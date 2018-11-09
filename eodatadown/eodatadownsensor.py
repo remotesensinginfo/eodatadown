@@ -35,6 +35,7 @@ from abc import ABCMeta, abstractmethod
 
 logger = logging.getLogger(__name__)
 
+
 class EODataDownSensor (object):
     """
     An abstract class which represents a sensor and defines the functions a sensor must have.
@@ -42,23 +43,23 @@ class EODataDownSensor (object):
     __metaclass__ = ABCMeta
 
     def __init__(self, db_info_obj):
-        self.sensorName = "AbstractBase"
-        self.dbTabName = "AbstractTableName"
-        self.dbInfoObj = db_info_obj
+        self.sensor_name = "AbstractBase"
+        self.db_tab_name = "AbstractTableName"
+        self.db_info_obj = db_info_obj
 
     def get_sensor_name(self):
         """
         Get the name of the sensor this class is representing.
         :return: string
         """
-        return self.sensorName
+        return self.sensor_name
 
     def get_db_table_name(self):
         """
         Gets the
         :return:
         """
-        return self.dbTabName
+        return self.db_tab_name
 
     @abstractmethod
     def parse_sensor_config(self, config_file, first_parse=False): pass

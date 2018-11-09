@@ -44,6 +44,11 @@ def run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, 
     """
     A function to run ARCSI for a landsat scene using python rather than
     the command line interface.
+    :param spacecraft_str:
+    :param sensor_str:
+    :param reproj_outputs:
+    :param proj_wkt_file:
+    :param projabbv:
     :param input_mtl:
     :param dem_file:
     :param output_dir:
@@ -84,7 +89,10 @@ def run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs
     """
     A function to run ARCSI for a landsat scene using python rather than
     the command line interface.
-    :param input_mtl:
+    :param input_hdr:
+    :param reproj_outputs:
+    :param proj_wkt_file:
+    :param projabbv:
     :param dem_file:
     :param output_dir:
     :param tmp_dir:
@@ -112,7 +120,10 @@ def run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs,
     """
     A function to run ARCSI for a landsat scene using python rather than
     the command line interface.
-    :param input_mtl:
+    :param input_xml:
+    :param reproj_outputs:
+    :param proj_wkt_file:
+    :param projabbv:
     :param dem_file:
     :param output_dir:
     :param tmp_dir:
@@ -124,7 +135,7 @@ def run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs,
         proj_wkt_file = None
         projabbv = None
 
-    debugMode = False
+    debug_mode = False
 
     logger.info("Starting to run ARCSI for: "+input_xml)
     arcsilib.arcsirun.runARCSI(input_xml, None, None, "rapideye", None, "KEA",
@@ -133,7 +144,7 @@ def run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs,
                                True, None, None, arcsilib.DEFAULT_ARCSI_AEROIMG_PATH, arcsilib.DEFAULT_ARCSI_ATMOSIMG_PATH,
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
-                               20, False, debugMode, 1000, "cubic", "near", 3000, 3000, 1000, 21,
+                               20, False, debug_mode, 1000, "cubic", "near", 3000, 3000, 1000, 21,
                                True, False, False, None, None, False, None)
     logger.info("Finished running ARCSI for: " + input_xml)
 
@@ -142,6 +153,9 @@ def run_arcsi_planetscope(input_xml, output_dir, tmp_dir, reproj_outputs, proj_w
     """
     A function to run ARCSI for a planetscope scene using python rather than
     the command line interface.
+    :param reproj_outputs:
+    :param proj_wkt_file:
+    :param projabbv:
     :param input_xml:
     :param output_dir:
     :param tmp_dir:
@@ -154,7 +168,7 @@ def run_arcsi_planetscope(input_xml, output_dir, tmp_dir, reproj_outputs, proj_w
         projabbv = None
 
     dem_file = None
-    debugMode = True
+    debug_mode = True
 
     logger.info("Starting to run ARCSI for: " + input_xml)
     arcsilib.arcsirun.runARCSI(input_xml, None, None, "planetscope", None, "KEA",
@@ -163,7 +177,7 @@ def run_arcsi_planetscope(input_xml, output_dir, tmp_dir, reproj_outputs, proj_w
                                True, None, None, arcsilib.DEFAULT_ARCSI_AEROIMG_PATH, arcsilib.DEFAULT_ARCSI_ATMOSIMG_PATH,
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
-                               20, False, debugMode, 1000, "cubic", "near", 3000, 3000, 1000, 21,
+                               20, False, debug_mode, 1000, "cubic", "near", 3000, 3000, 1000, 21,
                                True, False, False, None, None, False, None)
     logger.info("Finished running ARCSI for: " + input_xml)
 

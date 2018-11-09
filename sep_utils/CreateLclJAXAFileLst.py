@@ -38,9 +38,9 @@ class EDDJAXASARTiles(Base):
     ARDProduct_Path = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="")
 
 
-dbEng = sqlalchemy.create_engine("sqlite:///EODataDownJAXATiles.db")
-Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-ses = Session()
+db_engine = sqlalchemy.create_engine("sqlite:///EODataDownJAXATiles.db")
+session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+ses= session()
 
 avail_years = [1996, 2007, 2008, 2009, 2010, 2015, 2016, 2017]
 jaxafileslst = dict()

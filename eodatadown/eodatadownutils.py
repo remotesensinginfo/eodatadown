@@ -344,9 +344,9 @@ class EDDJSONParseHelper(object):
     def getDateValue(self, json_obj, tree_sequence, date_format="%Y-%m-%d"):
         """
         A function which retrieves a single date value from a JSON structure.
+        :param date_format:
         :param json_obj:
         :param tree_sequence: list of strings
-        :param valid_values:
         :return:
         """
         curr_json_obj = json_obj
@@ -366,9 +366,9 @@ class EDDJSONParseHelper(object):
     def getDateTimeValue(self, json_obj, tree_sequence, date_time_format="%Y-%m-%d"):
         """
         A function which retrieves a single date value from a JSON structure.
+        :param date_time_format:
         :param json_obj:
         :param tree_sequence: list of strings
-        :param valid_values:
         :return:
         """
         curr_json_obj = json_obj
@@ -415,9 +415,10 @@ class EDDJSONParseHelper(object):
     def getNumericValue(self, json_obj, tree_sequence, valid_lower=None, valid_upper=None):
         """
         A function which retrieves a single numeric value from a JSON structure.
+        :param valid_lower:
+        :param valid_upper:
         :param json_obj:
         :param tree_sequence: list of strings
-        :param valid_values:
         :return:
         """
         curr_json_obj = json_obj
@@ -726,7 +727,7 @@ class EDDGeoBBox(object):
     def parseGeoJSONPolygon(self, geo_json_poly):
         """
         Populate the object from coordinates dictionary.
-        :param coords_dict:
+        :param geo_json_poly:
         :return:
         """
         min_lon = 0.0
@@ -737,7 +738,7 @@ class EDDGeoBBox(object):
         if (geo_json_poly["type"].lower() == "polygon") or (geo_json_poly["type"].lower() == "multipolygon"):
             first = True
             for pts in geo_json_poly["coordinates"]:
-                if (geo_json_poly["type"].lower() == "multipolygon"):
+                if geo_json_poly["type"].lower() == "multipolygon":
                     pts = pts[0]
                 for pt in pts:
                     lon = pt[0]
@@ -821,10 +822,10 @@ class EDDHTTPDownload(object):
         :return:
         """
 
-        eddFileChecker = EDDCheckFileHash()
+        edd_file_checker = EDDCheckFileHash()
         if os.path.exists(out_file_path):
             logger.debug("Output file is already present, checking MD5.")
-            md5_match = eddFileChecker.check_checksum(out_file_path, input_url_md5)
+            md5_match = edd_file_checker.check_checksum(out_file_path, input_url_md5)
             if not md5_match:
                 logger.debug("MD5 did not match for the existing file so deleted and will download.")
                 os.remove(out_file_path)
@@ -846,7 +847,7 @@ class EDDHTTPDownload(object):
                 needs_downloading = True
                 logger.debug("There was an existing file but too large removed and starting download again: " + out_file_path)
             elif os.path.getsize(temp_dwnld_path) == exp_file_size:
-                md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
+                md5_match = edd_file_checker.check_checksum(temp_dwnld_path, input_url_md5)
                 if md5_match:
                     needs_downloading = False
                     os.rename(temp_dwnld_path, out_file_path)
@@ -891,7 +892,7 @@ class EDDHTTPDownload(object):
                                 logger.info("Downloaded {} % of {}".format(usr_step_feedback, temp_dwnld_path))
                                 next_update = next_update + usr_update_step
             logger.info("Download Complete: ".format(temp_dwnld_path))
-            md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
+            md5_match = edd_file_checker.check_checksum(temp_dwnld_path, input_url_md5)
             if md5_match:
                 os.rename(temp_dwnld_path, out_file_path)
                 logger.info("MD5 Matched Renamed download: ".format(out_file_path))
@@ -910,10 +911,10 @@ class EDDHTTPDownload(object):
         :param password:
         :return:
         """
-        eddFileChecker = EDDCheckFileHash()
+        edd_file_checker = EDDCheckFileHash()
         if os.path.exists(out_file_path):
             logger.debug("Output file is already present, checking MD5.")
-            md5_match = eddFileChecker.check_checksum(out_file_path, input_url_md5)
+            md5_match = edd_file_checker.check_checksum(out_file_path, input_url_md5)
             if not md5_match:
                 logger.debug("MD5 did not match for the existing file so deleted and will download.")
                 os.remove(out_file_path)
@@ -950,7 +951,7 @@ class EDDHTTPDownload(object):
                             logger.info("Downloaded {} of {}".format(downloaded_bytes, temp_dwnld_path))
                             next_update = next_update + usr_update_step
         logger.info("Download Complete: ".format(temp_dwnld_path))
-        md5_match = eddFileChecker.check_checksum(temp_dwnld_path, input_url_md5)
+        md5_match = edd_file_checker.check_checksum(temp_dwnld_path, input_url_md5)
         if md5_match:
             os.rename(temp_dwnld_path, out_file_path)
             logger.info("MD5 Matched Renamed download: ".format(out_file_path))
@@ -962,6 +963,7 @@ class EDDHTTPDownload(object):
     def downloadFileNoMD5Continue(self, input_url, out_file_path, username, password, exp_file_size, check_file_size_exists=True, continue_download=True):
         """
 
+        :param check_file_size_exists:
         :param input_url:
         :param out_file_path:
         :param username:
@@ -1162,6 +1164,7 @@ class EODDWGetDownload(object):
         """
         A function which downloads a file from a url using the wget command line tool.
         If a username or password are provided then both must be provided.
+        :param input_url_md5:
         :param input_url: string with the URL to be downloaded.
         :param out_file_path: output file name and path.
         :param username: username for the download, if required. Default is None meaning it will be ignored.
@@ -1189,8 +1192,8 @@ class EODDWGetDownload(object):
         if download_state == 0:
             logger.info("Successfully downloaded file: {}".format(out_file_path))
             if input_url_md5 is not None:
-                eddFileChecker = EDDCheckFileHash()
-                md5_match = eddFileChecker.check_checksum(out_file_path, input_url_md5)
+                edd_file_checker = EDDCheckFileHash()
+                md5_match = edd_file_checker.check_checksum(out_file_path, input_url_md5)
                 if md5_match:
                     logger.info("MD5 matches for the downloaded file: {}".format(out_file_path))
                     success = True

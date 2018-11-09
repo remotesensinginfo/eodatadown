@@ -57,7 +57,7 @@ class EODataDownSystemMain(object):
     def __init__(self):
         self.name = ''
         self.description = ''
-        self.dbInfoObj = None
+        self.db_info_obj = None
         self.sensorConfigFiles = dict()
         self.sensors = list()
 
@@ -66,7 +66,7 @@ class EODataDownSystemMain(object):
 
     def __repr__(self):
 
-        db_info = {'connection':self.dbInfoObj.getDBConnection()}
+        db_info = {'connection':self.db_info_obj.getDBConnection()}
         sys_info = {'name:':self.name, 'description':self.description}
         data = {'database':db_info, 'details':sys_info, 'sensors':self.sensorConfigFiles}
         str_data = json.dumps(data, indent=4, sort_keys=True)
@@ -74,14 +74,15 @@ class EODataDownSystemMain(object):
 
     def get_usage_db_obj(self):
         logger.debug("Creating Usage database object.")
-        if self.dbInfoObj is None:
+        if self.db_info_obj is None:
             raise EODataDownException("Need to parse the configuration file to find database information.")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
         return edd_usage_db
 
     def parse_config(self, config_file, first_parse=False):
         """
         Parse the inputted JSON configuration file
+        :param first_parse:
         :param config_file:
         :return:
         """
@@ -100,16 +101,16 @@ class EODataDownSystemMain(object):
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
 
             db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
-            self.dbInfoObj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
+            self.db_info_obj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
 
             # Get Sensor Configuration File List
             for sensor in config_data['eodatadown']['sensors']:
                 self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data, ['eodatadown', 'sensors', sensor, 'config'])
                 logger.debug("Getting sensor object: '" + sensor + "'")
-                sensorObj = self.get_sensor_obj(sensor)
+                sensor_obj = self.get_sensor_obj(sensor)
                 logger.debug("Parse sensor config file: '" + sensor + "'")
-                sensorObj.parse_sensor_config(self.sensorConfigFiles[sensor], first_parse)
-                self.sensors.append(sensorObj)
+                sensor_obj.parse_sensor_config(self.sensorConfigFiles[sensor], first_parse)
+                self.sensors.append(sensor_obj)
                 logger.debug("Parsed sensor config file: '" + sensor + "'")
 
     def get_sensor_obj(self, sensor):
@@ -118,42 +119,42 @@ class EODataDownSystemMain(object):
         :param sensor:
         :return:
         """
-        sensorObj = None
+        sensor_obj = None
         if sensor == "LandsatGOOG":
             logger.debug("Found sensor LandsatGOOG")
             from eodatadown.eodatadownlandsatgoogsensor import EODataDownLandsatGoogSensor
-            sensorObj = EODataDownLandsatGoogSensor(self.dbInfoObj)
+            sensor_obj = EODataDownLandsatGoogSensor(self.db_info_obj)
         elif sensor == "Sentinel2GOOG":
             logger.debug("Found sensor Sentinel2GOOG")
             from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor
-            sensorObj = EODataDownSentinel2GoogSensor(self.dbInfoObj)
+            sensor_obj = EODataDownSentinel2GoogSensor(self.db_info_obj)
         elif sensor == "Sentinel1ESA":
             logger.debug("Found sensor Sentinel1ESA")
             from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESAProcessorSensor
-            sensorObj = EODataDownSentinel1ESAProcessorSensor(self.dbInfoObj)
+            sensor_obj = EODataDownSentinel1ESAProcessorSensor(self.db_info_obj)
         elif sensor == "Sentinel1ASF":
             logger.debug("Found sensor Sentinel1ASF")
             from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
-            sensorObj = EODataDownSentinel1ASFProcessorSensor(self.dbInfoObj)
+            sensor_obj = EODataDownSentinel1ASFProcessorSensor(self.db_info_obj)
         elif sensor == "RapideyePlanet":
             logger.debug("Found sensor RapideyePlanet")
             from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
-            sensorObj = EODataDownRapideyeSensor(self.dbInfoObj)
+            sensor_obj = EODataDownRapideyeSensor(self.db_info_obj)
         elif sensor == "PlanetScope":
             logger.debug("Found sensor PlanetScope")
             from eodatadown.eodatadownplanetscope import EODataDownPlanetScopeSensor
-            sensorObj = EODataDownPlanetScopeSensor(self.dbInfoObj)
+            sensor_obj = EODataDownPlanetScopeSensor(self.db_info_obj)
         elif sensor == "JAXASARTiles":
             logger.debug("Found sensor JAXASARTiles")
             from eodatadown.eodatadownjaxasartiles import EODataDownJAXASARTileSensor
-            sensorObj = EODataDownJAXASARTileSensor(self.dbInfoObj)
+            sensor_obj = EODataDownJAXASARTileSensor(self.db_info_obj)
         elif sensor == "GenericDataset":
             logger.debug("Found sensor GenericDataset")
             from eodatadown.eodatadownotherdataset import EODataDownGenericDatasetSensor
-            sensorObj = EODataDownGenericDatasetSensor(self.dbInfoObj)
+            sensor_obj = EODataDownGenericDatasetSensor(self.db_info_obj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
-        return sensorObj
+        return sensor_obj
 
     def get_sensors(self):
         """
@@ -169,22 +170,22 @@ class EODataDownSystemMain(object):
         :return:
         """
         logger.debug("Creating Database Engine.")
-        db_eng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_eng)
+        Base.metadata.drop_all(db_engine)
 
         logger.debug("Initialise the data usage database.")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
         edd_usage_db.init_usage_log_db()
 
         logger.debug("Creating System Details Database.")
-        Base.metadata.bind = db_eng
+        Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
         logger.debug("Creating Database Session.")
-        Session = sqlalchemy.orm.sessionmaker(bind=db_eng)
-        ses = Session()
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug("Adding System Details to Database.")
         ses.add(EDDSysDetails(Name=self.name, Description=self.description))
@@ -192,7 +193,7 @@ class EODataDownSystemMain(object):
         ses.close()
         logger.debug("Committed and closed db session.")
 
-        for sensorObj in self.sensors:
-            logger.debug("Initialise Sensor Database: '" + sensorObj.get_sensor_name() + "'")
-            sensorObj.init_sensor_db()
-            logger.debug("Finished initialising the sensor database for '" + sensorObj.get_sensor_name() + "'")
+        for sensor_obj in self.sensors:
+            logger.debug("Initialise Sensor Database: '" + sensor_obj.get_sensor_name() + "'")
+            sensor_obj.init_sensor_db()
+            logger.debug("Finished initialising the sensor database for '" + sensor_obj.get_sensor_name() + "'")

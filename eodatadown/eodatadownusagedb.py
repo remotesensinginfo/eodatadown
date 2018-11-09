@@ -61,8 +61,8 @@ class EDDUsageLog(Base):
 
 class EODataDownUpdateUsageLogDB(object):
 
-    def __init__(self, dbInfoObj):
-        self.dbInfoObj = dbInfoObj
+    def __init__(self, db_info_obj):
+        self.db_info_obj = db_info_obj
 
     def init_usage_log_db(self):
         """
@@ -71,20 +71,22 @@ class EODataDownUpdateUsageLogDB(object):
         :return:
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop usage table if within the existing database.")
-        Base.metadata.drop_all(dbEng)
+        Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating Usage Database.")
-        Base.metadata.bind = dbEng
+        Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
 
 
-    def addEntry(self, description_val, sensor_val="NA", updated_lcl_db=False, scns_avail=False, downloaded_new_scns=False, convert_scns_ard=False, ingest_scns_dc=False, start_block=False, end_block=False):
+    def add_entry(self, description_val, sensor_val="NA", updated_lcl_db=False, scns_avail=False, downloaded_new_scns=False, convert_scns_ard=False, ingest_scns_dc=False, start_block=False, end_block=False):
         """
         Function to add an entry into the usage log database.
+        :param start_block:
+        :param end_block:
         :param description_val:
         :param sensor_val:
         :param updated_lcl_db:
@@ -95,11 +97,11 @@ class EODataDownUpdateUsageLogDB(object):
         :return:
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Creating Database Session.")
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug("Adding Update to Database.")
         ses.add(EDDUsageLog(Sensor=sensor_val, Update=datetime.datetime.now(), Description=description_val,

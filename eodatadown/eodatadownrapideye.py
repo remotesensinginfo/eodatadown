@@ -145,7 +145,7 @@ def _download_scn_planet(params):
     analytic_img_md5 = params[2]
     analytic_xml_dwn_url = params[3]
     analytic_xml_md5 = params[4]
-    dbInfoObj = params[5]
+    db_info_obj = params[5]
     lcl_dwnld_path = params[6]
     planetAPIKey = params[7]
 
@@ -170,9 +170,9 @@ def _download_scn_planet(params):
 
     if success_img and success_xml:
         logger.debug("Set up database connection and update record.")
-        dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + scene_id)
@@ -194,7 +194,7 @@ def _process_to_ard(params):
     """
     scene_id = params[0]
     file_identifier = params[1]
-    dbInfoObj = params[2]
+    db_info_obj = params[2]
     scn_path = params[3]
     dem_file = params[4]
     output_dir = params[5]
@@ -204,8 +204,8 @@ def _process_to_ard(params):
     proj_wkt_file = params[9]
     projabbv = params[10]
 
-    eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
-    input_xml = eddUtils.findFile(scn_path, file_identifier+"*.xml")
+    edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+    input_xml = edd_utils.findFile(scn_path, file_identifier+"*.xml")
 
     start_date = datetime.datetime.now()
     eodatadown.eodatadownrunarcsi.run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs, proj_wkt_file, projabbv)
@@ -220,9 +220,9 @@ def _process_to_ard(params):
     end_date = datetime.datetime.now()
 
     logger.debug("Set up database connection and update record.")
-    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-    ses = Session()
+    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+    session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses= session()
     query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scene_id)
@@ -246,8 +246,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "RapideyePlanet"
-        self.dbTabName = "EDDRapideyePlanet"
+        self.sensor_name = "RapideyePlanet"
+        self.db_tab_name = "EDDRapideyePlanet"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -258,20 +258,20 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param config_file: string with the path to the JSON file.
         :param first_parse: boolean as to whether the file has been previously parsed.
         """
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
         if first_parse:
-            eddFileChecker.createFileSig(config_file)
+            edd_file_checker.createFileSig(config_file)
             logger.debug("Created signature file for config file.")
 
-        if not eddFileChecker.checkFileSig(config_file):
+        if not edd_file_checker.checkFileSig(config_file):
             raise EODataDownException("Input config did not match the file signature.")
 
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             logger.debug("Testing config file is for 'RapideyePlanet'")
-            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
+            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensor_name])
             logger.debug("Have the correct config file for 'RapideyePlanet'")
 
             logger.debug("Find ARD processing params from config file")
@@ -334,13 +334,13 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         any data would be lost.
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(dbEng)
+        Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating EDDRapideyePlanet Database.")
-        Base.metadata.bind = dbEng
+        Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
     def check_new_scns(self):
@@ -351,9 +351,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         import planet.api
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
@@ -447,9 +447,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
 
         ses.close()
         logger.debug("Closed Database session")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
-                              updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, scns_avail=new_scns_avail)
 
     def parse_http_download_response_json(self, http_json):
         """
@@ -527,9 +527,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         session.headers["User-Agent"] = user_agent
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
         downloaded_new_scns = False
 
         logger.debug("Perform query to find scenes which need downloading.")
@@ -562,7 +562,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                     if not os.path.exists(lcl_dwnld_scn_path):
                         os.mkdir(lcl_dwnld_scn_path)
                     downloaded_new_scns = True
-                    dwnld_params.append([record.Scene_ID, dwnld_obj.analytic_img_dwn_url, dwnld_obj.analytic_img_md5, dwnld_obj.analytic_xml_dwn_url, dwnld_obj.analytic_xml_md5, self.dbInfoObj, lcl_dwnld_scn_path, self.planetAPIKey])
+                    dwnld_params.append([record.Scene_ID, dwnld_obj.analytic_img_dwn_url, dwnld_obj.analytic_img_md5, dwnld_obj.analytic_xml_dwn_url, dwnld_obj.analytic_xml_md5, self.db_info_obj, lcl_dwnld_scn_path, self.planetAPIKey])
         ses.close()
         logger.debug("Closed the database session.")
 
@@ -570,8 +570,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_download_scn_planet, dwnld_params)
         logger.info("Finished downloading the scenes.")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
 
     def get_scnlist_con2ard(self):
@@ -611,9 +611,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses= session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == True, EDDRapideyePlanet.ARDProduct == False).all()
@@ -654,7 +654,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Scene_ID+"_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                ard_params.append([record.Scene_ID, record.File_Identifier, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                ard_params.append([record.Scene_ID, record.File_Identifier, self.db_info_obj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
@@ -665,8 +665,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             pool.map(_process_to_ard, ard_params)
         logger.info("Finished processing the scenes.")
 
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName, updated_lcl_db=True, convert_scns_ard=True)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensor_name, updated_lcl_db=True, convert_scns_ard=True)
 
     def get_scnlist_add2datacube(self):
         """

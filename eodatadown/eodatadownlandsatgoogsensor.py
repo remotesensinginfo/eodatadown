@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
+
 class EDDLandsatGoogle(Base):
     __tablename__ = "EDDLandsatGoogle"
 
@@ -91,7 +92,6 @@ class EDDLandsatGoogle(Base):
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
-
 def _download_scn_goog(params):
     """
     Function which is used with multiprocessing pool object for downloading landsat data from Google.
@@ -99,16 +99,16 @@ def _download_scn_goog(params):
     :return:
     """
     scn_id = params[0]
-    dbInfoObj = params[1]
-    googKeyJSON = params[2]
-    googProjName = params[3]
+    db_info_obj = params[1]
+    goog_key_json = params[2]
+    goog_proj_name = params[3]
     bucket_name = params[4]
     scn_dwnlds_filelst = params[5]
     scn_lcl_dwnld_path = params[6]
 
     logger.debug("Set up Google storage API.")
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = googKeyJSON
-    os.environ["GOOGLE_CLOUD_PROJECT"] = googProjName
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = goog_key_json
+    os.environ["GOOGLE_CLOUD_PROJECT"] = goog_proj_name
     from google.cloud import storage
     storage_client = storage.Client()
     bucket_obj = storage_client.get_bucket(bucket_name)
@@ -122,9 +122,9 @@ def _download_scn_goog(params):
     logger.info("Finished Downloading " + scn_id)
 
     logger.debug("Set up database connection and update record.")
-    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-    ses = Session()
+    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+    session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session()
     query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scn_id)
@@ -145,7 +145,7 @@ def _process_to_ard(params):
     :return:
     """
     scn_id = params[0]
-    dbInfoObj = params[1]
+    db_info_obj = params[1]
     scn_path = params[2]
     dem_file = params[3]
     output_dir = params[4]
@@ -157,11 +157,12 @@ def _process_to_ard(params):
     proj_wkt_file = params[10]
     projabbv = params[11]
 
-    eddUtils = eodatadown.eodatadownutils.EODataDownUtils()
-    input_mtl = eddUtils.findFile(scn_path, "*MTL.txt")
+    edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+    input_mtl = edd_utils.findFile(scn_path, "*MTL.txt")
 
     start_date = datetime.datetime.now()
-    eodatadown.eodatadownrunarcsi.run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, sensor_str, reproj_outputs, proj_wkt_file, projabbv)
+    eodatadown.eodatadownrunarcsi.run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str,
+                                                    sensor_str, reproj_outputs, proj_wkt_file, projabbv)
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
@@ -173,9 +174,9 @@ def _process_to_ard(params):
     end_date = datetime.datetime.now()
 
     logger.debug("Set up database connection and update record.")
-    dbEng = sqlalchemy.create_engine(dbInfoObj.dbConn)
-    Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-    ses = Session()
+    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+    session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session()
     query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scn_id)
@@ -199,8 +200,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """
         EODataDownSensor.__init__(self, db_info_obj)
-        self.sensorName = "LandsatGOOG"
-        self.dbTabName = "EDDLandsatGoogle"
+        self.sensor_name = "LandsatGOOG"
+        self.db_tab_name = "EDDLandsatGoogle"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -211,20 +212,20 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param config_file: string with the path to the JSON file.
         :param first_parse: boolean as to whether the file has been previously parsed.
         """
-        eddFileChecker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
         # If it is the first time the config_file is parsed then create the signature file.
         if first_parse:
-            eddFileChecker.createFileSig(config_file)
+            edd_file_checker.createFileSig(config_file)
             logger.debug("Created signature file for config file.")
 
-        if not eddFileChecker.checkFileSig(config_file):
+        if not edd_file_checker.checkFileSig(config_file):
             raise EODataDownException("Input config did not match the file signature.")
 
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             logger.debug("Testing config file is for 'LandsatGOOG'")
-            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensorName])
+            json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensor_name])
             logger.debug("Have the correct config file for 'LandsatGOOG'")
 
             logger.debug("Find ARD processing params from config file")
@@ -286,9 +287,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.debug("Found search params from config file")
 
             logger.debug("Find Google Account params from config file")
-            self.googProjName = json_parse_helper.getStrValue(config_data,
+            self.goog_proj_name = json_parse_helper.getStrValue(config_data,
                                                               ["eodatadown", "sensor", "googleinfo", "projectname"])
-            self.googKeyJSON = json_parse_helper.getStrValue(config_data,
+            self.goog_key_json = json_parse_helper.getStrValue(config_data,
                                                              ["eodatadown", "sensor", "googleinfo", "googlejsonkey"])
             logger.debug("Found Google Account params from config file")
 
@@ -299,13 +300,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         any data would be lost.
         """
         logger.debug("Creating Database Engine.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(dbEng)
+        Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating LandsatGOOG Database.")
-        Base.metadata.bind = dbEng
+        Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
     def resolve_duplicated_scene_id(self, scn_id):
@@ -315,16 +316,17 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :return:
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
         logger.debug("Find duplicate records for the scene_id: "+scn_id)
-        query_rtn = ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID).filter(EDDLandsatGoogle.Scene_ID==scn_id).all()
+        query_rtn = ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID).\
+            filter(EDDLandsatGoogle.Scene_ID == scn_id).all()
         process_dates = []
         for record in query_rtn:
             prod_id = record.Product_ID
             logger.debug("Record (Product ID): " + prod_id)
-            if (prod_id == None) or (prod_id == ""):
+            if (prod_id is None) or (prod_id == ""):
                 process_dates.append(None)
             prod_date = datetime.datetime.strptime(prod_id.split("_")[4], "%Y%m%d").date()
             process_dates.append(prod_date)
@@ -347,7 +349,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             idx = idx + 1
         logger.debug("Keeping (Product ID): " + query_rtn[min_date_idx].Product_ID)
         logger.debug("Deleting Remaining Products")
-        ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID, ).filter(EDDLandsatGoogle.Scene_ID == scn_id).filter(EDDLandsatGoogle.Product_ID != query_rtn[min_date_idx].Product_ID).delete()
+        ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID, ).\
+            filter(EDDLandsatGoogle.Scene_ID == scn_id).\
+            filter(EDDLandsatGoogle.Product_ID != query_rtn[min_date_idx].Product_ID).delete()
         ses.commit()
         ses.close()
         logger.debug("Completed processing of removing duplicate scene ids.")
@@ -359,19 +363,19 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.info("Checking for new data... 'LandsatGoog'")
         logger.debug("Export Google Environmental Variable.")
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.googKeyJSON
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.googProjName
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.goog_key_json
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.goog_proj_name
         from google.cloud import bigquery
         client = bigquery.Client()
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
 
-        logger.debug(
-            "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
+        logger.debug("Find the start date for query - if table is empty then using config date "
+                     "otherwise date of last acquried image.")
         query_date = self.startDate
-        ses = Session()
+        ses = session()
         if ses.query(EDDLandsatGoogle).first() is not None:
             query_date = ses.query(EDDLandsatGoogle).order_by(
                 EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
@@ -415,21 +419,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 goog_filter_collection = goog_filter_collection + ",\"" + collect_str + "\""
         goog_filter_collection = goog_filter_collection + ")"
 
-        goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + goog_filter_spacecraft + " AND " \
-                      + goog_filter_sensor + " AND " + goog_filter_collection
+        goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + goog_filter_spacecraft + " AND " + \
+                      goog_filter_sensor + " AND " + goog_filter_collection
 
         new_scns_avail = False
         for wrs2 in self.wrs2RowPaths:
             logger.info("Finding scenes for Path: " + str(wrs2['path']) + " Row: " + str(wrs2['row']))
             wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])
-            goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + " AND " + wrs2_filter
+            goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + \
+                         " AND " + wrs2_filter
             logger.debug("Query: '" + goog_query + "'")
             query_results = client.query(goog_query)
             logger.debug("Performed google query")
 
-            logger.debug(
-                "Process google query result and add to local database (Path: " + str(wrs2['path']) + ", Row:" + str(
-                    wrs2['row']) + ")")
+            logger.debug("Process google query result and add to local database (Path: " + str(wrs2['path']) +
+                          ", Row:" + str(wrs2['row']) + ")")
+
             if query_results.result():
                 db_records = []
                 for row in query_results.result():
@@ -465,8 +470,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.debug("Processed google query result and added to local database (Path: " + str(
                 wrs2['path']) + ", Row:" + str(wrs2['row']) + ")")
 
-        logger.debug(
-            "Check for any duplicate scene ids which have been added to database and only keep the one processed more recently")
+        logger.debug("Check for any duplicate scene ids which have been added to database and "
+                     "only keep the one processed more recently")
         query_rtn = ses.query(sqlalchemy.func.count(EDDLandsatGoogle.Scene_ID), EDDLandsatGoogle.Scene_ID).group_by(
             EDDLandsatGoogle.Scene_ID).all()
         for result in query_rtn:
@@ -476,9 +481,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         ses.close()
         logger.debug("Closed Database session")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked for availability of new scenes", sensor_val=self.sensorName,
-                              updated_lcl_db=True, scns_avail=new_scns_avail)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, scns_avail=new_scns_avail)
 
     def get_scnlist_download(self):
         """
@@ -487,9 +492,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
@@ -512,18 +517,18 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             raise EODataDownException("The download path does not exist, please create and run again.")
 
         logger.debug("Import Google storage module and create storage object.")
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.googKeyJSON
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.googProjName
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.goog_key_json
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.goog_proj_name
         from google.cloud import storage
         storage_client = storage.Client()
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scene.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID==unq_id).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
         ses.close()
         success = False
         if query_result is not None:
@@ -536,8 +541,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 bucket_name = url_path_parts[0]
                 if bucket_name != "gcp-public-data-landsat":
                     logger.error("Incorrect bucket name '" + bucket_name + "'")
-                    raise EODataDownException(
-                        "The bucket specified in the URL is not the Google Public Landsat Bucket - something has gone wrong.")
+                    raise EODataDownException("The bucket specified in the URL is not the Google Public Landsat Bucket"
+                                              " - something has gone wrong.")
                 bucket_prefix = url_path.replace(bucket_name + "/", "")
                 dwnld_out_dirname = url_path_parts[-1]
                 scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
@@ -558,12 +563,14 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
-                    _download_scn_goog([record.Scene_ID, self.dbInfoObj, self.googKeyJSON, self.googProjName, bucket_name,
-                                     scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                    _download_scn_goog([record.Scene_ID, self.db_info_obj, self.goog_key_json, self.goog_proj_name,
+                                        bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
                 success = True
             else:
-                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
-                raise EODataDownException("There was more than 1 scene which has been found - soomething has gone really wrong!")
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
+                             format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - "
+                                          "soomething has gone really wrong!")
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -580,22 +587,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             raise EODataDownException("The download path does not exist, please create and run again.")
 
         logger.debug("Import Google storage module and create storage object.")
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.googKeyJSON
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.googProjName
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.goog_key_json
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.goog_proj_name
         from google.cloud import storage
         storage_client = storage.Client()
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded==False).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
 
+        dwnld_params = []
         if query_result is not None:
             logger.debug("Build download file list.")
-            dwnld_params = []
             for record in query_result:
                 logger.debug("Building download info for '"+record.Remote_URL+"'")
                 url_path = record.Remote_URL
@@ -604,7 +611,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 bucket_name = url_path_parts[0]
                 if bucket_name != "gcp-public-data-landsat":
                     logger.error("Incorrect bucket name '"+bucket_name+"'")
-                    raise EODataDownException("The bucket specified in the URL is not the Google Public Landsat Bucket - something has gone wrong.")
+                    raise EODataDownException("The bucket specified in the URL is not the Google Public "
+                                              "Landsat Bucket - something has gone wrong.")
                 bucket_prefix = url_path.replace(bucket_name+"/", "")
                 dwnld_out_dirname = url_path_parts[-1]
                 scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
@@ -623,9 +631,10 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     dwnld_dirpath = os.path.split(dwnld_file)[0]
                     if not os.path.exists(dwnld_dirpath):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
-                    scn_dwnlds_filelst.append({"bucket_path":blob.name, "dwnld_path": dwnld_file})
+                    scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
-                dwnld_params.append([record.Scene_ID, self.dbInfoObj, self.googKeyJSON, self.googProjName, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                dwnld_params.append([record.Scene_ID, self.db_info_obj, self.goog_key_json, self.goog_proj_name,
+                                     bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
         else:
             logger.info("There are no scenes to be downloaded.")
         ses.close()
@@ -635,8 +644,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         with multiprocessing.Pool(processes=n_cores) as pool:
             pool.map(_download_scn_goog, dwnld_params)
         logger.info("Finished downloading the scenes.")
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Checked downloaded new scenes.", sensor_val=self.sensorName, updated_lcl_db=True, downloaded_new_scns=True)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, downloaded_new_scns=True)
 
     def get_scnlist_con2ard(self):
         """
@@ -645,12 +655,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True, EDDLandsatGoogle.ARDProduct == False).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
+                                                          EDDLandsatGoogle.ARDProduct == False).all()
 
         scns2ard = []
         if query_result is not None:
@@ -676,9 +687,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
@@ -720,10 +731,14 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                _process_to_ard([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                _process_to_ard([record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
+                                 work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
+                                 final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
             else:
-                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
-                raise EODataDownException("There was more than 1 scene which has been found - soomething has gone really wrong!")
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
+                             format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - "
+                                          "something has gone really wrong!")
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -749,18 +764,20 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True, EDDLandsatGoogle.ARDProduct == False).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
+                                                          EDDLandsatGoogle.ARDProduct == False).all()
 
         proj_wkt_file = None
         if self.ardProjDefined:
             rsgis_utils = rsgislib.RSGISPyUtils()
             proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
 
+        ard_params = []
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
             dt_obj = datetime.datetime.now()
@@ -773,7 +790,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if not os.path.exists(tmp_ard_path):
                 os.mkdir(tmp_ard_path)
 
-            ard_params = []
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
                 final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
@@ -792,7 +808,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                ard_params.append([record.Scene_ID, self.dbInfoObj, record.Download_Path, self.demFile, work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID, final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                ard_params.append([record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
+                                   work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
+                                   final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
@@ -804,8 +822,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 pool.map(_process_to_ard, ard_params)
             logger.info("Finished processing the scenes.")
 
-        edd_usage_db = EODataDownUpdateUsageLogDB(self.dbInfoObj)
-        edd_usage_db.addEntry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensorName, updated_lcl_db=True, convert_scns_ard=True)
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, convert_scns_ard=True)
 
     def get_scnlist_add2datacube(self):
         """
@@ -814,9 +833,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to be loaded.
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
@@ -846,12 +865,12 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Queries the database to find all scenes which have been processed to an ARD format but not loaded
         into the datacube and then loads these scenes into the datacube.
         """
-        rsgisUtils = rsgislib.RSGISPyUtils()
+        rsgis_utils = rsgislib.RSGISPyUtils()
 
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
@@ -859,17 +878,14 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         if query_result is not None:
             logger.debug("Create the yaml files for the data cube to enable import.")
-            dt_obj = datetime.datetime.now()
-
             yaml_scn_files = []
-
             for record in query_result:
                 scn_id = str(str(uuid.uuid5(uuid.NAMESPACE_URL, record.ARDProduct_Path)))
                 print("{}: {}".format(record.Scene_ID, scn_id))
-                img_file = rsgisUtils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.kea')
+                img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.kea')
                 yaml_file = os.path.splitext(img_file)[0]+"_yaml.yaml"
-                epsg_code = rsgisUtils.getEPSGCode(img_file)
-                lcl_proj_bbox = rsgisUtils.getImageBBOX(img_file)
+                epsg_code = rsgis_utils.getEPSGCode(img_file)
+                lcl_proj_bbox = rsgis_utils.getImageBBOX(img_file)
 
                 scn_info = {
                     'id': scn_id,
@@ -916,14 +932,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :return: Returns the database record object
         """
         logger.debug("Creating Database Engine and Session.")
-        dbEng = sqlalchemy.create_engine(self.dbInfoObj.dbConn)
-        Session = sqlalchemy.orm.sessionmaker(bind=dbEng)
-        ses = Session()
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
         ses.close()
-        success = False
         scn_record = None
         if query_result is not None:
             if len(query_result) == 1:

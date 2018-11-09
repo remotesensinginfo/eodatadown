@@ -81,7 +81,7 @@ if __name__ == "__main__":
         process_single_scn = True
         if process_single_scn is "":
             raise Exception("The specified scene ID is an empty string.")
-        if args.sensors == None:
+        if args.sensors is None:
             raise Exception("If a scene ID has been specified then a sensor must be specified.")
         elif len(args.sensors) != 1:
             raise Exception("If a scene ID has been specified then a single scene is being processed which can only be from a single sensor.")
@@ -124,7 +124,9 @@ if __name__ == "__main__":
     if args.processard:
         try:
             if process_single_scn:
-                raise Exception('Error no implementation - should be processing to ARD "{}"'.format(args.sceneid))
+                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                eodatadown.eodatadownrun.process_scene_ard(config_file, single_scn_sensor, args.sceneid)
+                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
             else:
                 logger.info('Running process to data to an ARD product.')
                 eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
