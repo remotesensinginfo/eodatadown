@@ -692,7 +692,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session()
 
         logger.debug("Perform query to find scene.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id,
+                                                          EDDLandsatGoogle.Downloaded == True,
+                                                          EDDLandsatGoogle.ARDProduct == False).all()
         ses.close()
 
         proj_wkt_file = None
@@ -734,6 +736,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 _process_to_ard([record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
                                  work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
                                  final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+            elif len(query_result) == 0:
+                logger.info("PID {0} is either not available or already been processed.".format(unq_id))
             else:
                 logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
                              format(unq_id))
