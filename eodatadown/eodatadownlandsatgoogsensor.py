@@ -528,7 +528,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session()
 
         logger.debug("Perform query to find scene.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id,
+                                                          EDDLandsatGoogle.Downloaded == False).all()
         ses.close()
         success = False
         if query_result is not None:
@@ -566,11 +567,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     _download_scn_goog([record.Scene_ID, self.db_info_obj, self.goog_key_json, self.goog_proj_name,
                                         bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
                 success = True
+            elif len(query_result) == 0:
+                logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
             else:
                 logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
                              format(unq_id))
                 raise EODataDownException("There was more than 1 scene which has been found - "
-                                          "soomething has gone really wrong!")
+                                          "something has gone really wrong!")
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
