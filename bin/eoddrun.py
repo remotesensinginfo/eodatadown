@@ -61,11 +61,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_file = args.config
-    main_config_value = os.getenv('EDD_MAIN_CFG', None)
-    if (config_file == '') and (main_config_value is not None):
-        config_file = main_config_value
-
-    print("'" + config_file + "'")
+    sys_config_value = os.getenv('EDD_SYS_CFG', None)
+    if (config_file == '') and (sys_config_value is not None):
+        config_file = sys_config_value
+        print("Using system config file: '" + config_file + "'")
 
     if not os.path.exists(config_file):
         logger.info("The config file does not exist: '" + config_file + "'")

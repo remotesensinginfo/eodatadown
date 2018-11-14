@@ -34,6 +34,7 @@ import argparse
 import logging
 import os
 import os.path
+import math
 import rsgislib
 
 from eodatadown import EODATADOWN_SENSORS_LIST
@@ -50,6 +51,10 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=str, required=True,
                         help='''Specify a path and name for an output text file listing the eoddrun.py commands
                                 for individual scenes.''')
+    parser.add_argument("--split", type=int, required=False,
+                        help='''If specified, the output file is into a number of files with the number of commands
+                                specified by the user (e.g., a value of 100 will provide commands file with 100 
+                                commands listed per file).''')
 
     args = parser.parse_args()
 
@@ -91,7 +96,38 @@ if __name__ == "__main__":
             logger.error('Failed to download the available data.', exc_info=True)
     else:
         logger.error('Did not recognise the process specified.', exc_info=True)
-    rsgisUtils = rsgislib.RSGISPyUtils()
-    rsgisUtils.writeList2File(cmds_lst, args.output)
+    rsgis_utils = rsgislib.RSGISPyUtils()
+    if args.split is None:
+        rsgis_utils.writeList2File(cmds_lst, args.output)
+    else:
+        # Calc number of files and cmds remaining
+        n_out_cmds = args.split
+        n_cmds = len(cmds_lst)
+        n_out_files = math.floor(n_cmds / n_out_cmds)
+        n_remain = n_cmds - (n_out_files * n_out_cmds)
+        outfile_base, outfile_ext = os.path.splitext(args.output)
+
+        # Loop through and create individual files.
+        out_file_lst = []
+        outfile_id = 1
+        for i in range(n_out_files):
+            l_bound = i * n_out_cmds
+            u_bound = (i + 1) * n_out_cmds
+            outfile_name = outfile_base + '_' + str(outfile_id) + '.' + outfile_ext
+            logger.info('Creating file: {}.'.format(outfile_name))
+            rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
+            out_file_lst.append(outfile_name)
+            outfile_id = outfile_id + 1
+        # Output remaining cmds file
+        l_bound = n_out_files * n_out_cmds
+        u_bound = n_out_cmds
+        outfile_name = outfile_base + '_' + str(outfile_id) + '.' + outfile_ext
+        logger.info('Creating file: {}.'.format(outfile_name))
+        rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
+        out_file_lst.append(outfile_name)
+
+        out_filelist_name = outfile_base + '_filelst.' + outfile_ext
+        rsgis_utils.writeList2File(out_file_lst, out_filelist_name)
+
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddgenscncmds.py.')
 
