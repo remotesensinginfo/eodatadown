@@ -41,7 +41,7 @@ import json
 
 EODATADOWN_VERSION_MAJOR = 0
 EODATADOWN_VERSION_MINOR = 6
-EODATADOWN_VERSION_PATCH = 1
+EODATADOWN_VERSION_PATCH = 2
 
 EODATADOWN_VERSION = str(EODATADOWN_VERSION_MAJOR) + "."  + str(EODATADOWN_VERSION_MINOR) + "." + str(EODATADOWN_VERSION_PATCH)
 EODATADOWN_VERSION_OBJ = LooseVersion(EODATADOWN_VERSION)
@@ -56,7 +56,7 @@ EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
 EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ESA", "RapideyePlanet", "PlanetScope", "JAXASARTiles", "GenericDataset"]
 
 install_prefix = __file__[:__file__.find('lib')]
-log_config_path = os.path.join(install_prefix, "share" "eodatadown", "loggingconfig.json")
+log_config_path = os.path.join(install_prefix, "share", "eodatadown", "loggingconfig.json")
 log_default_level=logging.INFO
 
 log_config_value = os.getenv('EDD_LOG_CFG', None)

@@ -113,7 +113,7 @@ if __name__ == "__main__":
         for i in range(n_out_files):
             l_bound = i * n_out_cmds
             u_bound = (i + 1) * n_out_cmds
-            outfile_name = outfile_base + '_' + str(outfile_id) + '.' + outfile_ext
+            outfile_name = '{0}_{1}{2}'.format(outfile_base, outfile_id, outfile_ext)
             logger.info('Creating file: {}.'.format(outfile_name))
             rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
             out_file_lst.append(outfile_name)
@@ -121,12 +121,13 @@ if __name__ == "__main__":
         # Output remaining cmds file
         l_bound = n_out_files * n_out_cmds
         u_bound = n_out_cmds
-        outfile_name = outfile_base + '_' + str(outfile_id) + '.' + outfile_ext
+        outfile_name = '{0}_{1}{2}'.format(outfile_base, outfile_id, outfile_ext)
         logger.info('Creating file: {}.'.format(outfile_name))
         rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
         out_file_lst.append(outfile_name)
 
         out_filelist_name = outfile_base + '_filelst.' + outfile_ext
+        out_filelist_name = '{0}_filelst{2}'.format(outfile_base, outfile_id, outfile_ext)
         rsgis_utils.writeList2File(out_file_lst, out_filelist_name)
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddgenscncmds.py.')
