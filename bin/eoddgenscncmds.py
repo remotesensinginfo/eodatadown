@@ -118,13 +118,15 @@ if __name__ == "__main__":
             rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
             out_file_lst.append(outfile_name)
             outfile_id = outfile_id + 1
-        # Output remaining cmds file
-        l_bound = n_out_files * n_out_cmds
-        u_bound = n_out_cmds
-        outfile_name = '{0}_{1}{2}'.format(outfile_base, outfile_id, outfile_ext)
-        logger.info('Creating file: {}.'.format(outfile_name))
-        rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
-        out_file_lst.append(outfile_name)
+
+        if n_remain > 0:
+            # Output remaining cmds file
+            l_bound = n_out_files * n_out_cmds
+            u_bound = n_out_cmds
+            outfile_name = '{0}_{1}{2}'.format(outfile_base, outfile_id, outfile_ext)
+            logger.info('Creating file: {}.'.format(outfile_name))
+            rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
+            out_file_lst.append(outfile_name)
 
         out_filelist_name = outfile_base + '_filelst.' + outfile_ext
         out_filelist_name = '{0}_filelst{2}'.format(outfile_base, outfile_id, outfile_ext)
