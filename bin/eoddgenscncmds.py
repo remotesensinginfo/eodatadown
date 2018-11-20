@@ -122,7 +122,7 @@ if __name__ == "__main__":
         if n_remain > 0:
             # Output remaining cmds file
             l_bound = n_out_files * n_out_cmds
-            u_bound = n_out_cmds
+            u_bound = n_cmds
             outfile_name = '{0}_{1}{2}'.format(outfile_base, outfile_id, outfile_ext)
             logger.info('Creating file: {}.'.format(outfile_name))
             rsgis_utils.writeList2File(cmds_lst[l_bound:u_bound], outfile_name)
