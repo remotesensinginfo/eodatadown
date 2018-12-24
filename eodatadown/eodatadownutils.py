@@ -64,6 +64,7 @@ class EODataDownException(Exception):
         """
         return repr(self.value)
 
+
 class EODataDownResponseException(EODataDownException):
 
     def __init__(self, value, response=None):
@@ -1207,3 +1208,62 @@ class EODDWGetDownload(object):
             logger.info("File being downloaded did not successfully complete: {}".format(out_file_path))
         return success
 
+class EODDDefineSensorROI(object):
+
+    def findSensorROI(self, sensor_lut_file, sensor_lst, roi_vec_file, roi_vec_lyr, output_file):
+        """
+        A function which uses a vector ROI to find the sensor location definitions.
+        :param sensor_lut_file:
+        :param sensor_lst:
+        :param roi_vec_file:
+        :param roi_vec_lyr:
+        :param output_file:
+        :return:
+        """
+        try:
+            import rsgislib.vectorutils
+            vec_wkt_str = rsgislib.vectorutils.getProjWKTFromVec(roi_vec_file, roi_vec_lyr)
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            epsg_code = rsgis_utils.getEPSGCodeFromWKT(vec_wkt_str)
+            if epsg_code == 4326:
+                raise Exception("The input ROI vector layer should be in WGS 84 projection (EPSG 4326).")
+
+            outvalsdict = dict()
+            if 'Landsat' in sensor_lst:
+                lsatts = rsgislib.vectorutils.getAttLstSelectFeats(sensor_lut_file, 'landsat_wrs2_lut', ['PATH', 'ROW'],
+                                                                   roi_vec_file, roi_vec_lyr)
+                lstiles = []
+                for tile in lsatts:
+                    lstiles.append({"path":tile['PATH'], "row":tile['ROW']})
+                outvalsdict['landsat'] = lstiles
+
+            if 'Sentinel2' in sensor_lst:
+                sen2atts = rsgislib.vectorutils.getAttLstSelectFeats(sensor_lut_file, 'sen2_tiles_lut', ['Name'],
+                                                                     roi_vec_file, roi_vec_lyr)
+                sen2tiles = []
+                for tile in sen2atts:
+                    sen2tiles.append(tile['Name'])
+                outvalsdict['sentinel2'] = sen2tiles
+
+            if 'JAXADegTiles' in sensor_lst:
+                raise Exception("The polygons for the JAXA tiles need adding to the database.")
+
+            if 'OtherBBOX' in sensor_lst:
+                envs = rsgislib.vectorutils.getFeatEnvs(roi_vec_file, roi_vec_lyr)
+                bboxlst = []
+                for env in envs:
+                    env_dict = dict()
+                    env_dict["north_lat"] = env[3]
+                    env_dict["south_lat"] = env[2]
+                    env_dict["east_lon"] = env[1]
+                    env_dict["west_lon"] = env[0]
+                    bboxlst.append(env_dict)
+                outvalsdict['other'] = bboxlst
+
+            with open(output_file, 'w') as outfile:
+                json.dump(outvalsdict, outfile, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
+
+        except Exception as e:
+            logger.error("Failed to create sensor ROI file using LUT ({0}) for ROI ({1}).".format(sensor_lut_file,
+                                                                                                  roi_vec_file))
+            raise(e)
