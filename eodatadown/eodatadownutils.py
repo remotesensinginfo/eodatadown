@@ -1243,7 +1243,8 @@ class EODDDefineSensorROI(object):
                 sen2tiles = []
                 for tile in sen2atts:
                     sen2tiles.append(tile['Name'])
-                outvalsdict['sentinel2'] = sen2tiles
+                sen2tilesset = set(sen2tiles)
+                outvalsdict['sentinel2'] = list(sen2tilesset)
 
             if 'JAXADegTiles' in sensor_lst:
                 raise Exception("The polygons for the JAXA tiles need adding to the database.")
