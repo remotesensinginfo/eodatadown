@@ -422,8 +422,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
