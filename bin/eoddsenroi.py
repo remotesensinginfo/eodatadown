@@ -57,7 +57,7 @@ if __name__ == "__main__":
     t.start(True)
     try:
         logger.info('Running process to find image ROIs.')
-        install_prefix = __file__[:__file__.find('lib')]
+        install_prefix = os.path.split(os.path.dirname(__file__))[0]
         sensor_luts_file = os.path.join(install_prefix, "share", "eodatadown", "sensor_scn_lut.gpkg")
 
         sensors_lst = []
