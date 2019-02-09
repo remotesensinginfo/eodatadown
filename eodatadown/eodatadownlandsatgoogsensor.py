@@ -1033,7 +1033,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         # TODO function to import data from a DB
         raise EODataDownException("Not implemented.")
 
-    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False):
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         """
         A function to export the outlines and some attributes to a GDAL vector layer.
         :param file_path: path to the output file.
@@ -1042,3 +1042,50 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param add_lyr: add the layer to the file
         """
         raise EODataDownException("Not Implemented")
+
+    def reset_scn(self, unq_id):
+        """
+        A function which resets an image. This means any downloads and products are deleted
+        and the database fields are reset to defaults. This allows the scene to be re-downloaded
+        and processed.
+        :param unq_id: unique id for the scene to be reset.
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+
+        logger.debug("Perform query to find scene.")
+        scn_record = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+
+        if scn_record is None:
+            ses.close()
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+
+        if scn_record.DCLoaded:
+            # How to remove from datacube?
+            scn_record.DCLoaded_Start_Date = None
+            scn_record.DCLoaded_End_Date = None
+            scn_record.DCLoaded = False
+
+        if scn_record.ARDProduct:
+            ard_path = scn_record.ARDProduct_Path
+            if os.path.exists(ard_path):
+                shutil.rmtree(ard_path)
+            scn_record.ARDProduct_Start_Date = None
+            scn_record.ARDProduct_End_Date = None
+            scn_record.ARDProduct_Path = ""
+            scn_record.ARDProduct = False
+
+        if scn_record.Downloaded:
+            dwn_path = scn_record.Download_Path
+            if os.path.exists(dwn_path):
+                shutil.rmtree(dwn_path)
+            scn_record.Download_Start_Date = None
+            scn_record.Download_End_Date = None
+            scn_record.Download_Path = ""
+            scn_record.Downloaded = False
+
+        ses.commit()
+        ses.close()

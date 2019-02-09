@@ -122,4 +122,7 @@ class EODataDownSensor (object):
     def import_append_db(self, db_info_obj): pass
 
     @abstractmethod
-    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False): pass
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False): pass
+
+    @abstractmethod
+    def reset_scn(self, unq_id): pass

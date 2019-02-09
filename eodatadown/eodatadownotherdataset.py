@@ -571,7 +571,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='SQLite', add_lyr=False):
+    def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         """
         A function to export the outlines and some attributes to a GDAL vector layer.
         :param file_path: path to the output file.
@@ -685,3 +685,12 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
             out_data_source = None
         except Exception as e:
             raise e
+
+    def reset_scn(self, unq_id):
+        """
+        A function which resets an image. This means any downloads and products are deleted
+        and the database fields are reset to defaults. This allows the scene to be re-downloaded
+        and processed.
+        :param unq_id: unique id for the scene to be reset.
+        """
+        raise EODataDownException("Not Implemented")
