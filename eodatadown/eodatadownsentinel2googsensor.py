@@ -369,7 +369,21 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         database but have yet to be downloaded.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).all()
+
+        scns2dwnld = []
+        if query_result is not None:
+            for record in query_result:
+                scns2dwnld.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2dwnld
 
     def download_scn(self, unq_id):
         """
@@ -377,7 +391,71 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: returns boolean indicating successful or otherwise download.
         """
-        raise EODataDownException("Not implemented.")
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
+        logger.debug("Import Google storage module and create storage object.")
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.goog_key_json
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.goog_proj_name
+        from google.cloud import storage
+        storage_client = storage.Client()
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id,
+                                                            EDDSentinel2Google.Downloaded == False).all()
+        ses.close()
+        success = False
+        if query_result is not None:
+            if len(query_result) == 1:
+                record = query_result[0]
+                logger.debug("Building download info for '" + record.Remote_URL + "'")
+                url_path = record.Remote_URL
+                url_path = url_path.replace("gs://", "")
+                url_path_parts = url_path.split("/")
+                bucket_name = url_path_parts[0]
+                if bucket_name != "gcp-public-data-sentinel-2":
+                    logger.error("Incorrect bucket name '" + bucket_name + "'")
+                    raise EODataDownException("The bucket specified in the URL is not the Google Public Landsat Bucket"
+                                              " - something has gone wrong.")
+                bucket_prefix = url_path.replace(bucket_name + "/", "")
+                dwnld_out_dirname = url_path_parts[-1]
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
+
+                logger.debug("Get the storage bucket and blob objects.")
+                bucket_obj = storage_client.get_bucket(bucket_name)
+                bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
+                scn_dwnlds_filelst = []
+                for blob in bucket_blobs:
+                    if "$folder$" in blob.name:
+                        continue
+                    scnfilename = blob.name.replace(bucket_prefix + "/", "")
+                    dwnld_file = os.path.join(scn_lcl_dwnld_path, scnfilename)
+                    dwnld_dirpath = os.path.split(dwnld_file)[0]
+                    if not os.path.exists(dwnld_dirpath):
+                        os.makedirs(dwnld_dirpath, exist_ok=True)
+                    scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
+
+                    _download_scn_goog([record.Granule_ID, self.db_info_obj, self.goog_key_json, self.goog_proj_name,
+                                        bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                success = True
+            elif len(query_result) == 0:
+                logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
+            else:
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
+                             format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - "
+                                          "something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return success
 
     def download_all_avail(self, n_cores):
         """
