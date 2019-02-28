@@ -282,7 +282,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
             raise api_error
         return success
 
-    def check_new_scns(self):
+    def check_new_scns(self, check_from_start=False):
         """
         Check whether there is new data available which is not within the existing database.
         Scenes not within the database will be added.
@@ -301,7 +301,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
-        if ses.query(EDDSentinel1ASF).first() is not None:
+        if (not check_from_start) and (ses.query(EDDSentinel1ASF).first() is not None):
             query_date = ses.query(EDDSentinel1ASF).order_by(EDDSentinel1ASF.BeginPosition.desc()).first().BeginPosition
         logger.info("Query with start at date: " + str(query_date))
 

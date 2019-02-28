@@ -409,7 +409,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             sesobj.commit()
             logger.debug("Written and committed records to the database.")
 
-    def check_new_scns(self):
+    def check_new_scns(self, check_from_start=False):
         """
         Check whether there is new data available which is not within the existing database.
         Scenes not within the database will be added.
@@ -428,7 +428,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
-        if ses.query(EDDSentinel1ESA).first() is not None:
+        if (not check_from_start) and (ses.query(EDDSentinel1ESA).first() is not None):
             query_date = ses.query(EDDSentinel1ESA).order_by(EDDSentinel1ESA.BeginPosition.desc()).first().BeginPosition
         logger.info("Query with start at date: " + str(query_date))
 

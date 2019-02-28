@@ -68,7 +68,7 @@ class EODataDownSensor (object):
     def init_sensor_db(self): pass
 
     @abstractmethod
-    def check_new_scns(self): pass
+    def check_new_scns(self, check_from_start=False): pass
 
     @abstractmethod
     def get_scnlist_download(self): pass

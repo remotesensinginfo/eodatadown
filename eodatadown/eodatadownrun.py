@@ -41,12 +41,12 @@ logger = logging.getLogger(__name__)
 
 
 # Start: Function for Pool
-def _check_new_data_qfunc(sensor_obj):
-    sensor_obj.check_new_scns()
+def _check_new_data_qfunc(sensor_obj_params):
+    sensor_obj_params[0].check_new_scns(sensor_obj_params[1])
 # End: Function for Pool
 
 
-def find_new_downloads(config_file, n_cores, sensors):
+def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     """
     A function to run the process of finding new data to download.
     :param config_file:
@@ -73,7 +73,7 @@ def find_new_downloads(config_file, n_cores, sensors):
             if sensor_obj.get_sensor_name() in sensors:
                 process_sensor = True
         if process_sensor:
-            sensor_objs_to_process.append(sensor_obj)
+            sensor_objs_to_process.append([sensor_obj, check_from_start])
 
     with multiprocessing.Pool(processes=n_cores) as pool:
         pool.map(_check_new_data_qfunc, sensor_objs_to_process)

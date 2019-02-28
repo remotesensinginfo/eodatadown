@@ -269,7 +269,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         self.metadata.bind = db_engine
         self.metadata.create_all()
 
-    def check_new_scns(self):
+    def check_new_scns(self, check_from_start=False):
         """
         Check whether there is new data available which is not within the existing database.
         Scenes not within the database will be added.

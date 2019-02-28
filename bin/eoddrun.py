@@ -58,6 +58,9 @@ if __name__ == "__main__":
                         help="Specify that the system should load available scenes into the associated datacube.")
     parser.add_argument("--sceneid", type=str, default=None,
                         help="Specify an ID of a scene to be processed.")
+    parser.add_argument("--checkstart", action='store_true', default=False,
+                        help="Specify that when checking for new downloads all scenes from the start date "
+                             "should be checked - useful if you change the start date in the config file.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -104,7 +107,7 @@ if __name__ == "__main__":
                 raise Exception('It is not possible to find new downloads for a given scene ID - this does not make sense.')
             else:
                 logger.info('Running process to find new downloads.')
-                eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors)
+                eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors, args.checkstart)
                 logger.info('Finished process to find new downloads.')
         except Exception as e:
             logger.error('Failed to complete the process of finding new downloads.', exc_info=True)

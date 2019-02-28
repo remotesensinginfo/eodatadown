@@ -356,7 +356,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Completed processing of removing duplicate scene ids.")
 
-    def check_new_scns(self):
+    def check_new_scns(self, check_from_start=False):
         """
         Check whether there is new data available which is not within the existing database.
         Scenes not within the database will be added.
@@ -376,7 +376,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                      "otherwise date of last acquried image.")
         query_date = self.startDate
         ses = session()
-        if ses.query(EDDLandsatGoogle).first() is not None:
+        if (not check_from_start) and (ses.query(EDDLandsatGoogle).first() is not None):
             query_date = ses.query(EDDLandsatGoogle).order_by(
                 EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
         logger.info("Query with start at date: " + str(query_date))

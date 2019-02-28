@@ -318,7 +318,7 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
         Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
-    def check_new_scns(self):
+    def check_new_scns(self, check_from_start=False):
         """
         Check whether there is new data available which is not within the existing database.
         Scenes not within the database will be added.
@@ -332,7 +332,7 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
         query_date = self.startDate
-        if ses.query(EDDPlanetScope).first() is not None:
+        if (not check_from_start) and (ses.query(EDDPlanetScope).first() is not None):
             query_date = ses.query(EDDPlanetScope).order_by(EDDPlanetScope.Acquired.desc()).first().Acquired
         logger.info("Query with start at date: " + str(query_date))
 
