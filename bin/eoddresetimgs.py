@@ -73,6 +73,6 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
     else:
-        logger.info('No processing option given (i.e., --noard.')
+        logger.info('No processing option given (i.e., --noard).')
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrestimgs.py.')
