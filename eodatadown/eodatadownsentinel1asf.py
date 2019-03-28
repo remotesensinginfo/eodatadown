@@ -106,7 +106,7 @@ class EDDSentinel1ASF(Base):
 
 def _download_scn_asf(params):
     """
-    Function which is used with multiprocessing pool object for downloading landsat data from Google.
+    Function which is used with multiprocessing pool object for downloading Sentinel-1 data from ASF.
     :param params:
     :return:
     """
@@ -288,10 +288,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
         Scenes not within the database will be added.
         """
         logger.debug("Creating HTTP Session Object.")
-        session = requests.Session()
-        session.auth = (self.asfUser, self.asfPass)
+        session_req = requests.Session()
+        session_req.auth = (self.asfUser, self.asfPass)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
-        session.headers["User-Agent"] = user_agent
+        session_req.headers["User-Agent"] = user_agent
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -323,7 +323,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
             query_str = query_str_geobound + "&" + query_str_platform + "&" + query_str_product + "&" + query_str_date + "&output=json"
             query_url = self.base_api_url + "?" + query_str
             logger.debug("Going to use the following URL: " + query_url)
-            response = session.get(query_url, auth=session.auth)
+            response = session_req.get(query_url, auth=session_req.auth)
             if self.check_http_response(response, query_url):
                 rsp_json = response.json()[0]
                 product_file_ids = dict()
@@ -350,15 +350,15 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
                         look_direction_val = json_parse_helper.getStrValue(scn_json, ["lookDirection"])
                         platform_val = json_parse_helper.getStrValue(scn_json, ["platform"])
                         polarization_val = json_parse_helper.getStrValue(scn_json, ["polarization"])
-                        processing_date_val = json_parse_helper.getDateTimeValue(scn_json, ["processingDate"], "%Y-%m-%dT%H:%M:%S.%f")
+                        processing_date_val = json_parse_helper.getDateTimeValue(scn_json, ["processingDate"], ["%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"])
                         processing_description_val = json_parse_helper.getStrValue(scn_json, ["processingDescription"])
                         processing_level_val = json_parse_helper.getStrValue(scn_json, ["processingLevel"])
                         processing_type_val = json_parse_helper.getStrValue(scn_json, ["processingType"])
                         processing_type_disp_val = json_parse_helper.getStrValue(scn_json, ["processingTypeDisplay"])
-                        scene_date_val = json_parse_helper.getDateTimeValue(scn_json, ["sceneDate"], "%Y-%m-%dT%H:%M:%S.%f")
+                        scene_date_val = json_parse_helper.getDateTimeValue(scn_json, ["sceneDate"], ["%Y-%m-%dT%H:%M:%S.%f","%Y-%m-%dT%H:%M:%S"])
                         sensor_val = json_parse_helper.getStrValue(scn_json, ["sensor"])
-                        start_time_val = json_parse_helper.getDateTimeValue(scn_json, ["startTime"], "%Y-%m-%dT%H:%M:%S.%f")
-                        stop_time_val = json_parse_helper.getDateTimeValue(scn_json, ["stopTime"], "%Y-%m-%dT%H:%M:%S.%f")
+                        start_time_val = json_parse_helper.getDateTimeValue(scn_json, ["startTime"], ["%Y-%m-%dT%H:%M:%S.%f","%Y-%m-%dT%H:%M:%S"])
+                        stop_time_val = json_parse_helper.getDateTimeValue(scn_json, ["stopTime"], ["%Y-%m-%dT%H:%M:%S.%f","%Y-%m-%dT%H:%M:%S"])
                         footprint_wkt_val = json_parse_helper.getStrValue(scn_json, ["stringFootprint"])
                         edd_footprint_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
                         edd_footprint_bbox.parseWKTPolygon(footprint_wkt_val)
@@ -402,14 +402,28 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
 
-
     def get_scnlist_download(self):
         """
         A function which queries the database to retrieve a list of scenes which are within the
         database but have yet to be downloaded.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == False).filter(
+            EDDSentinel1ASF.Remote_URL is not None).all()
+
+        scns2dwnld = []
+        if query_result is not None:
+            for record in query_result:
+                scns2dwnld.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2dwnld
 
     def download_scn(self, unq_id):
         """
@@ -417,7 +431,42 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: returns boolean indicating successful or otherwise download.
         """
-        raise EODataDownException("Not implemented.")
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id,
+                                                         EDDSentinel1ASF.Downloaded == False).filter(
+                                                         EDDSentinel1ASF.Remote_URL is not None).all()
+        ses.close()
+        success = False
+        if query_result is not None:
+            if len(query_result) == 1:
+                record = query_result[0]
+                logger.debug("Building download info for '" + record.Remote_URL + "'")
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Product_File_ID)
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
+                out_filename = record.Remote_FileName
+                _download_scn_asf([record.Product_File_ID, record.Remote_URL, self.db_info_obj,
+                                     os.path.join(scn_lcl_dwnld_path, out_filename), self.asfUser, self.asfPass])
+                success = True
+            elif len(query_result) == 0:
+                logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
+            else:
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
+                             format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - "
+                                          "something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return success
 
     def download_all_avail(self, n_cores):
         """

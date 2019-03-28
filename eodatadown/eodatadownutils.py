@@ -348,6 +348,8 @@ class EDDJSONParseHelper(object):
         :param date_format:
         :param json_obj:
         :param tree_sequence: list of strings
+        :param date_format: a string or list of strings for the date/time format
+                                 to be parsed by datetime.datetime.strptime.
         :return:
         """
         curr_json_obj = json_obj
@@ -358,32 +360,69 @@ class EDDJSONParseHelper(object):
                 curr_json_obj = curr_json_obj[tree_step]
             else:
                 raise EODataDownException("Could not find '"+steps_str+"'")
-        try:
-            out_date_obj = datetime.datetime.strptime(curr_json_obj, date_format).date()
-        except Exception as e:
-            raise EODataDownException(e)
+
+        if type(date_format) is str:
+            try:
+                out_date_obj = datetime.datetime.strptime(curr_json_obj, date_format).date()
+            except Exception as e:
+                raise EODataDownException(e)
+        elif type(date_format) is list:
+            found = False
+            except_obj = None
+            for date_format_str in date_format:
+                try:
+                    out_date_obj = datetime.datetime.strptime(curr_json_obj, date_format_str).date()
+                    found = True
+                    break
+                except Exception as e:
+                    except_obj = e
+            if not found:
+                raise EODataDownException(except_obj)
+        else:
+            raise EODataDownException("Do not know what the type is of date_format variable.")
+
         return out_date_obj
 
-    def getDateTimeValue(self, json_obj, tree_sequence, date_time_format="%Y-%m-%d"):
+    def getDateTimeValue(self, json_obj, tree_sequence, date_time_format="%Y-%m-%dT%H:%M:%S.%f"):
         """
         A function which retrieves a single date value from a JSON structure.
         :param date_time_format:
         :param json_obj:
         :param tree_sequence: list of strings
+        :param date_time_format: a string or list of strings for the date/time format
+                                 to be parsed by datetime.datetime.strptime.
         :return:
         """
         curr_json_obj = json_obj
         steps_str = ""
         for tree_step in tree_sequence:
-            steps_str = steps_str+":"+tree_step
+            steps_str = steps_str + ":" + tree_step
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '"+steps_str+"'")
-        try:
-            out_datetime_obj = datetime.datetime.strptime(curr_json_obj, date_time_format)
-        except Exception as e:
-            raise EODataDownException(e)
+                raise EODataDownException("Could not find '" + steps_str + "'")
+
+        curr_json_obj = curr_json_obj.replace('Z', '')
+        if type(date_time_format) is str:
+            try:
+                out_datetime_obj = datetime.datetime.strptime(curr_json_obj, date_time_format)
+            except Exception as e:
+                raise EODataDownException(e)
+        elif type(date_time_format) is list:
+            found = False
+            except_obj = None
+            for date_time_format_str in date_time_format:
+                try:
+                    out_datetime_obj = datetime.datetime.strptime(curr_json_obj, date_time_format_str)
+                    found = True
+                    break
+                except Exception as e:
+                    except_obj = e
+            if not found:
+                raise EODataDownException(except_obj)
+        else:
+            raise EODataDownException("Do not know what the type is of date_time_format variable.")
+
         return out_datetime_obj
 
     def getStrListValue(self, json_obj, tree_sequence, valid_values=None):
@@ -438,7 +477,10 @@ class EDDJSONParseHelper(object):
             if curr_json_obj.isnumeric():
                 out_value = float(curr_json_obj)
             else:
-                raise EODataDownException("The identified value is not numeric '" + steps_str + "'")
+                try:
+                    out_value = float(curr_json_obj)
+                except:
+                    raise EODataDownException("The identified value is not numeric '" + steps_str + "'")
         else:
             raise EODataDownException("The identified value is not numeric '" + steps_str + "'")
 
