@@ -289,9 +289,6 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.goog_key_json
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.goog_proj_name
         from google.cloud import bigquery
-        client = bigquery.Client()
-        job_config = bigquery.QueryJobConfig()
-        job_config.use_legacy_sql = True
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -318,6 +315,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         new_scns_avail = False
         for granule_str in self.s2Granules:
+            client = bigquery.Client()
+            job_config = bigquery.QueryJobConfig()
+            job_config.use_legacy_sql = True
             logger.info("Finding scenes for granule: " + granule_str)
             granule_filter = "mgrs_tile = \"" + granule_str + "\""
             goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " \
@@ -356,6 +356,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     ses.commit()
                     new_scns_avail = True
             logger.debug("Processed google query result and added to local database (Granule: " + granule_str + ")")
+            client = None
+            job_config = None
 
         ses.close()
         logger.debug("Closed Database session")

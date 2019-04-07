@@ -366,7 +366,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.goog_key_json
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.goog_proj_name
         from google.cloud import bigquery
-        client = bigquery.Client()
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -424,6 +423,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         new_scns_avail = False
         for wrs2 in self.wrs2RowPaths:
+            client = bigquery.Client()
             logger.info("Finding scenes for Path: " + str(wrs2['path']) + " Row: " + str(wrs2['row']))
             wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])
             goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + \
@@ -469,6 +469,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     new_scns_avail = True
             logger.debug("Processed google query result and added to local database (Path: " + str(
                 wrs2['path']) + ", Row:" + str(wrs2['row']) + ")")
+            client = None
 
         logger.debug("Check for any duplicate scene ids which have been added to database and "
                      "only keep the one processed more recently")
