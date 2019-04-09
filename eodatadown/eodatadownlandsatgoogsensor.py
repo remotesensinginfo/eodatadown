@@ -275,6 +275,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                             ["eodatadown", "sensor", "download", "startdate"],
                                                             "%Y-%m-%d")
 
+            self.monthsOfInterest = [None]
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "months"]):
+                self.monthsOfInterest = json_parse_helper.getListValue(config_data,
+                                                                       ["eodatadown", "sensor", "download", "months"])
+
             self.wrs2RowPaths = json_parse_helper.getListValue(config_data,
                                                                ["eodatadown", "sensor", "download", "wrs2"])
             for wrs2 in self.wrs2RowPaths:
@@ -423,53 +428,59 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         new_scns_avail = False
         for wrs2 in self.wrs2RowPaths:
-            client = bigquery.Client()
             logger.info("Finding scenes for Path: " + str(wrs2['path']) + " Row: " + str(wrs2['row']))
-            wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])
-            goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + \
-                         " AND " + wrs2_filter
-            logger.debug("Query: '" + goog_query + "'")
-            query_results = client.query(goog_query)
-            logger.debug("Performed google query")
+            for curr_month in self.monthsOfInterest:
+                if curr_month is not None:
+                    logger.info("Finding scenes for Path: {0} Row: {1} in month {2}".format(wrs2['path'], wrs2['row'], curr_month))
+                    goog_filter_month = "EXTRACT(MONTH FROM PARSE_DATE('%Y-%m-%d', date_acquired)) = {}".format(curr_month)
+                    goog_filter = goog_filter + " AND " + goog_filter_month
 
-            logger.debug("Process google query result and add to local database (Path: " + str(wrs2['path']) +
-                          ", Row:" + str(wrs2['row']) + ")")
+                client = bigquery.Client()
+                wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])
+                goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " + goog_filter + \
+                             " AND " + wrs2_filter
+                logger.debug("Query: '" + goog_query + "'")
+                query_results = client.query(goog_query)
+                logger.debug("Performed google query")
 
-            if query_results.result():
-                db_records = []
-                for row in query_results.result():
-                    query_rtn = ses.query(EDDLandsatGoogle).filter(
-                        EDDLandsatGoogle.Scene_ID == row.scene_id).one_or_none()
-                    if query_rtn is None:
-                        logger.debug("SceneID: " + row.scene_id + "\tProduct_ID: " + row.product_id)
-                        sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
-                        db_records.append(
-                            EDDLandsatGoogle(Scene_ID=row.scene_id, Product_ID=row.product_id,
-                                             Spacecraft_ID=row.spacecraft_id,
-                                             Sensor_ID=row.sensor_id,
-                                             Date_Acquired=datetime.datetime.strptime(row.date_acquired,
-                                                                                      "%Y-%m-%d").date(),
-                                             Collection_Number=row.collection_number,
-                                             Collection_Catagory=row.collection_category,
-                                             Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
-                                                                                     "%Y-%m-%dT%H:%M:%S.%f"),
-                                             Data_Type=row.data_type, WRS_Path=row.wrs_path, WRS_Row=row.wrs_row,
-                                             Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat,
-                                             South_Lat=row.south_lat,
-                                             East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
-                                             Remote_URL=row.base_url, Query_Date=datetime.datetime.now(),
-                                             Download_Start_Date=None,
-                                             Download_End_Date=None, Downloaded=False, Download_Path="",
-                                             Archived=False, ARDProduct_Start_Date=None,
-                                             ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path="",
-                                             DCLoaded_Start_Date=None, DCLoaded_End_Date=None, DCLoaded=False))
-                if len(db_records) > 0:
-                    ses.add_all(db_records)
-                    ses.commit()
-                    new_scns_avail = True
-            logger.debug("Processed google query result and added to local database (Path: " + str(
-                wrs2['path']) + ", Row:" + str(wrs2['row']) + ")")
-            client = None
+                logger.debug("Process google query result and add to local database (Path: " + str(wrs2['path']) +
+                              ", Row:" + str(wrs2['row']) + ")")
+
+                if query_results.result():
+                    db_records = []
+                    for row in query_results.result():
+                        query_rtn = ses.query(EDDLandsatGoogle).filter(
+                            EDDLandsatGoogle.Scene_ID == row.scene_id).one_or_none()
+                        if query_rtn is None:
+                            logger.debug("SceneID: " + row.scene_id + "\tProduct_ID: " + row.product_id)
+                            sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
+                            db_records.append(
+                                EDDLandsatGoogle(Scene_ID=row.scene_id, Product_ID=row.product_id,
+                                                 Spacecraft_ID=row.spacecraft_id,
+                                                 Sensor_ID=row.sensor_id,
+                                                 Date_Acquired=datetime.datetime.strptime(row.date_acquired,
+                                                                                          "%Y-%m-%d").date(),
+                                                 Collection_Number=row.collection_number,
+                                                 Collection_Catagory=row.collection_category,
+                                                 Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
+                                                                                         "%Y-%m-%dT%H:%M:%S.%f"),
+                                                 Data_Type=row.data_type, WRS_Path=row.wrs_path, WRS_Row=row.wrs_row,
+                                                 Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat,
+                                                 South_Lat=row.south_lat,
+                                                 East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
+                                                 Remote_URL=row.base_url, Query_Date=datetime.datetime.now(),
+                                                 Download_Start_Date=None,
+                                                 Download_End_Date=None, Downloaded=False, Download_Path="",
+                                                 Archived=False, ARDProduct_Start_Date=None,
+                                                 ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path="",
+                                                 DCLoaded_Start_Date=None, DCLoaded_End_Date=None, DCLoaded=False))
+                    if len(db_records) > 0:
+                        ses.add_all(db_records)
+                        ses.commit()
+                        new_scns_avail = True
+                logger.debug("Processed google query result and added to local database (Path: " + str(
+                    wrs2['path']) + ", Row:" + str(wrs2['row']) + ")")
+                client = None
 
         logger.debug("Check for any duplicate scene ids which have been added to database and "
                      "only keep the one processed more recently")
