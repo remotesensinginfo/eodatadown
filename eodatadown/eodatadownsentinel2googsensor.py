@@ -312,7 +312,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                       "generation_time,north_lat,south_lat,west_lon,east_lon,base_url,total_size,cloud_cover"
         goog_db_str = "`bigquery-public-data.cloud_storage_geo_index.sentinel_2_index` "
 
-        goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > DATETIME('%Y-%m-%d %H:%M:%S', " + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
+        goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '" + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
         goog_filter_cloud = "CAST(cloud_cover AS NUMERIC) < " + str(self.cloudCoverThres)
 
         goog_filter = goog_filter_date + " AND " + goog_filter_cloud
