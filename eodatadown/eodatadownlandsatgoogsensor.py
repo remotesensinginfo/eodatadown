@@ -423,9 +423,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 goog_filter_collection = goog_filter_collection + ",\"" + collect_str + "\""
         goog_filter_collection = goog_filter_collection + ")"
 
-        goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + goog_filter_spacecraft + " AND " + \
-                      goog_filter_sensor + " AND " + goog_filter_collection
-
         new_scns_avail = False
         for wrs2 in self.wrs2RowPaths:
             logger.info("Finding scenes for Path: " + str(wrs2['path']) + " Row: " + str(wrs2['row']))
@@ -433,7 +430,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 if curr_month is not None:
                     logger.info("Finding scenes for Path: {0} Row: {1} in month {2}".format(wrs2['path'], wrs2['row'], curr_month))
                     goog_filter_month = "EXTRACT(MONTH FROM PARSE_DATE('%Y-%m-%d', date_acquired)) = {}".format(curr_month)
-                    goog_filter = goog_filter + " AND " + goog_filter_month
+                    goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + \
+                                  goog_filter_spacecraft + " AND " + goog_filter_sensor + " AND " + \
+                                  goog_filter_collection + " AND " + goog_filter_month
 
                 client = bigquery.Client()
                 wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])

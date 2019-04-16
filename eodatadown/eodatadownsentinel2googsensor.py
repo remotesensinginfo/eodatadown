@@ -296,8 +296,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
 
         logger.debug("Find the start date for query - if table is empty then using config date "
                      "otherwise date of last acquried image.")
@@ -315,8 +315,6 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '" + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
         goog_filter_cloud = "CAST(cloud_cover AS NUMERIC) < " + str(self.cloudCoverThres)
 
-        goog_filter = goog_filter_date + " AND " + goog_filter_cloud
-
         new_scns_avail = False
         for granule_str in self.s2Granules:
             logger.info("Finding scenes for granule: " + granule_str)
@@ -324,7 +322,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 if curr_month is not None:
                     logger.info("Finding scenes for granule: {} in month {}".format(granule_str, curr_month))
                     goog_filter_month = "EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {}".format(curr_month)
-                    goog_filter = goog_filter + " AND " + goog_filter_month
+                    goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + goog_filter_month
 
                 client = bigquery.Client()
                 granule_filter = "mgrs_tile = \"" + granule_str + "\""
