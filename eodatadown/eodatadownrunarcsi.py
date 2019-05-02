@@ -187,7 +187,8 @@ def move_arcsi_stdsref_products(arcsi_out_dir, ard_products_dir):
 
     :param arcsi_out_dir:
     :param ard_products_dir:
-    :return:
+    :return: bool True - valid result and task completed.
+                  False - invalid result ARD not produced (e.g., 100% cloud cover)
     """
     eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
     metadata_file = eoddutils.findFile(arcsi_out_dir, "*meta.json")
@@ -196,29 +197,37 @@ def move_arcsi_stdsref_products(arcsi_out_dir, ard_products_dir):
         meta_data_json = json.load(f)
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
 
-        sref_mskd_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_IMG"])
-        eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_mskd_image), ard_products_dir)
+        if json_parse_helper.doesPathExist(meta_data_json, ["ProductsInfo","ARCSI_CLOUD_COVER"]):
+            cloud_cover = json_parse_helper.getNumericValue(meta_data_json, ["ProductsInfo","ARCSI_CLOUD_COVER"], valid_lower=0.0, valid_upper=1.0)
 
-        sref_full_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_WHOLE_IMG"])
-        eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_full_image), ard_products_dir)
+            if cloud_cover < 0.95:
+                sref_mskd_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_IMG"])
+                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_mskd_image), ard_products_dir)
 
-        try:
-            cloud_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "CLOUD_MASK"])
-            eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, cloud_msk_image), ard_products_dir)
-        except Exception as e:
-            logger.info("Cloud mask was not available - assume it wasn't calculated")
+                sref_full_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_WHOLE_IMG"])
+                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_full_image), ard_products_dir)
 
-        valid_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "VALID_MASK"])
-        eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, valid_msk_image), ard_products_dir)
+                try:
+                    cloud_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "CLOUD_MASK"])
+                    eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, cloud_msk_image), ard_products_dir)
+                except Exception as e:
+                    logger.info("Cloud mask was not available - assume it wasn't calculated")
 
-        topo_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "TOPO_SHADOW_MASK"])
-        eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, topo_msk_image), ard_products_dir)
+                valid_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "VALID_MASK"])
+                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, valid_msk_image), ard_products_dir)
 
-        footprint_shp = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "FOOTPRINT"])
-        eoddutils.moveFilesWithBase2DIR(os.path.join(arcsi_out_dir, footprint_shp), ard_products_dir)
+                topo_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "TOPO_SHADOW_MASK"])
+                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, topo_msk_image), ard_products_dir)
 
-        metadata_json_file = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "METADATA"])
-        eoddutils.copyFile2DIR(os.path.join(arcsi_out_dir, metadata_json_file), ard_products_dir)
+                footprint_shp = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "FOOTPRINT"])
+                eoddutils.moveFilesWithBase2DIR(os.path.join(arcsi_out_dir, footprint_shp), ard_products_dir)
+
+                metadata_json_file = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "METADATA"])
+                eoddutils.copyFile2DIR(os.path.join(arcsi_out_dir, metadata_json_file), ard_products_dir)
+            else:
+                return False
+        else:
+            return False
 
 
 def move_arcsi_dos_products(arcsi_out_dir, ard_products_dir):

@@ -96,6 +96,7 @@ class EDDJAXASARTiles(Base):
     DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    # InValid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
 def _download_scn_jaxa(params):

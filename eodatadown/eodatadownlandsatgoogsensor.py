@@ -90,6 +90,7 @@ class EDDLandsatGoogle(Base):
     DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    #InValid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
 def _download_scn_goog(params):
@@ -166,28 +167,43 @@ def _process_to_ard(params):
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
-    eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path)
+    valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path)
     # Remove Remaining files.
     shutil.rmtree(output_dir)
     shutil.rmtree(tmp_dir)
     logger.debug("Moved final ARD files to specified location.")
     end_date = datetime.datetime.now()
 
-    logger.debug("Set up database connection and update record.")
-    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-    session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-    ses = session()
-    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
-    if query_result is None:
-        logger.error("Could not find the scene within local database: " + scn_id)
-    query_result.ARDProduct = True
-    query_result.ARDProduct_Start_Date = start_date
-    query_result.ARDProduct_End_Date = end_date
-    query_result.ARDProduct_Path = final_ard_path
-    ses.commit()
-    ses.close()
-    logger.debug("Finished download and updated database.")
-
+    if valid_output:
+        logger.debug("Set up database connection and update record.")
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: " + scn_id)
+        query_result.ARDProduct = True
+        query_result.ARDProduct_Start_Date = start_date
+        query_result.ARDProduct_End_Date = end_date
+        query_result.ARDProduct_Path = final_ard_path
+        ses.commit()
+        ses.close()
+        logger.debug("Finished download and updated database - scene valid.")
+    else:
+        logger.debug("Scene is not valid (e.g., too much cloud cover).")
+        """
+        logger.debug("Set up database connection and update record.")
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: " + scn_id)
+        query_result.InValid = True
+        ses.commit()
+        ses.close()
+        logger.debug("Finished download and updated database - scene not valid.")
+        """
 
 class EODataDownLandsatGoogSensor (EODataDownSensor):
     """

@@ -251,6 +251,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                                                   sqlalchemy.Column('DCLoaded_End_Date', sqlalchemy.DateTime,
                                                                     nullable=True),
                                                   sqlalchemy.Column('DCLoaded', sqlalchemy.Boolean, nullable=False,
+                                                                    default=False),
+                                                  sqlalchemy.Column('InValid', sqlalchemy.Boolean, nullable=False,
                                                                     default=False))
 
     def init_sensor_db(self):

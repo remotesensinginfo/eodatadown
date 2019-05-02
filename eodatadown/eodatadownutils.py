@@ -280,7 +280,6 @@ class EDDJSONParseHelper(object):
         with gzip.GzipFile(file_path, "w") as fout:  # 3. gzip
             fout.write(json_bytes)
 
-
     def doesPathExist(self, json_obj, tree_sequence):
         """
         A function which tests whether a path exists within JSON file.
