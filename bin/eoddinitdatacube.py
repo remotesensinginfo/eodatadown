@@ -77,7 +77,7 @@ if __name__ == "__main__":
         for sensor in sensors:
             if sensor == "LandsatGOOG":
                 # Landsat 4
-                ls4_prod_spec = os.path.join(eodd_install_prefix, 'share', 'dc_prod_specs',
+                ls4_prod_spec = os.path.join(eodd_install_prefix, 'share', 'eodatadown', 'dc_prod_specs',
                                               'arcsi_ls4_prod_spec.yaml')
                 if os.path.exists(ls4_prod_spec):
                     cmd = cmd_base.format(datacube_cmd_path, ls4_prod_spec)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
                     raise Exception("Could not find Landsat-4 Product Specification: '{}'".format(ls4_prod_spec))
 
                 # Landsat 5
-                ls5_prod_spec = os.path.join(eodd_install_prefix, 'share', 'dc_prod_specs',
+                ls5_prod_spec = os.path.join(eodd_install_prefix, 'share', 'eodatadown', 'dc_prod_specs',
                                              'arcsi_ls5_prod_spec.yaml')
                 if os.path.exists(ls5_prod_spec):
                     cmd = cmd_base.format(datacube_cmd_path, ls5_prod_spec)
@@ -103,7 +103,7 @@ if __name__ == "__main__":
                     raise Exception("Could not find Landsat-5 Product Specification: '{}'".format(ls5_prod_spec))
 
                 # Landsat 7
-                ls7_prod_spec = os.path.join(eodd_install_prefix, 'share', 'dc_prod_specs',
+                ls7_prod_spec = os.path.join(eodd_install_prefix, 'share', 'eodatadown', 'dc_prod_specs',
                                              'arcsi_ls7_prod_spec.yaml')
                 if os.path.exists(ls7_prod_spec):
                     cmd = cmd_base.format(datacube_cmd_path, ls7_prod_spec)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                     raise Exception("Could not find Landsat-7 Product Specification: '{}'".format(ls7_prod_spec))
 
                 # Landsat 8
-                ls8_prod_spec = os.path.join(eodd_install_prefix, 'share', 'dc_prod_specs',
+                ls8_prod_spec = os.path.join(eodd_install_prefix, 'share', 'eodatadown', 'dc_prod_specs',
                                              'arcsi_ls8_prod_spec.yaml')
                 if os.path.exists(ls8_prod_spec):
                     cmd = cmd_base.format(datacube_cmd_path, ls8_prod_spec)
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
                 cmd = cmd_base.format(datacube_cmd_path, '')
             elif sensor == "Sentinel2GOOG":
-                sen2_prod_spec = os.path.join(eodd_install_prefix, 'share', 'dc_prod_specs',
+                sen2_prod_spec = os.path.join(eodd_install_prefix, 'share', 'eodatadown', 'dc_prod_specs',
                                               'arcsi_sen2_prod_spec.yaml')
                 if os.path.exists(sen2_prod_spec):
                     cmd = cmd_base.format(datacube_cmd_path, sen2_prod_spec)
