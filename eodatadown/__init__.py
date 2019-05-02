@@ -55,8 +55,8 @@ EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
 
 EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ESA", "Sentinel1ASF", "RapideyePlanet", "PlanetScope", "JAXASARTiles", "GenericDataset"]
 
-install_prefix = __file__[:__file__.find('lib')]
-log_config_path = os.path.join(install_prefix, "share", "eodatadown", "loggingconfig.json")
+eodd_install_prefix = __file__[:__file__.find('lib')]
+log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "loggingconfig.json")
 log_default_level=logging.INFO
 
 log_config_value = os.getenv('EDD_LOG_CFG', None)
