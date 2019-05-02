@@ -253,7 +253,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                                                   sqlalchemy.Column('DCLoaded', sqlalchemy.Boolean, nullable=False,
                                                                     default=False),
                                                   sqlalchemy.Column('InValid', sqlalchemy.Boolean, nullable=False,
-                                                                    default=False))
+                                                                    default=False),
+                                                  sqlalchemy.Column('ExtendedInfo', sqlalchemy.JSON, nullable=True))
 
     def init_sensor_db(self):
         """

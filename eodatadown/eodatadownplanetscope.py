@@ -101,7 +101,7 @@ class EDDPlanetScope(Base):
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     # InValid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-
+    # ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
 
 def _getPSIdentifierFileSize(xml_file):
     """
