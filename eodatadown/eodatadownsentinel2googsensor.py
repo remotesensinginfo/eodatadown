@@ -748,7 +748,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                             }
                         }
                     },
-                    'image': image_lyrs,
+                    'image': {'bands': image_lyrs},
                     'lineage': {'source_datasets': {}},
                 }
                 with open(yaml_file, 'w') as stream:

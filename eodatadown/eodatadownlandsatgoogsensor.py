@@ -927,7 +927,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 lcl_proj_bbox = rsgis_utils.getImageBBOX(img_file)
 
                 image_lyrs = dict()
-                if record.Spacecraft_ID == "Landsat_8":
+                if record.Spacecraft_ID.upper() == "LANDSAT_8":
                     image_lyrs['coastal'] = {'layer': 1, 'path': img_file}
                     image_lyrs['blue'] = {'layer': 2, 'path': img_file}
                     image_lyrs['green'] = {'layer': 3, 'path': img_file}
@@ -953,8 +953,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     'product_type': 'ARCSI_SREF',
                     'creation_dt': record.ARDProduct_End_Date.strftime("%Y-%m-%d %H:%M:%S"),
                     'label': record.Scene_ID,
-                    'platform': {'code': record.Spacecraft_ID},
-                    'instrument': {'name': record.Sensor_ID},
+                    'platform': {'code': record.Spacecraft_ID.upper()},
+                    'instrument': {'name': record.Sensor_ID.upper()},
                     'extent': {
                         'from_dt': record.Sensing_Time.strftime("%Y-%m-%d %H:%M:%S"),
                         'to_dt': record.Sensing_Time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -978,7 +978,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                             }
                         }
                     },
-                    'image': image_lyrs,
+                    'image': {'bands': image_lyrs},
                     'lineage': {'source_datasets': {}},
                 }
                 with open(yaml_file, 'w') as stream:
