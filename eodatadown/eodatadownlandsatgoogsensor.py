@@ -917,14 +917,37 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 scn_id = str(str(uuid.uuid5(uuid.NAMESPACE_URL, record.ARDProduct_Path)))
                 print("{}: {}".format(record.Scene_ID, scn_id))
                 img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.kea')
+                vmsk_img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*_valid.kea')
+                cmsk_img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*_clouds.kea')
                 yaml_file = os.path.splitext(img_file)[0]+"_yaml.yaml"
                 epsg_code = rsgis_utils.getEPSGCode(img_file)
                 lcl_proj_bbox = rsgis_utils.getImageBBOX(img_file)
 
+                image_lyrs = dict()
+                if record.Spacecraft_ID == "Landsat_8":
+                    image_lyrs['coastal'] = {'layer': 1, 'path': img_file}
+                    image_lyrs['blue'] = {'layer': 2, 'path': img_file}
+                    image_lyrs['green'] = {'layer': 3, 'path': img_file}
+                    image_lyrs['red'] = {'layer': 4, 'path': img_file}
+                    image_lyrs['nir'] = {'layer': 5, 'path': img_file}
+                    image_lyrs['swir1'] = {'layer': 6, 'path': img_file}
+                    image_lyrs['swir2'] = {'layer': 7, 'path': img_file}
+                    image_lyrs['fmask'] = {'layer': 1, 'path': cmsk_img_file}
+                    image_lyrs['vmask'] = {'layer': 1, 'path': vmsk_img_file}
+                else:
+                    image_lyrs['blue'] = {'layer': 1, 'path': img_file}
+                    image_lyrs['green'] = {'layer': 2, 'path': img_file}
+                    image_lyrs['red'] = {'layer': 3, 'path': img_file}
+                    image_lyrs['nir'] = {'layer': 4, 'path': img_file}
+                    image_lyrs['swir1'] = {'layer': 5, 'path': img_file}
+                    image_lyrs['swir2'] = {'layer': 6, 'path': img_file}
+                    image_lyrs['fmask'] = {'layer': 1, 'path': cmsk_img_file}
+                    image_lyrs['vmask'] = {'layer': 1, 'path': vmsk_img_file}
+
                 scn_info = {
                     'id': scn_id,
                     'processing_level': 'LEVEL_2',
-                    'product_type': 'arcsi_ard',
+                    'product_type': 'ARCSI_SREF',
                     'creation_dt': record.ARDProduct_End_Date.strftime("%Y-%m-%d %H:%M:%S"),
                     'label': record.Scene_ID,
                     'platform': {'code': record.Spacecraft_ID},
@@ -952,7 +975,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                             }
                         }
                     },
-                    'image': {'path': img_file},
+                    'image': image_lyrs,
                     'lineage': {'source_datasets': {}},
                 }
                 with open(yaml_file, 'w') as stream:
