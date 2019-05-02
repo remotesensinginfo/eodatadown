@@ -40,6 +40,7 @@ import shutil
 import rsgislib
 import uuid
 import yaml
+import subprocess
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -882,9 +883,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
         return scns2dcload
 
-    def create_dc_load_yaml(self, ardpath):
-        print("Hello World.")
-
     def scn2datacube(self, unq_id):
         """
         A function which loads a single scene into the datacube system.
@@ -901,6 +899,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         rsgis_utils = rsgislib.RSGISPyUtils()
 
+        datacube_cmd_path = 'datacube'
+        datacube_cmd_path_env_value = os.getenv('DATACUBE_CMD_PATH', None)
+        if datacube_cmd_path_env_value is not None:
+            datacube_cmd_path = datacube_cmd_path_env_value
+
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session = sqlalchemy.orm.sessionmaker(bind=db_engine)
@@ -911,9 +914,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                           EDDLandsatGoogle.DCLoaded == False).all()
 
         if query_result is not None:
-            logger.debug("Create the yaml files for the data cube to enable import.")
-            yaml_scn_files = []
+            logger.debug("Create the yaml files and load data into the datacube.")
             for record in query_result:
+                start_date = datetime.datetime.now()
                 scn_id = str(str(uuid.uuid5(uuid.NAMESPACE_URL, record.ARDProduct_Path)))
                 print("{}: {}".format(record.Scene_ID, scn_id))
                 img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.kea')
@@ -980,7 +983,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 }
                 with open(yaml_file, 'w') as stream:
                     yaml.dump(scn_info, stream)
-                yaml_scn_files.append(yaml_file)
+
+                cmd = "{0} dataset add {1}".format(datacube_cmd_path, yaml_file)
+                try:
+                    subprocess.call(cmd, shell=True)
+                    end_date = datetime.datetime.now()
+                    record.DCLoaded_Start_Date = start_date
+                    record.DCLoaded_End_Date = end_date
+                    record.DCLoaded = True
+                except Exception as e:
+                    logger.debug("Failed to load scene: '{}'".format(cmd), exc_info=True)
+
+        ses.commit()
+        ses.close()
+        logger.debug("Finished loading data into the datacube.")
+
 
     def get_scn_record(self, unq_id):
         """
