@@ -472,7 +472,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.db_tab_name,
                                updated_lcl_db=True, convert_scns_ard=True)
 
-    def get_scnlist_add2datacube(self):
+    def get_scnlist_datacube(self, loaded=False):
         """
         A function which queries the database to find scenes which have been processed to an ARD format
         but have not yet been loaded into the system datacube (specifed in the configuration file).
@@ -694,6 +694,14 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         A function which resets an image. This means any downloads and products are deleted
         and the database fields are reset to defaults. This allows the scene to be re-downloaded
         and processed.
+        :param unq_id: unique id for the scene to be reset.
+        """
+        raise EODataDownException("Not Implemented")
+
+    def reset_dc_load(self, unq_id):
+        """
+        A function which resets whether an image has been loaded into a datacube
+        (i.e., sets the flag to False).
         :param unq_id: unique id for the scene to be reset.
         """
         raise EODataDownException("Not Implemented")

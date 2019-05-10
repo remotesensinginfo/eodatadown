@@ -682,7 +682,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
     def get_scnlist_con2ard(self):
         """
-        A function which queries the database to find scenes which have been downloaded but have not yet been
+        A function which quefries the database to find scenes which have been downloaded but have not yet been
         processed to an analysis ready data (ARD) format.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
@@ -862,7 +862,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensor_name,
                                updated_lcl_db=True, convert_scns_ard=True)
 
-    def get_scnlist_add2datacube(self):
+    def get_scnlist_datacube(self, loaded=False):
         """
         A function which queries the database to find scenes which have been processed to an ARD format
         but have not yet been loaded into the system datacube (specifed in the configuration file).
@@ -875,7 +875,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
-                                                          EDDLandsatGoogle.DCLoaded == False).all()
+                                                          EDDLandsatGoogle.DCLoaded == loaded).all()
         scns2dcload = []
         if query_result is not None:
             for record in query_result:
@@ -1154,6 +1154,34 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             scn_record.Download_End_Date = None
             scn_record.Download_Path = ""
             scn_record.Downloaded = False
+
+        ses.commit()
+        ses.close()
+
+    def reset_dc_load(self, unq_id):
+        """
+        A function which resets whether an image has been loaded into a datacube
+        (i.e., sets the flag to False).
+        :param unq_id: unique id for the scene to be reset.
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session()
+
+        logger.debug("Perform query to find scene.")
+        scn_record = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+
+        if scn_record is None:
+            ses.close()
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+
+        if scn_record.DCLoaded:
+            # How to remove from datacube?
+            scn_record.DCLoaded_Start_Date = None
+            scn_record.DCLoaded_End_Date = None
+            scn_record.DCLoaded = False
 
         ses.commit()
         ses.close()

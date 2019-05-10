@@ -89,7 +89,7 @@ class EODataDownSensor (object):
     def scns2ard_all_avail(self, n_cores): pass
 
     @abstractmethod
-    def get_scnlist_add2datacube(self): pass
+    def get_scnlist_datacube(self, loaded=False): pass
 
     @abstractmethod
     def scn2datacube(self, unq_id): pass
@@ -126,3 +126,6 @@ class EODataDownSensor (object):
 
     @abstractmethod
     def reset_scn(self, unq_id): pass
+
+    @abstractmethod
+    def reset_dc_load(self, unq_id): pass

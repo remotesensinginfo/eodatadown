@@ -47,6 +47,8 @@ if __name__ == "__main__":
                         help='''Specify the sensor for which this process should be executed''')
     parser.add_argument("--noard", action='store_true', default=False,
                         help="Resets (deletes download) an images for which an ARD product hasn't been calculated.")
+    parser.add_argument("--nodcload", action='store_true', default=False,
+                        help="Resets flag for images loaded in a datacube - sets all to False.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -72,7 +74,17 @@ if __name__ == "__main__":
             logger.info('Finished process to reset scenes which have not been converted to ARD.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
+    elif args.nodcload:
+        try:
+            logger.info('Running process to reset scenes which have been loaded into the datacube.')
+            sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
+            scns = sensor_obj.get_scnlist_datacube(True)
+            for scn in scns:
+                sensor_obj.reset_dc_load(scn)
+            logger.info('Finished process to reset scenes which have been loaded into the datacube.')
+        except Exception as e:
+            logger.error('Failed to reset all scenes the available data.', exc_info=True)
     else:
-        logger.info('No processing option given (i.e., --noard).')
+        logger.info('No processing option given (i.e., --noard or --nodcload).')
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrestimgs.py.')
