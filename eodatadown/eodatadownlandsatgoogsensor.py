@@ -42,6 +42,10 @@ import uuid
 import yaml
 import subprocess
 
+from osgeo import osr
+from osgeo import ogr
+from osgeo import gdal
+
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownsensor import EODataDownSensor
@@ -988,6 +992,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 cmd = "{0} dataset add {1}".format(datacube_cmd_path, yaml_file)
                 try:
                     subprocess.call(cmd, shell=True)
+                    # TODO Check that the dataset is really loaded - i.e., query datacube database
                     end_date = datetime.datetime.now()
                     record.DCLoaded_Start_Date = start_date
                     record.DCLoaded_End_Date = end_date
@@ -1109,7 +1114,156 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param driver_name: name of the gdal driver
         :param add_lyr: add the layer to the file
         """
-        raise EODataDownException("Not Implemented")
+        try:
+            gdal.UseExceptions()
+
+            vec_osr = osr.SpatialReference()
+            vec_osr.ImportFromEPSG(4326)
+
+            driver = ogr.GetDriverByName(driver_name)
+            if os.path.exists(file_path) and add_lyr:
+                out_data_source = gdal.OpenEx(file_path, gdal.OF_UPDATE)
+            elif os.path.exists(file_path):
+                driver.DeleteDataSource(file_path)
+                out_data_source = driver.CreateDataSource(file_path)
+            else:
+                out_data_source = driver.CreateDataSource(file_path)
+
+            out_vec_lyr = out_data_source.GetLayerByName(lyr_name)
+            if out_vec_lyr is None:
+                out_vec_lyr = out_data_source.CreateLayer(lyr_name, srs=vec_osr, geom_type=ogr.wkbPolygon)
+
+            pid_field_defn = ogr.FieldDefn("PID", ogr.OFTInteger)
+            if out_vec_lyr.CreateField(pid_field_defn) != 0:
+                raise EODataDownException("Could not create 'PID' field in output vector lyr.")
+
+            scene_id_field_defn = ogr.FieldDefn("Scene_ID", ogr.OFTString)
+            scene_id_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(scene_id_field_defn) != 0:
+                raise EODataDownException("Could not create 'Scene_ID' field in output vector lyr.")
+
+            product_id_field_defn = ogr.FieldDefn("Product_ID", ogr.OFTString)
+            product_id_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(product_id_field_defn) != 0:
+                raise EODataDownException("Could not create 'Product_ID' field in output vector lyr.")
+
+            spacecraft_id_field_defn = ogr.FieldDefn("Spacecraft_ID", ogr.OFTString)
+            spacecraft_id_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(spacecraft_id_field_defn) != 0:
+                raise EODataDownException("Could not create 'Spacecraft_ID' field in output vector lyr.")
+
+            sensor_id_field_defn = ogr.FieldDefn("Sensor_ID", ogr.OFTString)
+            sensor_id_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(sensor_id_field_defn) != 0:
+                raise EODataDownException("Could not create 'Sensor_ID' field in output vector lyr.")
+
+            date_acq_field_defn = ogr.FieldDefn("Date_Acquired", ogr.OFTString)
+            date_acq_field_defn.SetWidth(32)
+            if out_vec_lyr.CreateField(date_acq_field_defn) != 0:
+                raise EODataDownException("Could not create 'Date_Acquired' field in output vector lyr.")
+
+            collect_num_field_defn = ogr.FieldDefn("Collection_Number", ogr.OFTString)
+            collect_num_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(collect_num_field_defn) != 0:
+                raise EODataDownException("Could not create 'Collection_Number' field in output vector lyr.")
+
+            collect_cat_field_defn = ogr.FieldDefn("Collection_Catagory", ogr.OFTString)
+            collect_cat_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(collect_cat_field_defn) != 0:
+                raise EODataDownException("Could not create 'Collection_Catagory' field in output vector lyr.")
+
+            sense_time_field_defn = ogr.FieldDefn("Sensing_Time", ogr.OFTString)
+            sense_time_field_defn.SetWidth(32)
+            if out_vec_lyr.CreateField(sense_time_field_defn) != 0:
+                raise EODataDownException("Could not create 'Sensing_Time' field in output vector lyr.")
+
+            wrs_path_field_defn = ogr.FieldDefn("WRS_Path", ogr.OFTInteger)
+            if out_vec_lyr.CreateField(wrs_path_field_defn) != 0:
+                raise EODataDownException("Could not create 'WRS_Path' field in output vector lyr.")
+
+            wrs_row_field_defn = ogr.FieldDefn("WRS_Row", ogr.OFTInteger)
+            if out_vec_lyr.CreateField(wrs_row_field_defn) != 0:
+                raise EODataDownException("Could not create 'WRS_Row' field in output vector lyr.")
+
+            cloud_cover_field_defn = ogr.FieldDefn("Cloud_Cover", ogr.OFTReal)
+            if out_vec_lyr.CreateField(cloud_cover_field_defn) != 0:
+                raise EODataDownException("Could not create 'Cloud_Cover' field in output vector lyr.")
+
+            down_path_field_defn = ogr.FieldDefn("Download_Path", ogr.OFTString)
+            down_path_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(down_path_field_defn) != 0:
+                raise EODataDownException("Could not create 'Download_Path' field in output vector lyr.")
+
+            ard_path_field_defn = ogr.FieldDefn("ARD_Path", ogr.OFTString)
+            ard_path_field_defn.SetWidth(256)
+            if out_vec_lyr.CreateField(ard_path_field_defn) != 0:
+                raise EODataDownException("Could not create 'ARD_Path' field in output vector lyr.")
+
+            north_field_defn = ogr.FieldDefn("North_Lat", ogr.OFTReal)
+            if out_vec_lyr.CreateField(north_field_defn) != 0:
+                raise EODataDownException("Could not create 'North_Lat' field in output vector lyr.")
+
+            south_field_defn = ogr.FieldDefn("South_Lat", ogr.OFTReal)
+            if out_vec_lyr.CreateField(south_field_defn) != 0:
+                raise EODataDownException("Could not create 'South_Lat' field in output vector lyr.")
+
+            east_field_defn = ogr.FieldDefn("East_Lon", ogr.OFTReal)
+            if out_vec_lyr.CreateField(east_field_defn) != 0:
+                raise EODataDownException("Could not create 'East_Lon' field in output vector lyr.")
+
+            west_field_defn = ogr.FieldDefn("West_Lon", ogr.OFTReal)
+            if out_vec_lyr.CreateField(west_field_defn) != 0:
+                raise EODataDownException("Could not create 'West_Lon' field in output vector lyr.")
+
+            # Get the output Layer's Feature Definition
+            feature_defn = out_vec_lyr.GetLayerDefn()
+
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            db_session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            db_ses = db_session()
+
+            query_rtn = db_ses.query(EDDLandsatGoogle).all()
+
+            if len(query_rtn) > 0:
+                for record in query_rtn:
+                    geo_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
+                    geo_bbox.setBBOX(record.North_Lat, record.South_Lat, record.West_Lon, record.East_Lon)
+                    bboxs = geo_bbox.getGeoBBoxsCut4LatLonBounds()
+
+                    for bbox in bboxs:
+                        poly = bbox.getOGRPolygon()
+                        # Add to output shapefile.
+                        out_feat = ogr.Feature(feature_defn)
+                        out_feat.SetField("PID", record.PID)
+                        out_feat.SetField("Scene_ID", record.Scene_ID)
+                        out_feat.SetField("Product_ID", record.Product_ID)
+                        out_feat.SetField("Spacecraft_ID", record.Spacecraft_ID)
+                        out_feat.SetField("Sensor_ID", record.Sensor_ID)
+                        out_feat.SetField("Date_Acquired", record.Date_Acquired.strftime('%Y-%m-%d'))
+                        out_feat.SetField("Collection_Number", record.Collection_Number)
+                        out_feat.SetField("Collection_Catagory", record.Collection_Catagory)
+                        out_feat.SetField("Sensing_Time", record.Sensing_Time.strftime('%Y-%m-%d %H:%M:%S'))
+                        out_feat.SetField("WRS_Path", record.WRS_Path)
+                        out_feat.SetField("WRS_Row", record.WRS_Row)
+                        out_feat.SetField("Cloud_Cover", record.Cloud_Cover)
+                        out_feat.SetField("Download_Path", record.Download_Path)
+                        if record.ARDProduct:
+                            out_feat.SetField("ARD_Path", record.ARDProduct_Path)
+                        else:
+                            out_feat.SetField("ARD_Path", "")
+                        out_feat.SetField("North_Lat", record.North_Lat)
+                        out_feat.SetField("South_Lat", record.South_Lat)
+                        out_feat.SetField("East_Lon", record.East_Lon)
+                        out_feat.SetField("West_Lon", record.West_Lon)
+                        out_feat.SetGeometry(poly)
+                        out_vec_lyr.CreateFeature(out_feat)
+                        out_feat = None
+            out_vec_lyr = None
+            out_data_source = None
+            db_ses.close()
+        except Exception as e:
+            raise e
 
     def reset_scn(self, unq_id):
         """

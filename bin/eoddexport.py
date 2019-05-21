@@ -54,8 +54,8 @@ if __name__ == "__main__":
                         help="Specify the output vector file.")
     parser.add_argument("--layer", type=str, default="",
                         help="Specify the output vector layer (if shapefile then the same name as the file but without extension).")
-    parser.add_argument("--driver", type=str, default="SQLite",
-                        help="Specify the GDAL driver to use. Default is 'SQLite'.")
+    parser.add_argument("--driver", type=str, default="GPKG",
+                        help="Specify the GDAL driver to use. Default is 'GPKG'.")
     parser.add_argument("--add_layer", action='store_true', default=False,
                         help="Specify the vector layer should be added to an existing file.")
     args = parser.parse_args()
