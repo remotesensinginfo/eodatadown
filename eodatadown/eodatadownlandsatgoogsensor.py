@@ -95,8 +95,9 @@ class EDDLandsatGoogle(Base):
     DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    #InValid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    #ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
 def _download_scn_goog(params):
@@ -197,7 +198,6 @@ def _process_to_ard(params):
         logger.debug("Finished download and updated database - scene valid.")
     else:
         logger.debug("Scene is not valid (e.g., too much cloud cover).")
-        """
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
         session = sqlalchemy.orm.sessionmaker(bind=db_engine)
@@ -205,11 +205,11 @@ def _process_to_ard(params):
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + scn_id)
-        query_result.InValid = True
+        query_result.Invalid = True
         ses.commit()
         ses.close()
         logger.debug("Finished download and updated database - scene not valid.")
-        """
+
 
 class EODataDownLandsatGoogSensor (EODataDownSensor):
     """
