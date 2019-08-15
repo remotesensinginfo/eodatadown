@@ -123,8 +123,8 @@ def _download_scn_goog(params):
 
     logger.debug("Set up database connection and update record.")
     db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-    session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-    ses= session()
+    session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session_sqlalc()
     query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Granule_ID == granule_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + granule_id)
@@ -174,8 +174,8 @@ def _process_to_ard(params):
     if valid_output:
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Granule_ID == granule_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + granule_id)
@@ -189,8 +189,8 @@ def _process_to_ard(params):
     else:
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Granule_ID == granule_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + granule_id)
@@ -315,8 +315,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Find the start date for query - if table is empty then using config date "
                      "otherwise date of last acquried image.")
@@ -397,8 +397,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).all()
@@ -428,8 +428,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id,
@@ -501,8 +501,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).all()
@@ -566,7 +566,22 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         processed to an analysis ready data (ARD) format.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == True,
+                                                            EDDSentinel2Google.ARDProduct == False).all()
+
+        scns2ard = []
+        if query_result is not None:
+            for record in query_result:
+                scns2ard.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2ard
 
     def scn2ard(self, unq_id):
         """
@@ -574,7 +589,75 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be processed.
         :return: returns boolean indicating successful or otherwise processing.
         """
-        raise EODataDownException("Not implemented.")
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id,
+                                                            EDDSentinel2Google.Downloaded == True,
+                                                            EDDSentinel2Google.ARDProduct == False).all()
+        ses.close()
+
+        proj_wkt_file = None
+        if self.ardProjDefined:
+            rsgis_utils = rsgislib.RSGISPyUtils()
+            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+
+        if query_result is not None:
+            if len(query_result) == 1:
+                record = query_result[0]
+                logger.debug("Create the specific output directories for the ARD processing.")
+                dt_obj = datetime.datetime.now()
+
+                work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+                if not os.path.exists(work_ard_path):
+                    os.mkdir(work_ard_path)
+
+                tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+                if not os.path.exists(tmp_ard_path):
+                    os.mkdir(tmp_ard_path)
+
+                logger.debug("Create info for running ARD analysis for scene: " + record.Product_ID)
+                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
+                if not os.path.exists(final_ard_scn_path):
+                    os.mkdir(final_ard_scn_path)
+
+                work_ard_scn_path = os.path.join(work_ard_path, record.Product_ID)
+                if not os.path.exists(work_ard_scn_path):
+                    os.mkdir(work_ard_scn_path)
+
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Product_ID)
+                if not os.path.exists(tmp_ard_scn_path):
+                    os.mkdir(tmp_ard_scn_path)
+
+                if self.ardProjDefined:
+                    proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID + "_wkt.wkt")
+                    rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
+
+                _process_to_ard([record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
+                                   work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
+                                   proj_wkt_file, self.projabbv])
+            elif len(query_result) == 0:
+                logger.info("PID {0} is either not available or already been processed.".format(unq_id))
+            else:
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
+                             format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - "
+                                          "something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
 
     def scns2ard_all_avail(self, n_cores):
         """
@@ -598,8 +681,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == True,
@@ -624,7 +707,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             ard_params = []
             for record in query_result:
-                logger.debug("Create info for running ARD analysis for scene: " + record.Granule_ID)
+                logger.debug("Create info for running ARD analysis for scene: {}".format(record.Product_ID))
                 final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
@@ -666,8 +749,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.ARDProduct == True,
@@ -702,8 +785,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.ARDProduct == True,
@@ -879,8 +962,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id).one_or_none()
@@ -925,8 +1008,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id).one_or_none()

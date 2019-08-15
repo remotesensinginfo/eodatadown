@@ -184,8 +184,8 @@ class EODataDownSystemMain(object):
         Base.metadata.create_all()
 
         logger.debug("Creating Database Session.")
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Adding System Details to Database.")
         ses.add(EDDSysDetails(Name=self.name, Description=self.description))

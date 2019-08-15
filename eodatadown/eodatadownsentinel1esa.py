@@ -124,32 +124,35 @@ def _download_scn_esa(params):
     esa_pass = params[7]
     continue_downloads = params[8]
 
-    eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
+    if remote_url is not None:
+        eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
 
-    start_date = datetime.datetime.now()
-    success = eodd_http_downloader.downloadFileContinue(remote_url, remote_url_md5, scn_lcl_dwnld_path, esa_user, esa_pass, remote_filesize, continue_downloads)
-    end_date = datetime.datetime.now()
+        start_date = datetime.datetime.now()
+        success = eodd_http_downloader.downloadFileContinue(remote_url, remote_url_md5, scn_lcl_dwnld_path, esa_user, esa_pass, remote_filesize, continue_downloads)
+        end_date = datetime.datetime.now()
 
-    if success and os.path.exists(scn_lcl_dwnld_path):
-        logger.debug("Set up database connection and update record.")
-        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid).one_or_none()
-        if query_result is None:
-            logger.error("Could not find the scene within local database: " + uuid)
-        query_result.Downloaded = True
-        query_result.Download_Start_Date = start_date
-        query_result.Download_End_Date = end_date
-        query_result.Download_Path = scn_lcl_dwnld_path
-        ses.commit()
-        ses.close()
-        logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
+        if success and os.path.exists(scn_lcl_dwnld_path):
+            logger.debug("Set up database connection and update record.")
+            db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+            session_sqlalc =csqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid).one_or_none()
+            if query_result is None:
+                logger.error("Could not find the scene within local database: " + uuid)
+            query_result.Downloaded = True
+            query_result.Download_Start_Date = start_date
+            query_result.Download_End_Date = end_date
+            query_result.Download_Path = scn_lcl_dwnld_path
+            ses.commit()
+            ses.close()
+            logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
+        else:
+            logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
     else:
-        logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
+        logger.error("Download did not complete, the URL is NULL: {}".format(scn_lcl_dwnld_path))
 
 
-class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
+class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor):
     """
     An class which represents a the Sentinel-1 sensor being downloaded from ESA Copernicus Open Access Hub.
     """
@@ -191,6 +194,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
 
             logger.debug("Find ARD processing params from config file")
             self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "dem"])
+            self.outImgRes = json_parse_helper.getNumericValue(config_data,
+                                                               ["eodatadown", "sensor", "ardparams", "imgres"],
+                                                               valid_lower=10.0)
             self.projEPSG = -1
             self.projabbv = ""
             self.ardProjDefined = False
@@ -201,6 +207,11 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                 self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
                                                                       ["eodatadown", "sensor", "ardparams", "proj",
                                                                        "epsg"], 0, 1000000000))
+            self.ardMethod = 'GAMMA'
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "software"]):
+                self.ardMethod = json_parse_helper.getStrValue(config_data,
+                                                               ["eodatadown", "sensor", "ardparams", "software"],
+                                                               valid_values=["GAMMA", "SNAP"])
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
@@ -419,18 +430,18 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         Scenes not within the database will be added.
         """
         logger.debug("Creating HTTP Session Object.")
-        session = requests.Session()
-        session.auth = (self.esaUser, self.esaPass)
+        session_http = requests.Session()
+        session_http.auth = (self.esaUser, self.esaPass)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
-        session.headers["User-Agent"] = user_agent
+        session_http.headers["User-Agent"] = user_agent
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        logger.debug(
-            "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
+        logger.debug("""Find the start date for query - if table is empty then using config 
+                        date otherwise date of last acquried image.""")
         query_date = self.startDate
         if (not check_from_start) and (ses.query(EDDSentinel1ESA).first() is not None):
             query_date = ses.query(EDDSentinel1ESA).order_by(EDDSentinel1ESA.BeginPosition.desc()).first().BeginPosition
@@ -455,7 +466,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             url = self.create_query_url(self.base_api_url, 0, n_step)
             logger.debug("Going to use the following URL: " + url)
             logger.debug("Using the following query: " + query_str)
-            response = session.post(url, {"q": query_str}, auth=session.auth)
+            response = session_http.post(url, {"q": query_str}, auth=session_http.auth)
             if self.check_http_response(response, url):
                 rsp_json = response.json()["feed"]
                 if rsp_json["opensearch:totalResults"] is not None:
@@ -480,7 +491,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                             url = self.create_query_url(self.base_api_url, start_off, n_step)
                             logger.debug("Going to use the following URL: " + url)
                             logger.debug("Using the following query: " + query_str)
-                            response = session.post(url, {"q": query_str}, auth=session.auth)
+                            response = session_http.post(url, {"q": query_str}, auth=session_http.auth)
                             if self.check_http_response(response, url):
                                 rsp_json = response.json()["feed"]
                                 self.parse_json_response(rsp_json, ses, n_step)
@@ -491,17 +502,17 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                         url = self.create_query_url(self.base_api_url, start_off, n_scns)
                         logger.debug("Going to use the following URL: " + url)
                         logger.debug("Using the following query: " + query_str)
-                        response = session.post(url, {"q": query_str}, auth=session.auth)
+                        response = session_http.post(url, {"q": query_str}, auth=session_http.auth)
                         if self.check_http_response(response, url):
                             rsp_json = response.json()["feed"]
                             self.parse_json_response(rsp_json, ses, n_remain_scns)
             logger.debug("Processed query result and added to local database for \"" + wkt_poly + "\"")
 
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL is None).all()
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Remote_URL == None).all()
         if query_result is not None:
             for record in query_result:
                 url = self.base_api_url + "odata/v1/Products('{}')?$format=json".format(record.UUID)
-                response = session.get(url, auth=session.auth)
+                response = session_http.get(url, auth=session_http.auth)
                 if not self.check_http_response(response, url):
                     logger.error("Could not get the URL for scene: '{}'".format(record.UUID))
                 json_url_info = response.json()['d']
@@ -510,7 +521,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                 record.Total_Size = int(json_parse_helper.getNumericValue(json_url_info, ["ContentLength"]))
             ses.commit()
         ses.close()
-        logger.debug("Closed Database session")
+        logger.debug("Closed Database Session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
@@ -545,8 +556,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == False).filter(
             EDDSentinel1ESA.Remote_URL is not None).all()
@@ -561,7 +572,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Identifier+".zip"
                 downloaded_new_scns = True
-                dwnld_params.append([record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.db_info_obj, os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
+                dwnld_params.append(
+                    [record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.db_info_obj,
+                     os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
@@ -574,7 +587,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             pool.map(_download_scn_esa, dwnld_params)
         logger.info("Finished downloading the scenes.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
-        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name, updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
+        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
 
     def get_scnlist_con2ard(self):
@@ -583,7 +597,22 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         processed to an analysis ready data (ARD) format.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == True,
+                                                         EDDSentinel1ESA.ARDProduct == False).all()
+
+        scns2ard = []
+        if query_result is not None:
+            for record in query_result:
+                scns2ard.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2ard
 
     def scn2ard(self, unq_id):
         """
@@ -615,16 +644,16 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
-        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == True, EDDSentinel1ESA.ARDProduct == False).all()
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == True,
+                                                         EDDSentinel1ESA.ARDProduct == False).all()
 
-        proj_wkt_file = None
+        proj_epsg = 4326
         if self.ardProjDefined:
-            rsgis_utils = rsgislib.RSGISPyUtils()
-            proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
+            proj_epsg = self.projEPSG
 
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
@@ -638,7 +667,22 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
             if not os.path.exists(tmp_ard_path):
                 os.mkdir(tmp_ard_path)
 
-            # TODO IMPLEMENT ESA Sentinel-1 Processing.
+            for record in query_result:
+                logger.debug("Create info for running ARD analysis for scene: {}".format(record.Identifier))
+                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Identifier)
+                if not os.path.exists(final_ard_scn_path):
+                    os.mkdir(final_ard_scn_path)
+
+                work_ard_scn_path = os.path.join(work_ard_path, record.Identifier)
+                if not os.path.exists(work_ard_scn_path):
+                    os.mkdir(work_ard_scn_path)
+
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Identifier)
+                if not os.path.exists(tmp_ard_scn_path):
+                    os.mkdir(tmp_ard_scn_path)
+
+                # TODO IMPLEMENT ESA Sentinel-1 Processing.
+                #self.convertSen1ARD(input_safe_file, output_dir, tmp_ard_path, self.demFile, self.outImgRes, proj_epsg, polarisations)
 
         ses.close()
         raise EODataDownException("Not implemented.")
@@ -651,8 +695,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.ARDProduct == True,
@@ -778,8 +822,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).one_or_none()
@@ -824,8 +868,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).one_or_none()

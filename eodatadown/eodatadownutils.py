@@ -708,9 +708,18 @@ class EDDGeoBBox(object):
         :return:
         """
         wkt_poly = wkt_poly.upper()
-        wkt_poly = wkt_poly.replace("POLYGON ((", "")
-        wkt_poly = wkt_poly.replace("POLYGON((", "")
-        wkt_poly = wkt_poly.replace("))", "")
+        logger.debug("Input wkt_poly = {}".format(wkt_poly))
+        if ("MULTIPOLYGON (((" in wkt_poly) or ("MULTIPOLYGON(((" in wkt_poly):
+            wkt_poly = wkt_poly.replace("MULTIPOLYGON (((", "")
+            wkt_poly = wkt_poly.replace("MULTIPOLYGON(((", "")
+            wkt_poly = wkt_poly.replace(")))", "")
+        elif ("POLYGON ((" in wkt_poly) or ("POLYGON((" in wkt_poly):
+            wkt_poly = wkt_poly.replace("POLYGON ((", "")
+            wkt_poly = wkt_poly.replace("POLYGON((", "")
+            wkt_poly = wkt_poly.replace("))", "")
+        else:
+            raise Exception("Did not recongise WKT string - simple function can be applied to POLYGON or MULTIPOLYGON.")
+        logger.debug("Edited wkt_poly = {}".format(wkt_poly))
         pts = wkt_poly.split(",")
         min_lon = 0.0
         max_lon = 0.0
@@ -718,6 +727,7 @@ class EDDGeoBBox(object):
         max_lat = 0.0
         first = True
         for pt in pts:
+            pt = pt.strip()
             lon, lat = pt.split(" ")
             lat_val = float(lat)
             lon_val = float(lon)
@@ -876,10 +886,10 @@ class EDDHTTPDownload(object):
                 return True
 
         logger.debug("Creating HTTP Session Object.")
-        session = requests.Session()
-        session.auth = (username, password)
+        session_http = requests.Session()
+        session_http.auth = (username, password)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
-        session.headers["User-Agent"] = user_agent
+        session_http.headers["User-Agent"] = user_agent
 
         temp_dwnld_path = out_file_path + '.incomplete'
         needs_downloading = True
@@ -916,7 +926,7 @@ class EDDHTTPDownload(object):
             next_update = downloaded_bytes
             usr_step_feedback = round((downloaded_bytes/exp_file_size)*100, 0)
 
-            with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
+            with session_http.get(input_url, stream=True, auth=session_http.auth, headers=headers) as r:
                 self.checkResponse(r, input_url)
                 chunk_size = 2 ** 20
                 if continuing_download:
@@ -966,10 +976,10 @@ class EDDHTTPDownload(object):
                 return True
 
         logger.debug("Creating HTTP Session Object.")
-        session = requests.Session()
-        session.auth = (username, password)
+        session_http = requests.Session()
+        session_http.auth = (username, password)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
-        session.headers["User-Agent"] = user_agent
+        session_http.headers["User-Agent"] = user_agent
 
         temp_dwnld_path = out_file_path + '.incomplete'
 
@@ -979,7 +989,7 @@ class EDDHTTPDownload(object):
         usr_update_step = 5000000
         next_update = usr_update_step
 
-        with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
+        with session_http.get(input_url, stream=True, auth=session_http.auth, headers=headers) as r:
             self.checkResponse(r, input_url)
             chunk_size = 2 ** 20
             mode = 'wb'
@@ -1031,10 +1041,10 @@ class EDDHTTPDownload(object):
 
 
         logger.debug("Creating HTTP Session Object.")
-        session = requests.Session()
-        session.auth = (username, password)
+        session_http = requests.Session()
+        session_http.auth = (username, password)
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
-        session.headers["User-Agent"] = user_agent
+        session_http.headers["User-Agent"] = user_agent
 
         temp_dwnld_path = out_file_path + '.incomplete'
         needs_downloading = True
@@ -1061,7 +1071,7 @@ class EDDHTTPDownload(object):
             next_update = downloaded_bytes
             usr_step_feedback = round((downloaded_bytes/exp_file_size)*100, 0)
 
-            with session.get(input_url, stream=True, auth=session.auth, headers=headers) as r:
+            with session_http.get(input_url, stream=True, auth=session_http.auth, headers=headers) as r:
                 self.checkResponse(r, input_url)
                 chunk_size = 2 ** 20
                 if continuing_download:

@@ -165,9 +165,7 @@ def _download_scn_planet(params):
         xml_file_out_tmp = xml_file_out
         xml_file_out = os.path.join(lcl_dwnld_path, scn_identifier + "_metadata.xml")
         os.rename(xml_file_out_tmp, xml_file_out)
-
         tif_file_size_bytes = tif_file_size_kb * 1000
-
         img_file_out = os.path.join(lcl_dwnld_path, scn_identifier + ".tif")
         success_img = eodd_http_downloader.downloadFileContinue(analytic_img_dwn_url, analytic_img_md5, img_file_out, planetAPIKey, "", exp_file_size=tif_file_size_bytes, continue_download=True)
     end_date = datetime.datetime.now()
@@ -176,8 +174,8 @@ def _download_scn_planet(params):
     if success_img and success_xml:
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + scene_id)
@@ -226,8 +224,8 @@ def _process_to_ard(params):
 
     logger.debug("Set up database connection and update record.")
     db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-    session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-    ses= session()
+    session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session_sqlalc()
     query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Scene_ID == scene_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scene_id)
@@ -357,8 +355,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug(
             "Find the start date for query - if table is empty then using config date otherwise date of last acquried image.")
@@ -526,15 +524,15 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             raise EODataDownException("The download path does not exist, please create and run again.")
 
         logger.debug("Creating HTTP Session Object.")
-        session = requests.Session()
-        session.auth = (self.planetAPIKey, "")
+        session_http = requests.Session()
+        session_http.auth = (self.planetAPIKey, "")
         user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
-        session.headers["User-Agent"] = user_agent
+        session_http.headers["User-Agent"] = user_agent
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         downloaded_new_scns = False
 
         logger.debug("Perform query to find scenes which need downloading.")
@@ -549,7 +547,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             for record in query_result:
                 logger.debug("Testing if available to download : "+ record.Scene_ID)
 
-                http_resp = session.get(record.Remote_URL)
+                http_resp = session_http.get(record.Remote_URL)
                 eodd_http_downloader.checkResponse(http_resp, record.Remote_URL)
                 dwnld_obj = self.parse_http_download_response_json(http_resp.json())
 
@@ -558,9 +556,9 @@ class EODataDownRapideyeSensor (EODataDownSensor):
                     raise EODataDownException("Permission to download is not available for image/xml file(s) for scene: {}".format(record.Scene_ID))
 
                 if dwnld_obj.activated == "inactive":
-                    act_img_http_resp = session.get(dwnld_obj.analytic_img_act_url)
+                    act_img_http_resp = session_http.get(dwnld_obj.analytic_img_act_url)
                     eodd_http_downloader.checkResponse(act_img_http_resp, dwnld_obj.analytic_img_act_url)
-                    act_xml_http_resp = session.get(dwnld_obj.analytic_xml_act_url)
+                    act_xml_http_resp = session_http.get(dwnld_obj.analytic_xml_act_url)
                     eodd_http_downloader.checkResponse(act_xml_http_resp, dwnld_obj.analytic_xml_act_url)
                 elif dwnld_obj.activated == "active":
                     lcl_dwnld_scn_path = os.path.join(self.baseDownloadPath, record.Scene_ID)
@@ -617,8 +615,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == True, EDDRapideyePlanet.ARDProduct == False).all()
@@ -681,8 +679,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.ARDProduct == True,
@@ -808,8 +806,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.PID == unq_id).one_or_none()
@@ -854,8 +852,8 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.PID == unq_id).one_or_none()
