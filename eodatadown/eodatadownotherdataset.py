@@ -122,8 +122,8 @@ def _process_to_ard(params):
 
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_obj = generic_table.update().where(generic_table.c.Base_Name == base_name).values(North_Lat=north_lat,
                                                                                                 South_Lat=south_lat,
                                                                                                 East_Lon=east_lon,
@@ -252,9 +252,13 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                                                                     nullable=True),
                                                   sqlalchemy.Column('DCLoaded', sqlalchemy.Boolean, nullable=False,
                                                                     default=False),
-                                                  sqlalchemy.Column('InValid', sqlalchemy.Boolean, nullable=False,
+                                                  sqlalchemy.Column('Invalid', sqlalchemy.Boolean, nullable=False,
                                                                     default=False),
-                                                  sqlalchemy.Column('ExtendedInfo', sqlalchemy.JSON, nullable=True))
+                                                  sqlalchemy.Column('ExtendedInfo', sqlalchemy.JSON, nullable=True),
+                                                  sqlalchemy.Column('RegCheck', sqlalchemy.Boolean, nullable=False,
+                                                                    default=False)
+                                                  )
+
 
     def init_sensor_db(self):
         """
@@ -279,8 +283,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         file_lst = glob.glob(self.downloadSearchPath)
         new_scns_avail = False
         for tmp_file in file_lst:
@@ -317,8 +321,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.PID == unq_id)
         query_rtn = ses.execute(query_obj).fetchall()
         if len(query_rtn) == 1:
@@ -344,8 +348,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.Downloaded == True, self.generic_table.c.ARDProduct == False)
         query_rtn = ses.execute(query_obj).fetchall()
@@ -372,8 +376,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.PID == unq_id)
         query_rtn = ses.execute(query_obj).fetchall()
@@ -427,8 +431,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.Downloaded == True and
                                                                   self.generic_table.c.ARDProduct == False)
@@ -652,8 +656,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
 
             logger.debug("Creating Database Engine and Session.")
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-            session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-            ses= session()
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
 
             query_obj = sqlalchemy.select([self.generic_table])
             query_rtn = ses.execute(query_obj).fetchall()

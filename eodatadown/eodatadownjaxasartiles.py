@@ -96,8 +96,9 @@ class EDDJAXASARTiles(Base):
     DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    # InValid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    # ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
 def _download_scn_jaxa(params):
@@ -128,8 +129,8 @@ def _download_scn_jaxa(params):
     if success:
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Server_File_Path == server_path).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + server_path)
@@ -436,8 +437,8 @@ def _process_to_ard(params):
 
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.PID == pid).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + pid)
@@ -637,8 +638,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         query_rtn = ses.query(EDDJAXASARTiles.Year).group_by(EDDJAXASARTiles.Year).all()
         years_in_db = []
@@ -728,8 +729,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             raise EODataDownException("The download path does not exist, please create and run again.")
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == False).all()
@@ -795,8 +796,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == True,
@@ -864,8 +865,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.ARDProduct == True,
@@ -991,8 +992,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.PID == unq_id).one_or_none()
@@ -1037,8 +1038,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.PID == unq_id).one_or_none()

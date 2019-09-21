@@ -37,7 +37,7 @@ from distutils.core import setup
 import os
 
 setup(name='EODataDown',
-    version='0.13.0',
+    version='0.16.0',
     description='A tool for automating Earth Observation Data Downloading.',
     author='Pete Bunting',
     author_email='pfb@aber.ac.uk',
@@ -61,4 +61,5 @@ setup(name='EODataDown',
                  'Operating System :: OS Independent',
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
-                 'Programming Language :: Python :: 3.7'])
+                 'Programming Language :: Python :: 3.7',
+                 'Programming Language :: Python :: 3.8'])

@@ -100,8 +100,8 @@ class EODataDownUpdateUsageLogDB(object):
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
         logger.debug("Creating Database Session.")
-        session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses= session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Adding Update to Database.")
         ses.add(EDDUsageLog(Sensor=sensor_val, Update=datetime.datetime.now(), Description=description_val,

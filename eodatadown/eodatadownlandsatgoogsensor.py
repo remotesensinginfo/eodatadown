@@ -95,8 +95,9 @@ class EDDLandsatGoogle(Base):
     DCLoaded_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    #InValid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    #ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
 def _download_scn_goog(params):
@@ -130,8 +131,8 @@ def _download_scn_goog(params):
 
     logger.debug("Set up database connection and update record.")
     db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-    session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-    ses = session()
+    session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session_sqlalc()
     query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
     if query_result is None:
         logger.error("Could not find the scene within local database: " + scn_id)
@@ -183,8 +184,8 @@ def _process_to_ard(params):
     if valid_output:
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + scn_id)
@@ -197,19 +198,18 @@ def _process_to_ard(params):
         logger.debug("Finished download and updated database - scene valid.")
     else:
         logger.debug("Scene is not valid (e.g., too much cloud cover).")
-        """
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == scn_id).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + scn_id)
-        query_result.InValid = True
+        query_result.Invalid = True
         ses.commit()
         ses.close()
         logger.debug("Finished download and updated database - scene not valid.")
-        """
+
 
 class EODataDownLandsatGoogSensor (EODataDownSensor):
     """
@@ -344,8 +344,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
         logger.debug("Find duplicate records for the scene_id: "+scn_id)
         query_rtn = ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID).\
             filter(EDDLandsatGoogle.Scene_ID == scn_id).all()
@@ -396,12 +396,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Find the start date for query - if table is empty then using config date "
                      "otherwise date of last acquried image.")
         query_date = self.startDate
-        ses = session()
+
         if (not check_from_start) and (ses.query(EDDLandsatGoogle).first() is not None):
             query_date = ses.query(EDDLandsatGoogle).order_by(
                 EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
@@ -530,8 +531,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
@@ -561,8 +562,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id,
@@ -634,8 +635,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
@@ -696,8 +697,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
@@ -728,8 +729,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id,
@@ -809,8 +810,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
@@ -835,7 +836,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 os.mkdir(tmp_ard_path)
 
             for record in query_result:
-                logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
+                logger.debug("Create info for running ARD analysis for scene: {}".format(record.Product_ID))
                 final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
@@ -878,8 +879,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
@@ -915,8 +916,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
@@ -1017,8 +1018,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
@@ -1278,8 +1279,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
@@ -1324,8 +1325,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session()
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
 
         logger.debug("Perform query to find scene.")
         scn_record = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
