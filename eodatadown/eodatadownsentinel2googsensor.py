@@ -341,6 +341,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     logger.info("Finding scenes for granule: {} in month {}".format(granule_str, curr_month))
                     goog_filter_month = "EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {}".format(curr_month)
                     goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + goog_filter_month
+                else:
+                    goog_filter = goog_filter_date + " AND " + goog_filter_cloud
 
                 client = bigquery.Client()
                 granule_filter = "mgrs_tile = \"" + granule_str + "\""

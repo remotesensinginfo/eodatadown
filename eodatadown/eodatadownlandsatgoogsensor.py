@@ -455,6 +455,10 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + \
                                   goog_filter_spacecraft + " AND " + goog_filter_sensor + " AND " + \
                                   goog_filter_collection + " AND " + goog_filter_month
+                else:
+                    goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + \
+                                  goog_filter_spacecraft + " AND " + goog_filter_sensor + " AND " + \
+                                  goog_filter_collection
 
                 client = bigquery.Client()
                 wrs2_filter = "wrs_path = " + str(wrs2['path']) + " AND wrs_row = " + str(wrs2['row'])
