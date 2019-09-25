@@ -98,13 +98,14 @@ def _download_scn_goog(params):
     :param params:
     :return:
     """
-    granule_id = params[0]
-    db_info_obj = params[1]
-    goog_key_json = params[2]
-    goog_proj_name = params[3]
-    bucket_name = params[4]
-    scn_dwnlds_filelst = params[5]
-    scn_lcl_dwnld_path = params[6]
+    pid = params[0]
+    granule_id = params[1]
+    db_info_obj = params[2]
+    goog_key_json = params[3]
+    goog_proj_name = params[4]
+    bucket_name = params[5]
+    scn_dwnlds_filelst = params[6]
+    scn_lcl_dwnld_path = params[7]
 
     logger.debug("Set up Google storage API.")
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = goog_key_json
@@ -125,9 +126,13 @@ def _download_scn_goog(params):
     db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
     session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
     ses = session_sqlalc()
-    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Granule_ID == granule_id).one_or_none()
+    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == pid).one_or_none()
     if query_result is None:
-        logger.error("Could not find the scene within local database: " + granule_id)
+        logger.error("Could not find the scene within local database: PID = {}".format(pid))
+        ses.commit()
+        ses.close()
+        raise EODataDownException("Could not find the scene within local database: PID = {}".format(pid))
+
     query_result.Downloaded = True
     query_result.Download_Start_Date = start_date
     query_result.Download_End_Date = end_date
@@ -144,16 +149,17 @@ def _process_to_ard(params):
     :param params:
     :return:
     """
-    granule_id = params[0]
-    db_info_obj = params[1]
-    scn_path = params[2]
-    dem_file = params[3]
-    output_dir = params[4]
-    tmp_dir = params[5]
-    final_ard_path = params[6]
-    reproj_outputs = params[7]
-    proj_wkt_file = params[8]
-    projabbv = params[9]
+    pid = params[0]
+    granule_id = params[1]
+    db_info_obj = params[2]
+    scn_path = params[3]
+    dem_file = params[4]
+    output_dir = params[5]
+    tmp_dir = params[6]
+    final_ard_path = params[7]
+    reproj_outputs = params[8]
+    proj_wkt_file = params[9]
+    projabbv = params[10]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
     input_hdr = edd_utils.findFile(scn_path, "*MTD*.xml")
@@ -176,7 +182,7 @@ def _process_to_ard(params):
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
-        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Granule_ID == granule_id).one_or_none()
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == pid).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + granule_id)
         query_result.ARDProduct = True
@@ -191,7 +197,7 @@ def _process_to_ard(params):
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
-        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Granule_ID == granule_id).one_or_none()
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == pid).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + granule_id)
         query_result.Invalid = True
@@ -470,8 +476,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
-                    _download_scn_goog([record.Granule_ID, self.db_info_obj, self.goog_key_json, self.goog_proj_name,
-                                        bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                    _download_scn_goog([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
+                                        self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
@@ -545,8 +551,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
-                dwnld_params.append([record.Granule_ID, self.db_info_obj, self.goog_key_json, self.goog_proj_name,
-                                     bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                dwnld_params.append([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
+                                     self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
             downloaded_new_scns = True
         else:
             downloaded_new_scns = False
@@ -647,7 +653,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID + "_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                _process_to_ard([record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
+                _process_to_ard([record.PID, record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
                                    work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
                                    proj_wkt_file, self.projabbv])
             elif len(query_result) == 0:
@@ -726,7 +732,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                ard_params.append([record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
+                ard_params.append([record.PID, record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
                                    work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
                                    proj_wkt_file, self.projabbv])
         else:
