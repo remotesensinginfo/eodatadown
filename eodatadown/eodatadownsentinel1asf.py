@@ -116,12 +116,13 @@ def _download_scn_asf(params):
     :param params:
     :return:
     """
-    product_file_id = params[0]
-    remote_url = params[1]
-    db_info_obj = params[2]
-    scn_lcl_dwnld_path = params[3]
-    asf_user = params[4]
-    asf_pass = params[5]
+    pid = params[0]
+    product_file_id = params[1]
+    remote_url = params[2]
+    db_info_obj = params[3]
+    scn_lcl_dwnld_path = params[4]
+    asf_user = params[5]
+    asf_pass = params[6]
     success = False
 
     eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
@@ -137,7 +138,7 @@ def _download_scn_asf(params):
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
-        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Product_File_ID == product_file_id).one_or_none()
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == pid).one_or_none()
         if query_result is None:
             logger.error("Could not find the scene within local database: " + product_file_id)
         else:
@@ -467,7 +468,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Remote_FileName
-                _download_scn_asf([record.Product_File_ID, record.Remote_URL, self.db_info_obj,
+                _download_scn_asf([record.PID, record.Product_File_ID, record.Remote_URL, self.db_info_obj,
                                      os.path.join(scn_lcl_dwnld_path, out_filename), self.asfUser, self.asfPass])
                 success = True
             elif len(query_result) == 0:
@@ -508,7 +509,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Remote_FileName
                 downloaded_new_scns = True
-                dwnld_params.append([record.Product_File_ID, record.Remote_URL, self.db_info_obj,
+                dwnld_params.append([record.PID, record.Product_File_ID, record.Remote_URL, self.db_info_obj,
                                      os.path.join(scn_lcl_dwnld_path, out_filename), self.asfUser, self.asfPass])
         else:
             downloaded_new_scns = False
