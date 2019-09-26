@@ -97,6 +97,23 @@ class EODataDownUtils(object):
             raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, dirPath, len(files)))
         return files[0]
 
+    def findFilesRecurse(self, dir_path, file_ext):
+        """
+        Recursively search a directory for files with the provided extension.
+        Ignores directories which have the same extension.
+        :param dir_path: directory file path
+        :param file_ext: file extension (include dot; e.g., .kea)
+        :return: returns list of files.
+        """
+        found_files = []
+        for root, dirs, files in os.walk(dir_path):
+            for file in files:
+                if file.endswith(file_ext):
+                    found_file = os.path.join(root, file)
+                    if os.path.isfile(found_file):
+                        found_files.append(found_file)
+        return found_files
+
     def moveFile2DIR(self, in_file, out_dir):
         """
         A function which moves a file to the specified output directory.

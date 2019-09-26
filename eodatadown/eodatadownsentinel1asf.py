@@ -564,6 +564,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         if not os.path.exists(self.ardProdTmpPath):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
@@ -596,7 +598,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if not os.path.exists(tmp_ard_scn_path):
                 os.mkdir(tmp_ard_scn_path)
 
-            self.convertSen1ARD(query_result.Download_Path, final_ard_scn_path, tmp_ard_scn_path, self.demFile, self.outImgRes, proj_epsg, query_result.Polarization)
+            print(query_result.Polarization)
+            zip_file = eodd_utils.findFilesRecurse(query_result.Download_Path, '.zip')
+            print(zip_file)
+            if len(zip_file) == 1:
+                zip_file = zip_file[0]
+            #self.convertSen1ARD(zip_file, final_ard_scn_path, tmp_ard_scn_path, self.demFile, self.outImgRes, proj_epsg, query_result.Polarization)
             end_date = datetime.datetime.now()
 
             #query_result.ARDProduct = True
