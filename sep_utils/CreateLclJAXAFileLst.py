@@ -39,8 +39,8 @@ class EDDJAXASARTiles(Base):
 
 
 db_engine = sqlalchemy.create_engine("sqlite:///EODataDownJAXATiles.db")
-session =sqlalchemy.orm.sessionmaker(bind=db_engine)
-ses= session()
+session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+ses = session_sqlalc()
 
 avail_years = [1996, 2007, 2008, 2009, 2010, 2015, 2016, 2017]
 jaxafileslst = dict()
