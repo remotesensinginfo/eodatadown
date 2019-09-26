@@ -114,15 +114,16 @@ def _download_scn_esa(params):
     :param params:
     :return:
     """
-    uuid = params[0]
-    remote_url = params[1]
-    remote_url_md5 = params[2]
-    remote_filesize = params[3]
-    db_info_obj = params[4]
-    scn_lcl_dwnld_path = params[5]
-    esa_user = params[6]
-    esa_pass = params[7]
-    continue_downloads = params[8]
+    pid = params[0]
+    uuid = params[1]
+    remote_url = params[2]
+    remote_url_md5 = params[3]
+    remote_filesize = params[4]
+    db_info_obj = params[5]
+    scn_lcl_dwnld_path = params[6]
+    esa_user = params[7]
+    esa_pass = params[8]
+    continue_downloads = params[9]
 
     if remote_url is not None:
         eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
@@ -134,9 +135,9 @@ def _download_scn_esa(params):
         if success and os.path.exists(scn_lcl_dwnld_path):
             logger.debug("Set up database connection and update record.")
             db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-            session_sqlalc =csqlalchemy.orm.sessionmaker(bind=db_engine)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
             ses = session_sqlalc()
-            query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.UUID == uuid).one_or_none()
+            query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == pid).one_or_none()
             if query_result is None:
                 logger.error("Could not find the scene within local database: " + uuid)
             query_result.Downloaded = True
@@ -573,8 +574,9 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 out_filename = record.Identifier+".zip"
                 downloaded_new_scns = True
                 dwnld_params.append(
-                    [record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size, self.db_info_obj,
-                     os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass, continue_downloads])
+                    [record.PID, record.UUID, record.Remote_URL, record.Remote_URL_MD5, record.Total_Size,
+                     self.db_info_obj, os.path.join(scn_lcl_dwnld_path, out_filename), self.esaUser, self.esaPass,
+                     continue_downloads])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")

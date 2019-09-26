@@ -35,11 +35,12 @@ import os.path
 import shutil
 import subprocess
 import sen1_ard_gamma.sen1_grd_ard_tools
+from eodatadown.eodatadownsensor import EODataDownSensor
 
 logger = logging.getLogger(__name__)
 
 
-class EODataDownSentinel1ProcessorSensor (object):
+class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     """
     An abstract class provides functionality which is shared between the
     Sentinel-1 functions.
