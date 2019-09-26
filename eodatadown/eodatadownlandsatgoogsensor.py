@@ -735,7 +735,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id,
                                                           EDDLandsatGoogle.Downloaded == True,
-                                                          EDDLandsatGoogle.ARDProduct == False).all()
+                                                          EDDLandsatGoogle.ARDProduct == False).one_or_none()
         ses.close()
 
         proj_wkt_file = None

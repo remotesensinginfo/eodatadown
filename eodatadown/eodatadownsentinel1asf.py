@@ -554,7 +554,57 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         :param unq_id: the unique ID of the scene to be processed.
         :return: returns boolean indicating successful or otherwise processing.
         """
-        raise EODataDownException("Not implemented.")
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdWorkPath):
+            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scenes which need converting to ARD.")
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id,
+                                                         EDDSentinel1ASF.Downloaded == True,
+                                                         EDDSentinel1ASF.ARDProduct == False).one_or_none()
+
+        proj_epsg = 4326
+        if self.ardProjDefined:
+            proj_epsg = self.projEPSG
+
+        if query_result is not None:
+            start_date = datetime.datetime.now()
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
+
+            tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(tmp_ard_path):
+                os.mkdir(tmp_ard_path)
+
+            logger.debug("Create info for running ARD analysis for scene: {}".format(query_result.Product_File_ID))
+            final_ard_scn_path = os.path.join(self.ardFinalPath, query_result.Product_File_ID)
+            if not os.path.exists(final_ard_scn_path):
+                os.mkdir(final_ard_scn_path)
+
+            tmp_ard_scn_path = os.path.join(tmp_ard_path, query_result.Product_File_ID)
+            if not os.path.exists(tmp_ard_scn_path):
+                os.mkdir(tmp_ard_scn_path)
+
+            self.convertSen1ARD(query_result.Download_Path, final_ard_scn_path, tmp_ard_scn_path, self.demFile, self.outImgRes, proj_epsg, query_result.Polarization)
+            end_date = datetime.datetime.now()
+
+            #query_result.ARDProduct = True
+            #query_result.ARDProduct_Start_Date = start_date
+            #query_result.ARDProduct_End_Date = end_date
+            #query_result.ARDProduct_Path = final_ard_scn_path
+            #ses.commit()
+        ses.close()
+
 
     def scns2ard_all_avail(self, n_cores):
         """

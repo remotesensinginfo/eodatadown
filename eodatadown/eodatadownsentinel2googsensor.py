@@ -606,7 +606,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id,
                                                             EDDSentinel2Google.Downloaded == True,
-                                                            EDDSentinel2Google.ARDProduct == False).all()
+                                                            EDDSentinel2Google.ARDProduct == False).one_or_none()
         ses.close()
 
         proj_wkt_file = None
