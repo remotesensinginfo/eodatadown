@@ -36,6 +36,7 @@ import shutil
 import subprocess
 import sen1_ard_gamma.sen1_grd_ard_tools
 from eodatadown.eodatadownsensor import EODataDownSensor
+import eodatadown.eodatadownutils
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,13 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     Sentinel-1 functions.
     """
 
-    def convertSen1ARD(self, input_safe_zipfile, output_dir, tmp_dir, dem_img_file, out_img_res, out_proj_epsg,
+    def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res, out_proj_epsg,
                               polarisations):
         """
 
         :param input_safe_zipfile:
         :param output_dir:
+        :param work_dir:
         :param tmp_dir:
         :param dem_img_file:
         :param out_img_res:
@@ -59,6 +61,13 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         :param polarisations:
 
         """
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        sen1_out_proj_epsg = None
+        out_sen1_files_dir = work_dir
+        if eodd_utils.isEPSGUTM(out_proj_epsg):
+            sen1_out_proj_epsg = out_proj_epsg
+            out_sen1_files_dir = output_dir
+
         unzip_tmp_dir_created = False
         uid_val = sen1_ard_gamma.sen1_ard_utils.uidGenerator()
         base_file_name = os.path.splitext(os.path.basename(input_safe_zipfile))[0]
@@ -73,8 +82,9 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         input_safe_file = os.path.join(unzip_dir, "{}.SAFE".format(base_file_name))
         os.chdir(current_path)
 
-        sen1_ard_gamma.sen1_grd_ard_tools.run_sen1_grd_ard_analysis(input_safe_file, output_dir, tmp_dir, dem_img_file,
-                                                                    out_img_res, out_proj_epsg, polarisations,
-                                                                    'KEA', False, False, no_dem_check=False)
+        sen1_ard_gamma.sen1_grd_ard_tools.run_sen1_grd_ard_analysis(input_safe_file, out_sen1_files_dir, tmp_dir,
+                                                                    dem_img_file, out_img_res, sen1_out_proj_epsg,
+                                                                    polarisations, 'KEA', False, False,
+                                                                    no_dem_check=False)
         if unzip_tmp_dir_created:
             shutil.rmtree(unzip_dir)
