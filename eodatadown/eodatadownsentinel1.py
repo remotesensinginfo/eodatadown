@@ -48,7 +48,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     """
 
     def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res, out_proj_epsg,
-                              polarisations):
+                              polarisations, out_proj_img_res=-1, out_proj_interp=None):
         """
 
         :param input_safe_zipfile:
@@ -61,30 +61,45 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         :param polarisations:
 
         """
-        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-        sen1_out_proj_epsg = None
-        out_sen1_files_dir = work_dir
-        if eodd_utils.isEPSGUTM(out_proj_epsg):
-            sen1_out_proj_epsg = out_proj_epsg
-            out_sen1_files_dir = output_dir
+        sen1_ard_success = False
+        try:
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+            sen1_out_proj_epsg = None
+            out_sen1_files_dir = work_dir
+            if eodd_utils.isEPSGUTM(out_proj_epsg):
+                sen1_out_proj_epsg = out_proj_epsg
+                out_sen1_files_dir = output_dir
 
-        unzip_tmp_dir_created = False
-        uid_val = sen1_ard_gamma.sen1_ard_utils.uidGenerator()
-        base_file_name = os.path.splitext(os.path.basename(input_safe_zipfile))[0]
-        unzip_dir = os.path.join(tmp_dir, "{}_{}".format(base_file_name, uid_val))
-        if not os.path.exists(unzip_dir):
-            os.makedirs(unzip_dir)
-            unzip_tmp_dir_created = True
-        current_path = os.getcwd()
-        os.chdir(unzip_dir)
-        cmd = "unzip {}".format(input_safe_zipfile)
-        subprocess.call(cmd, shell=True)
-        input_safe_file = os.path.join(unzip_dir, "{}.SAFE".format(base_file_name))
-        os.chdir(current_path)
+            unzip_tmp_dir_created = False
+            uid_val = sen1_ard_gamma.sen1_ard_utils.uidGenerator()
+            base_file_name = os.path.splitext(os.path.basename(input_safe_zipfile))[0]
+            unzip_dir = os.path.join(tmp_dir, "{}_{}".format(base_file_name, uid_val))
+            if not os.path.exists(unzip_dir):
+                os.makedirs(unzip_dir)
+                unzip_tmp_dir_created = True
+            current_path = os.getcwd()
+            os.chdir(unzip_dir)
+            cmd = "unzip {}".format(input_safe_zipfile)
+            subprocess.call(cmd, shell=True)
+            input_safe_file = os.path.join(unzip_dir, "{}.SAFE".format(base_file_name))
+            os.chdir(current_path)
 
-        sen1_ard_gamma.sen1_grd_ard_tools.run_sen1_grd_ard_analysis(input_safe_file, out_sen1_files_dir, tmp_dir,
-                                                                    dem_img_file, out_img_res, sen1_out_proj_epsg,
-                                                                    polarisations, 'KEA', False, False,
-                                                                    no_dem_check=False)
-        if unzip_tmp_dir_created:
-            shutil.rmtree(unzip_dir)
+            sen1_ard_gamma.sen1_grd_ard_tools.run_sen1_grd_ard_analysis(input_safe_file, out_sen1_files_dir, tmp_dir,
+                                                                        dem_img_file, out_img_res, sen1_out_proj_epsg,
+                                                                        polarisations, 'KEA', False, False,
+                                                                        no_dem_check=False)
+            """
+            #if sen1_out_proj_epsg is None:
+                # Reproject the UTM outputs to required projection.
+                rsgislib.imageutils.reprojectImage(inputImage, outputImage, outWKT, gdalformat='KEA', interp='cubic',
+                                               inWKT=None, noData=0.0, outPxlRes=out_proj_img_res, snap2Grid=True,
+                                               multicore=False)
+            """
+            if unzip_tmp_dir_created:
+                shutil.rmtree(unzip_dir)
+
+            sen1_ard_success = True
+        except Exception as e:
+            logger.error("Failed in processing: '{}'".format(input_safe_file))
+            sen1_ard_success = False
+        return sen1_ard_success

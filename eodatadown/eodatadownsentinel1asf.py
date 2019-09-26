@@ -200,6 +200,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                                valid_lower=10.0)
             self.projEPSG = -1
             self.projabbv = ""
+            self.out_proj_img_res = -1
+            self.out_proj_interp = None
             self.ardProjDefined = False
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "proj"]):
                 self.ardProjDefined = True
@@ -208,6 +210,13 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
                                                                       ["eodatadown", "sensor", "ardparams", "proj",
                                                                        "epsg"], 0, 1000000000))
+                self.out_proj_img_res = int(json_parse_helper.getNumericValue(config_data,
+                                                                      ["eodatadown", "sensor", "ardparams", "proj",
+                                                                       "projimgres"], 0))
+                self.out_proj_interp = json_parse_helper.getStrValue(config_data,
+                                                                     ["eodatadown", "sensor", "ardparams",
+                                                                      "proj", "interp"],
+                                                                     valid_values=["NEAR", "BILINEAR", "CUBIC"])
             self.ardMethod = 'GAMMA'
             if json_parse_helper.doesPathExist(config_data,["eodatadown", "sensor", "ardparams", "software"]):
                 self.ardMethod = json_parse_helper.getStrValue(config_data,
@@ -619,15 +628,18 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             else:
                 logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
                 raise EODataDownException("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
-            self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path, tmp_ard_scn_path, self.demFile,
-                                self.outImgRes, proj_epsg, pols)
+            success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path, tmp_ard_scn_path,
+                                                      self.demFile, self.outImgRes, proj_epsg, pols,
+                                                      self.out_proj_img_res, self.out_proj_interp)
             end_date = datetime.datetime.now()
-
-            #query_result.ARDProduct = True
-            #query_result.ARDProduct_Start_Date = start_date
-            #query_result.ARDProduct_End_Date = end_date
-            #query_result.ARDProduct_Path = final_ard_scn_path
-            #ses.commit()
+            """
+            if success_process_ard:
+                query_result.ARDProduct = True
+                query_result.ARDProduct_Start_Date = start_date
+                query_result.ARDProduct_End_Date = end_date
+                query_result.ARDProduct_Path = final_ard_scn_path
+                ses.commit()
+            """
         ses.close()
 
 
