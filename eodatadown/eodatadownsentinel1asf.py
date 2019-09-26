@@ -598,12 +598,20 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if not os.path.exists(tmp_ard_scn_path):
                 os.mkdir(tmp_ard_scn_path)
 
+            pols = []
+            if 'VV' in query_result.Polarization:
+                pols.append('VV')
+            if 'VH' in query_result.Polarization:
+                pols.append('VH')
             print(query_result.Polarization)
+            print(pols)
             zip_file = eodd_utils.findFilesRecurse(query_result.Download_Path, '.zip')
             print(zip_file)
             if len(zip_file) == 1:
                 zip_file = zip_file[0]
-            #self.convertSen1ARD(zip_file, final_ard_scn_path, tmp_ard_scn_path, self.demFile, self.outImgRes, proj_epsg, query_result.Polarization)
+            else:
+                raise EODataDownException("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
+            #self.convertSen1ARD(zip_file, final_ard_scn_path, tmp_ard_scn_path, self.demFile, self.outImgRes, proj_epsg, pols)
             end_date = datetime.datetime.now()
 
             #query_result.ARDProduct = True
