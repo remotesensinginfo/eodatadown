@@ -632,14 +632,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                       self.demFile, self.outImgRes, pols, proj_epsg, self.projabbv,
                                                       self.out_proj_img_res, self.out_proj_interp)
             end_date = datetime.datetime.now()
-            """
             if success_process_ard:
                 query_result.ARDProduct = True
                 query_result.ARDProduct_Start_Date = start_date
                 query_result.ARDProduct_End_Date = end_date
                 query_result.ARDProduct_Path = final_ard_scn_path
                 ses.commit()
-            """
         ses.close()
 
 
