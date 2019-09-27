@@ -83,6 +83,58 @@ class EODataDownResponseException(EODataDownException):
 
 class EODataDownUtils(object):
 
+    def readTextFileNoNewLines(self, file):
+        """
+        Read a text file into a single string
+        removing new lines.
+
+        :return: string
+
+        """
+        txtStr = ""
+        try:
+            dataFile = open(file, 'r')
+            for line in dataFile:
+                txtStr += line.strip()
+            dataFile.close()
+        except Exception as e:
+            raise e
+        return txtStr
+
+    def readTextFile2List(self, file):
+        """
+        Read a text file into a list where each line
+        is an element in the list.
+
+        :return: list
+
+        """
+        outList = []
+        try:
+            dataFile = open(file, 'r')
+            for line in dataFile:
+                line = line.strip()
+                if line != "":
+                    outList.append(line)
+            dataFile.close()
+        except Exception as e:
+            raise e
+        return outList
+
+    def writeList2File(self, dataList, outFile):
+        """
+        Write a list a text file, one line per item.
+
+        """
+        try:
+            f = open(outFile, 'w')
+            for item in dataList:
+               f.write(str(item)+'\n')
+            f.flush()
+            f.close()
+        except Exception as e:
+            raise e
+
     def findFile(self, dirPath, fileSearch):
         """
         Search for a single file with a path using glob. Therefore, the file
