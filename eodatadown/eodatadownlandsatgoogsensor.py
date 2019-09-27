@@ -750,46 +750,38 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
 
         if query_result is not None:
-            if len(query_result) == 1:
-                record = query_result[0]
-                logger.debug("Create the specific output directories for the ARD processing.")
-                dt_obj = datetime.datetime.now()
+            record = query_result
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
 
-                work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
-                if not os.path.exists(work_ard_path):
-                    os.mkdir(work_ard_path)
+            work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(work_ard_path):
+                os.mkdir(work_ard_path)
 
-                tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
-                if not os.path.exists(tmp_ard_path):
-                    os.mkdir(tmp_ard_path)
+            tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(tmp_ard_path):
+                os.mkdir(tmp_ard_path)
 
-                logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
-                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
-                if not os.path.exists(final_ard_scn_path):
-                    os.mkdir(final_ard_scn_path)
+            logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
+            final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
+            if not os.path.exists(final_ard_scn_path):
+                os.mkdir(final_ard_scn_path)
 
-                work_ard_scn_path = os.path.join(work_ard_path, record.Product_ID)
-                if not os.path.exists(work_ard_scn_path):
-                    os.mkdir(work_ard_scn_path)
+            work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+            if not os.path.exists(work_ard_scn_path):
+                os.mkdir(work_ard_scn_path)
 
-                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Product_ID)
-                if not os.path.exists(tmp_ard_scn_path):
-                    os.mkdir(tmp_ard_scn_path)
+            tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+            if not os.path.exists(tmp_ard_scn_path):
+                os.mkdir(tmp_ard_scn_path)
 
-                if self.ardProjDefined:
-                    proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
-                    rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
+            if self.ardProjDefined:
+                proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
+                rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
-                _process_to_ard([record.PID, record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
-                                 work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
-                                 final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
-            elif len(query_result) == 0:
-                logger.info("PID {0} is either not available or already been processed.".format(unq_id))
-            else:
-                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
-                             format(unq_id))
-                raise EODataDownException("There was more than 1 scene which has been found - "
-                                          "something has gone really wrong!")
+            _process_to_ard([record.PID, record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
+                             work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
+                             final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -843,15 +835,15 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: {}".format(record.Product_ID))
-                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_ID)
+                final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
 
-                work_ard_scn_path = os.path.join(work_ard_path, record.Product_ID)
+                work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(work_ard_scn_path):
                     os.mkdir(work_ard_scn_path)
 
-                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Product_ID)
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(tmp_ard_scn_path):
                     os.mkdir(tmp_ard_scn_path)
 

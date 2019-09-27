@@ -603,7 +603,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 os.mkdir(wrk_ard_path)
 
             logger.debug("Create info for running ARD analysis for scene: {}".format(query_result.Product_File_ID))
-            final_ard_scn_path = os.path.join(self.ardFinalPath, query_result.Product_File_ID)
+            final_ard_scn_path = os.path.join(self.ardFinalPath,
+                                              "{}_{}".format(query_result.Product_File_ID, query_result.PID))
             if not os.path.exists(final_ard_scn_path):
                 os.mkdir(final_ard_scn_path)
 
@@ -627,7 +628,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 zip_file = zip_file[0]
             else:
                 logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
-                raise EODataDownException("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
+                raise EODataDownException(
+                    "Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
             success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path, tmp_ard_scn_path,
                                                       self.demFile, self.outImgRes, pols, proj_epsg, self.projabbv,
                                                       self.out_proj_img_res, self.out_proj_interp)
@@ -638,6 +640,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 query_result.ARDProduct_End_Date = end_date
                 query_result.ARDProduct_Path = final_ard_scn_path
                 ses.commit()
+
+            if not os.path.exists(tmp_ard_scn_path):
+                shutil.rmtree(tmp_ard_scn_path)
+            if not os.path.exists(wrk_ard_scn_path):
+                shutil.rmtree(wrk_ard_scn_path)
+
         ses.close()
 
 
