@@ -119,6 +119,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                                                        interp=img_interp_alg, inWKT=None, noData=0.0,
                                                        outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
                     no_data_val = rsgis_utils.getImageNoDataValue(c_img, 1)
+                    rsgislib.imageutils.assignProj(out_img_file, sen1_out_proj_wkt, None)
                     rsgislib.imageutils.popImageStats(out_img_file, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
                     logger.debug("Finished Reprojecting: {}".format(out_img_file))
             if unzip_tmp_dir_created:
