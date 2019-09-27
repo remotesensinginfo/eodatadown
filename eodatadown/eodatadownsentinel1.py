@@ -95,7 +95,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                                                                         polarisations, 'GTIFF', False, False,
                                                                         no_dem_check=False)
 
-            if sen1_out_proj_epsg is None:
+            if sen1_out_proj_epsg is not None:
                 sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(sen1_out_proj_epsg)
                 img_interp_alg = 'cubic'
                 if out_proj_interp == 'NEAR':
