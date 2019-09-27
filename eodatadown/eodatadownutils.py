@@ -200,6 +200,22 @@ class EODataDownUtils(object):
                           32758, 32759, 32760]
         return epsg_code in utm_epsg_codes
 
+    def getWKTFromEPSGCode(self, epsgCode):
+        """
+        Using GDAL to return the WKT string for inputted EPSG Code.
+        :param epsgCode: integer variable of the epsg code.
+        :return: string with WKT representation of the projection.
+        """
+        wktString = None
+        try:
+            from osgeo import osr
+            spatRef = osr.SpatialReference()
+            spatRef.ImportFromEPSG(epsgCode)
+            wktString = spatRef.ExportToWkt()
+        except Exception:
+            wktString = None
+        return wktString
+
 
 class EODataDownDatabaseInfo(object):
 

@@ -33,10 +33,13 @@ EODataDown - an abstract sentinel1 sensor class.
 import logging
 import os.path
 import shutil
+import glob
 import subprocess
 import sen1_ard_gamma.sen1_grd_ard_tools
 from eodatadown.eodatadownsensor import EODataDownSensor
 import eodatadown.eodatadownutils
+import rsgislib
+import rsgislib.imageutils
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +50,8 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     Sentinel-1 functions.
     """
 
-    def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res, out_proj_epsg,
-                              polarisations, out_proj_img_res=-1, out_proj_interp=None):
+    def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res,
+                       polarisations, out_proj_epsg, out_proj_str, out_proj_img_res=-1, out_proj_interp=None):
         """
 
         :param input_safe_zipfile:
@@ -57,9 +60,12 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         :param tmp_dir:
         :param dem_img_file:
         :param out_img_res:
-        :param out_proj_epsg:
         :param polarisations:
-
+        :param out_proj_epsg:
+        :param out_proj_str:
+        :param out_proj_img_res:
+        :param out_proj_interp:
+        :return:
         """
         sen1_ard_success = False
         try:
@@ -88,13 +94,24 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                                                                         dem_img_file, out_img_res, sen1_out_proj_epsg,
                                                                         polarisations, 'GTIFF', False, False,
                                                                         no_dem_check=False)
-            """
-            #if sen1_out_proj_epsg is None:
-                # Reproject the UTM outputs to required projection.
-                rsgislib.imageutils.reprojectImage(inputImage, outputImage, outWKT, gdalformat='KEA', interp='cubic',
-                                               inWKT=None, noData=0.0, outPxlRes=out_proj_img_res, snap2Grid=True,
-                                               multicore=False)
-            """
+
+            if sen1_out_proj_epsg is None:
+                sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(sen1_out_proj_epsg)
+                img_interp_alg = 'cubic'
+                if out_proj_interp == 'NEAR':
+                    img_interp_alg = 'near'
+                elif out_proj_interp == 'BILINEAR':
+                    img_interp_alg = 'bilinear'
+                elif out_proj_interp == 'CUBIC':
+                    img_interp_alg = 'cubic'
+                fnl_imgs = glob.glob(os.path.join(work_dir, "*.tif"))
+                for c_img in fnl_imgs:
+                    # Reproject the UTM outputs to required projection.
+                    img_file_basename = os.path.splitext(os.path.basename(c_img))[0]
+                    out_img_file = os.path.join(output_dir, "{}_{}.tif".format(img_file_basename, out_proj_str))
+                    rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt, gdalformat='KEA',
+                                                       interp=img_interp_alg, inWKT=None, noData=0.0,
+                                                       outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
             if unzip_tmp_dir_created:
                 shutil.rmtree(unzip_dir)
 

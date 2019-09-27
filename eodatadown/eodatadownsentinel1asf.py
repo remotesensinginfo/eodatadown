@@ -629,7 +629,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
                 raise EODataDownException("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
             success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path, tmp_ard_scn_path,
-                                                      self.demFile, self.outImgRes, proj_epsg, pols,
+                                                      self.demFile, self.outImgRes, pols, proj_epsg, self.projabbv,
                                                       self.out_proj_img_res, self.out_proj_interp)
             end_date = datetime.datetime.now()
             """
