@@ -75,11 +75,11 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             if eodd_utils.isEPSGUTM(out_proj_epsg):
                 sen1_out_proj_epsg = out_proj_epsg
                 out_sen1_files_dir = output_dir
-            
+
+            logger.info("Extracting Sentinel-1 file zip.")
             unzip_tmp_dir_created = False
             uid_val = sen1_ard_gamma.sen1_ard_utils.uidGenerator()
             base_file_name = os.path.splitext(os.path.basename(input_safe_zipfile))[0]
-            """
             unzip_dir = os.path.join(tmp_dir, "{}_{}".format(base_file_name, uid_val))
             if not os.path.exists(unzip_dir):
                 os.makedirs(unzip_dir)
@@ -90,15 +90,16 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             subprocess.call(cmd, shell=True)
             input_safe_file = os.path.join(unzip_dir, "{}.SAFE".format(base_file_name))
             os.chdir(current_path)
-
+            logger.info("Using Gamma to produce Sentinel-1 Geocoded product.")
             sen1_ard_gamma.sen1_grd_ard_tools.run_sen1_grd_ard_analysis(input_safe_file, out_sen1_files_dir, tmp_dir,
                                                                         dem_img_file, out_img_res, sen1_out_proj_epsg,
                                                                         polarisations, 'GTIFF', False, False,
                                                                         no_dem_check=False)
-            """
-            print("HEREi 1")
+
             if sen1_out_proj_epsg is None:
-                print("HERE 2")
+                # Reproject the UTM outputs to required projection.
+                rsgis_utils = rsgislib.RSGISPyUtils()
+                logger.info("Reprojecting Sentinel-1 ARD product.")
                 sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(sen1_out_proj_epsg)
                 sen1_out_proj_wkt_file = os.path.join(tmp_dir, "{}_{}_wktproj.wkt".format(base_file_name, uid_val))
                 eodd_utils.writeList2File([sen1_out_proj_wkt], sen1_out_proj_wkt_file)
@@ -111,15 +112,18 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                     img_interp_alg = 'cubic'
                 fnl_imgs = glob.glob(os.path.join(work_dir, "*.tif"))
                 for c_img in fnl_imgs:
-                    # Reproject the UTM outputs to required projection.
+                    logger.debug("Reprojecting: {}".format(c_img))
                     img_file_basename = os.path.splitext(os.path.basename(c_img))[0]
                     out_img_file = os.path.join(output_dir, "{}_{}.tif".format(img_file_basename, out_proj_str))
                     rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt_file, gdalformat='GTIFF',
                                                        interp=img_interp_alg, inWKT=None, noData=0.0,
                                                        outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
+                    no_data_val = rsgis_utils.getImageNoDataValue(c_img, 1)
+                    rsgislib.imageutils.popImageStats(out_img_file, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
+                    logger.debug("Finished Reprojecting: {}".format(out_img_file))
             if unzip_tmp_dir_created:
                 shutil.rmtree(unzip_dir)
-
+            logger.info("Successfully finished processing: '{}'".format(input_safe_file))
             sen1_ard_success = True
         except Exception as e:
             logger.error("Failed in processing: '{}'".format(input_safe_file))
