@@ -75,10 +75,11 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             if eodd_utils.isEPSGUTM(out_proj_epsg):
                 sen1_out_proj_epsg = out_proj_epsg
                 out_sen1_files_dir = output_dir
-
+            
             unzip_tmp_dir_created = False
             uid_val = sen1_ard_gamma.sen1_ard_utils.uidGenerator()
             base_file_name = os.path.splitext(os.path.basename(input_safe_zipfile))[0]
+            """
             unzip_dir = os.path.join(tmp_dir, "{}_{}".format(base_file_name, uid_val))
             if not os.path.exists(unzip_dir):
                 os.makedirs(unzip_dir)
@@ -94,9 +95,13 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                                                                         dem_img_file, out_img_res, sen1_out_proj_epsg,
                                                                         polarisations, 'GTIFF', False, False,
                                                                         no_dem_check=False)
-
-            if sen1_out_proj_epsg is not None:
+            """
+            print("HEREi 1")
+            if sen1_out_proj_epsg is None:
+                print("HERE 2")
                 sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(sen1_out_proj_epsg)
+                sen1_out_proj_wkt_file = os.path.join(tmp_dir, "{}_{}_wktproj.wkt".format(base_file_name, uid_val))
+                eodd_utils.writeList2File([sen1_out_proj_wkt], sen1_out_proj_wkt_file)
                 img_interp_alg = 'cubic'
                 if out_proj_interp == 'NEAR':
                     img_interp_alg = 'near'
@@ -109,7 +114,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                     # Reproject the UTM outputs to required projection.
                     img_file_basename = os.path.splitext(os.path.basename(c_img))[0]
                     out_img_file = os.path.join(output_dir, "{}_{}.tif".format(img_file_basename, out_proj_str))
-                    rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt, gdalformat='GTIFF',
+                    rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt_file, gdalformat='GTIFF',
                                                        interp=img_interp_alg, inWKT=None, noData=0.0,
                                                        outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
             if unzip_tmp_dir_created:
