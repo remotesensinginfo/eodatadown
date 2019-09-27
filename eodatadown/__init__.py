@@ -43,7 +43,15 @@ EODATADOWN_VERSION_MAJOR = 0
 EODATADOWN_VERSION_MINOR = 21
 EODATADOWN_VERSION_PATCH = 1
 
-os.environ["RSGISLIB_IMG_CRT_OPTS_GTIFF"] = "TILED=YES:COMPRESS=LZW:BIGTIFF=YES"
+# Check is GTIFF Creation Options Flag has been defined and if not then define it.
+rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)
+if rsgislib_img_opts_tif_envvar is None:
+    os.environ["RSGISLIB_IMG_CRT_OPTS_GTIFF"] = "TILED=YES:COMPRESS=LZW:BIGTIFF=YES"
+
+# Check if the number of cores for Gamma to use through OMP has been used defined. If not, define it as 1.
+omp_num_threads_envvar = os.getenv('OMP_NUM_THREADS', None)
+if omp_num_threads_envvar is None:
+    os.environ["OMP_NUM_THREADS"] = "1"
 
 EODATADOWN_VERSION = str(EODATADOWN_VERSION_MAJOR) + "."  + str(EODATADOWN_VERSION_MINOR) + "." + str(EODATADOWN_VERSION_PATCH)
 EODATADOWN_VERSION_OBJ = LooseVersion(EODATADOWN_VERSION)
