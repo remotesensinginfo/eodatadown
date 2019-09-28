@@ -100,7 +100,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                 # Reproject the UTM outputs to required projection.
                 rsgis_utils = rsgislib.RSGISPyUtils()
                 logger.info("Reprojecting Sentinel-1 ARD product.")
-                sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(sen1_out_proj_epsg)
+                sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(out_proj_epsg)
                 sen1_out_proj_wkt_file = os.path.join(tmp_dir, "{}_{}_wktproj.wkt".format(base_file_name, uid_val))
                 eodd_utils.writeList2File([sen1_out_proj_wkt], sen1_out_proj_wkt_file)
                 img_interp_alg = 'cubic'

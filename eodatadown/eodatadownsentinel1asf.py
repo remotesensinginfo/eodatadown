@@ -627,9 +627,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if len(zip_file) == 1:
                 zip_file = zip_file[0]
             else:
-                logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
+                logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(query_result.PID))
                 raise EODataDownException(
-                    "Could not find unique zip file for Sentinel-1 zip: PID = {}".format(EDDSentinel1ASF.PID))
+                    "Could not find unique zip file for Sentinel-1 zip: PID = {}".format(query_result.PID))
             success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path, tmp_ard_scn_path,
                                                       self.demFile, self.outImgRes, pols, proj_epsg, self.projabbv,
                                                       self.out_proj_img_res, self.out_proj_interp)
@@ -669,6 +669,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         if not os.path.exists(self.ardProdTmpPath):
             raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
 
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
@@ -678,41 +680,67 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == True,
                                                          EDDSentinel1ASF.ARDProduct == False).all()
 
-        proj_epsg = 4326
+        proj_epsg = None
         if self.ardProjDefined:
             proj_epsg = self.projEPSG
 
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
-            dt_obj = datetime.datetime.now()
 
-            work_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
-            if not os.path.exists(work_ard_path):
-                os.mkdir(work_ard_path)
+            logger.debug("Create the specific output directories for the ARD processing.")
+            dt_obj = datetime.datetime.now()
 
             tmp_ard_path = os.path.join(self.ardProdTmpPath, dt_obj.strftime("%Y-%m-%d"))
             if not os.path.exists(tmp_ard_path):
                 os.mkdir(tmp_ard_path)
 
+            wrk_ard_path = os.path.join(self.ardProdWorkPath, dt_obj.strftime("%Y-%m-%d"))
+            if not os.path.exists(wrk_ard_path):
+                os.mkdir(wrk_ard_path)
+
             for record in query_result:
-                logger.debug("Create info for running ARD analysis for scene: {}".format(record.Product_File_ID))
-                final_ard_scn_path = os.path.join(self.ardFinalPath, record.Product_File_ID)
+                start_date = datetime.datetime.now()
+                final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
 
-                work_ard_scn_path = os.path.join(work_ard_path, record.Product_File_ID)
-                if not os.path.exists(work_ard_scn_path):
-                    os.mkdir(work_ard_scn_path)
-
-                tmp_ard_scn_path = os.path.join(tmp_ard_path, record.Product_File_ID)
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(tmp_ard_scn_path):
                     os.mkdir(tmp_ard_scn_path)
 
-                # TODO IMPLEMENT ESA Sentinel-1 Processing.
-                #self.convertSen1ARD(input_safe_file, output_dir, tmp_ard_path, self.demFile, self.outImgRes, proj_epsg, polarisations)
+                wrk_ard_scn_path = os.path.join(wrk_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+                if not os.path.exists(wrk_ard_scn_path):
+                    os.mkdir(wrk_ard_scn_path)
 
+                pols = []
+                if 'VV' in record.Polarization:
+                    pols.append('VV')
+                if 'VH' in record.Polarization:
+                    pols.append('VH')
+                zip_file = eodd_utils.findFilesRecurse(record.Download_Path, '.zip')
+                if len(zip_file) == 1:
+                    zip_file = zip_file[0]
+                else:
+                    logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(record.PID))
+                    raise EODataDownException(
+                        "Could not find unique zip file for Sentinel-1 zip: PID = {}".format(record.PID))
+                success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path,
+                                                          tmp_ard_scn_path, self.demFile, self.outImgRes, pols,
+                                                          proj_epsg, self.projabbv, self.out_proj_img_res,
+                                                          self.out_proj_interp)
+                end_date = datetime.datetime.now()
+                if success_process_ard:
+                    record.ARDProduct = True
+                    record.ARDProduct_Start_Date = start_date
+                    record.ARDProduct_End_Date = end_date
+                    record.ARDProduct_Path = final_ard_scn_path
+                    ses.commit()
+
+                if not os.path.exists(tmp_ard_scn_path):
+                    shutil.rmtree(tmp_ard_scn_path)
+                if not os.path.exists(wrk_ard_scn_path):
+                    shutil.rmtree(wrk_ard_scn_path)
         ses.close()
-        raise EODataDownException("Not implemented.")
 
     def get_scnlist_datacube(self, loaded=False):
         """
