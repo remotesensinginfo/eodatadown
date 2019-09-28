@@ -101,6 +101,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                 rsgis_utils = rsgislib.RSGISPyUtils()
                 logger.info("Reprojecting Sentinel-1 ARD product.")
                 sen1_out_proj_wkt = eodd_utils.getWKTFromEPSGCode(sen1_out_proj_epsg)
+                print(sen1_out_proj_wkt)
                 sen1_out_proj_wkt_file = os.path.join(tmp_dir, "{}_{}_wktproj.wkt".format(base_file_name, uid_val))
                 eodd_utils.writeList2File([sen1_out_proj_wkt], sen1_out_proj_wkt_file)
                 img_interp_alg = 'cubic'
@@ -119,7 +120,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                                                        interp=img_interp_alg, inWKT=None, noData=0.0,
                                                        outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
                     no_data_val = rsgis_utils.getImageNoDataValue(c_img, 1)
-                    rsgislib.imageutils.assignProj(out_img_file, sen1_out_proj_wkt, None)
+                    rsgislib.imageutils.assignProj(out_img_file, sen1_out_proj_wkt, "")
                     rsgislib.imageutils.popImageStats(out_img_file, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
                     logger.debug("Finished Reprojecting: {}".format(out_img_file))
             if unzip_tmp_dir_created:
