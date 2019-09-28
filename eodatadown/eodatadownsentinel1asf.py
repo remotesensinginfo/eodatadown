@@ -641,9 +641,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 query_result.ARDProduct_Path = final_ard_scn_path
                 ses.commit()
 
-            if not os.path.exists(tmp_ard_scn_path):
+            if os.path.exists(tmp_ard_scn_path):
                 shutil.rmtree(tmp_ard_scn_path)
-            if not os.path.exists(wrk_ard_scn_path):
+            if os.path.exists(wrk_ard_scn_path):
                 shutil.rmtree(wrk_ard_scn_path)
 
         ses.close()
@@ -736,9 +736,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                     record.ARDProduct_Path = final_ard_scn_path
                     ses.commit()
 
-                if not os.path.exists(tmp_ard_scn_path):
+                if os.path.exists(tmp_ard_scn_path):
                     shutil.rmtree(tmp_ard_scn_path)
-                if not os.path.exists(wrk_ard_scn_path):
+                if os.path.exists(wrk_ard_scn_path):
                     shutil.rmtree(wrk_ard_scn_path)
         ses.close()
 
