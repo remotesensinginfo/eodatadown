@@ -589,7 +589,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     raise EODataDownException("The bucket specified in the URL is not the Google Public Landsat Bucket"
                                               " - something has gone wrong.")
                 bucket_prefix = url_path.replace(bucket_name + "/", "")
-                dwnld_out_dirname = url_path_parts[-1]
+                dwnld_out_dirname = "{}_{}".format(url_path_parts[-1], unq_id)
                 scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
@@ -661,7 +661,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     raise EODataDownException("The bucket specified in the URL is not the Google Public "
                                               "Landsat Bucket - something has gone wrong.")
                 bucket_prefix = url_path.replace(bucket_name+"/", "")
-                dwnld_out_dirname = url_path_parts[-1]
+                dwnld_out_dirname = "{}_{}".format(url_path_parts[-1], record.PID)
                 scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, dwnld_out_dirname)
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)

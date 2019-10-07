@@ -530,7 +530,7 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
                     act_xml_http_resp = session_http.get(dwnld_obj.analytic_xml_act_url)
                     eodd_http_downloader.checkResponse(act_xml_http_resp, dwnld_obj.analytic_xml_act_url)
                 elif dwnld_obj.activated == "active":
-                    lcl_dwnld_scn_path = os.path.join(self.baseDownloadPath, record.Scene_ID)
+                    lcl_dwnld_scn_path = os.path.join(self.baseDownloadPath, "{}_{}".format(record.Scene_ID, record.PID))
                     if not os.path.exists(lcl_dwnld_scn_path):
                         os.mkdir(lcl_dwnld_scn_path)
                     downloaded_new_scns = True

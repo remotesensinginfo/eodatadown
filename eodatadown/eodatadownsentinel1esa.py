@@ -568,7 +568,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
             dt_obj = datetime.datetime.now()
 
             for record in query_result:
-                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Identifier)
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, "{}_{}".format(record.Identifier, record.PID))
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Identifier+".zip"

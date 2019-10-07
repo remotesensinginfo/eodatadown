@@ -473,7 +473,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if len(query_result) == 1:
                 record = query_result[0]
                 logger.debug("Building download info for '" + record.Remote_URL + "'")
-                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Product_File_ID)
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath,
+                                                  "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Remote_FileName
@@ -513,7 +514,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         downloaded_new_scns = False
         if query_result is not None:
             for record in query_result:
-                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, record.Product_File_ID)
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(scn_lcl_dwnld_path):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.Remote_FileName
