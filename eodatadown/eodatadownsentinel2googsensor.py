@@ -363,12 +363,14 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 if query_results.result():
                     db_records = []
                     for row in query_results.result():
+                        generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
                         query_rtn = ses.query(EDDSentinel2Google).filter(
-                            EDDSentinel2Google.Granule_ID == row.granule_id).one_or_none()
-                        if query_rtn is None:
+                            EDDSentinel2Google.Granule_ID == row.granule_id,
+                            EDDSentinel2Google.Generation_Time == datetime.datetime.strptime(generation_time_tmp,
+                                                                                             "%Y-%m-%dT%H:%M:%S.%f")).all()
+                        if len(query_rtn) == 0:
                             logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
                             sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
-                            generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
                             db_records.append(
                                 EDDSentinel2Google(Granule_ID=row.granule_id, Product_ID=row.product_id,
                                                    Datatake_Identifier=row.datatake_identifier, Mgrs_Tile=row.mgrs_tile,
@@ -425,12 +427,10 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: boolean (True for downloaded; False for not downloaded)
         """
-
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
-
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id).one()
         ses.close()

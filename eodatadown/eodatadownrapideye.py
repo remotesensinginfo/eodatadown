@@ -519,12 +519,10 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: boolean (True for downloaded; False for not downloaded)
         """
-
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
-
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.PID == unq_id).one()
         ses.close()
