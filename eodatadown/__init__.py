@@ -40,7 +40,7 @@ import logging.config
 import json
 
 EODATADOWN_VERSION_MAJOR = 0
-EODATADOWN_VERSION_MINOR = 24
+EODATADOWN_VERSION_MINOR = 25
 EODATADOWN_VERSION_PATCH = 0
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
@@ -70,8 +70,9 @@ log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "logg
 log_default_level=logging.INFO
 
 log_config_value = os.getenv('EDD_LOG_CFG', None)
-if log_config_value:
+if log_config_value is None:
     log_config_path = log_config_value
+
 if os.path.exists(log_config_path):
     with open(log_config_path, 'rt') as f:
         config = json.load(f)

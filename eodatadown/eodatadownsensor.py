@@ -74,6 +74,9 @@ class EODataDownSensor (object):
     def get_scnlist_download(self): pass
 
     @abstractmethod
+    def has_scn_download(self, unq_id): pass
+
+    @abstractmethod
     def download_scn(self, unq_id): pass
 
     @abstractmethod
@@ -81,6 +84,9 @@ class EODataDownSensor (object):
 
     @abstractmethod
     def get_scnlist_con2ard(self): pass
+
+    @abstractmethod
+    def has_scn_con2ard(self, unq_id): pass
 
     @abstractmethod
     def scn2ard(self, unq_id): pass
@@ -92,10 +98,37 @@ class EODataDownSensor (object):
     def get_scnlist_datacube(self, loaded=False): pass
 
     @abstractmethod
+    def has_scn_datacube(self, unq_id): pass
+
+    @abstractmethod
     def scn2datacube(self, unq_id): pass
 
     @abstractmethod
     def scns2datacube_all_avail(self): pass
+
+    @abstractmethod
+    def get_scnlist_quicklook(self): pass
+
+    @abstractmethod
+    def has_scn_quicklook(self, unq_id): pass
+
+    @abstractmethod
+    def scn2quicklook(self, unq_id): pass
+
+    @abstractmethod
+    def scns2quicklook_all_avail(self): pass
+
+    @abstractmethod
+    def get_scnlist_tilecache(self): pass
+
+    @abstractmethod
+    def has_scn_tilecache(self, unq_id): pass
+
+    @abstractmethod
+    def scn2tilecache(self, unq_id): pass
+
+    @abstractmethod
+    def scns2tilecache_all_avail(self): pass
 
     @abstractmethod
     def get_scn_record(self, unq_id): pass

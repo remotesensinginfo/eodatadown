@@ -551,6 +551,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
         return scns2dwnld
 
+    def has_scn_download(self, unq_id):
+        """
+        A function which checks whether an individual scene has been downloaded.
+        :param unq_id: the unique ID of the scene.
+        :return: boolean (True for downloaded; False for not downloaded)
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one()
+        ses.close()
+        logger.debug("Closed the database session.")
+        return query_result.Downloaded
+
     def download_scn(self, unq_id):
         """
         A function which downloads an individual scene and updates the database if download is successful.
@@ -697,7 +713,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
     def get_scnlist_con2ard(self):
         """
-        A function which quefries the database to find scenes which have been downloaded but have not yet been
+        A function which queries the database to find scenes which have been downloaded but have not yet been
         processed to an analysis ready data (ARD) format.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
         """
@@ -717,6 +733,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Closed the database session.")
         return scns2ard
+
+    def has_scn_con2ard(self, unq_id):
+        """
+        A function which checks whether a scene has been converted to an ARD product.
+        :param unq_id: the unique ID of the scene of interest.
+        :return: boolean (True: has been converted. False: Has not been converted)
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one()
+        ses.close()
+        logger.debug("Closed the database session.")
+        return query_result.ARDProduct
 
     def scn2ard(self, unq_id):
         """
@@ -891,6 +923,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
         return scns2dcload
 
+    def has_scn_datacube(self, unq_id):
+        """
+        A function to find whether a scene has been loaded in the DataCube.
+        :param unq_id: the unique ID of the scene.
+        :return: boolean (True: Loaded in DataCube. False: Not loaded in DataCube)
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one()
+        ses.close()
+        logger.debug("Closed the database session.")
+        return query_result.DCLoaded
+
     def scn2datacube(self, unq_id):
         """
         A function which loads a single scene into the datacube system.
@@ -1007,6 +1055,69 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Finished loading data into the datacube.")
 
+    def get_scnlist_quicklook(self):
+        """
+        Get a list of all scenes which have not had a quicklook generated.
+
+        :return: list of unique IDs
+        """
+        raise EODataDownException('get_scnlist_quicklook not implemented')
+
+    def has_scn_quicklook(self, unq_id):
+        """
+        Check whether the quicklook has been generated for an individual scene.
+
+        :param unq_id: integer unique ID for the scene.
+        :return: boolean (True = has quicklook. False = has not got a quicklook)
+        """
+        raise EODataDownException('has_scn_quicklook not implemented')
+
+    def scn2quicklook(self, unq_id):
+        """
+        Generate the quicklook image for the scene.
+
+        :param unq_id: integer unique ID for the scene.
+        """
+        raise EODataDownException('scn2quicklook not implemented')
+
+    def scns2quicklook_all_avail(self):
+        """
+        Generate the quicklook images for the scenes for which a quicklook image do not exist.
+
+        """
+        raise EODataDownException('scns2quicklook_all_avail not implemented')
+
+    def get_scnlist_tilecache(self):
+        """
+        Get a list of all scenes which a tile cache has not been generated.
+
+        :return: list of unique IDs
+        """
+        raise EODataDownException('get_scnlist_tilecache not implemented')
+
+    def has_scn_tilecache(self, unq_id):
+        """
+        Check whether a tile cache has been generated for an individual scene.
+
+        :param unq_id: integer unique ID for the scene.
+        :return: boolean (True = has quicklook. False = has not got a quicklook)
+        """
+        raise EODataDownException('has_scn_tilecache not implemented')
+
+    def scn2tilecache(self, unq_id):
+        """
+        Generate the tile cache for the scene.
+
+        :param unq_id: integer unique ID for the scene.
+        """
+        raise EODataDownException('scn2tilecache not implemented')
+
+    def scns2tilecache_all_avail(self):
+        """
+        Generate the tile cache for the scenes for which a tile cache does not exist.
+
+        """
+        raise EODataDownException('scns2tilecache_all_avail not implemented')
 
     def get_scn_record(self, unq_id):
         """

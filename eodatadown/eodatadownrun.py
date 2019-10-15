@@ -231,7 +231,7 @@ def process_scene_ard(config_file, sensor, scene_id):
     logger.debug("Parsed the system configuration.")
 
     edd_usage_db = sys_main_obj.get_usage_db_obj()
-    edd_usage_db.add_entry("Started: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+    edd_usage_db.add_entry("Started: Converting Specified Scene to ARD ({0}: {1}).".format(sensor, scene_id), start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
     sensor_obj_to_process = None
@@ -250,7 +250,7 @@ def process_scene_ard(config_file, sensor, scene_id):
         logger.error("Error occurred while converting scene ({0}) to ARD for sensor: ({1})".format(
                      scene_id, sensor_obj_to_process.get_sensor_name()))
         logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.add_entry("Finished: Downloading Specified Scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+    edd_usage_db.add_entry("Finished: Converting Specified Scene to ARD ({0}: {1}).".format(sensor, scene_id), end_block=True)
 
 
 def datacube_load_data(config_file, sensors):
@@ -266,7 +266,7 @@ def datacube_load_data(config_file, sensors):
     logger.debug("Parsed the system configuration.")
 
     edd_usage_db = sys_main_obj.get_usage_db_obj()
-    edd_usage_db.add_entry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
+    edd_usage_db.add_entry("Starting: Loading Available Scenes to Data Cube.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
     sensor_objs_to_process = []
@@ -286,7 +286,187 @@ def datacube_load_data(config_file, sensors):
         except Exception as e:
             logger.error("Error occurred while converting to ARD for sensor: " + sensor_obj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
-    edd_usage_db.add_entry("Finished: Converting Available Scenes to ARD Product.", end_block=True)
+    edd_usage_db.add_entry("Finished: Loading Available Scenes to Data Cube.", end_block=True)
+
+
+def datacube_load_scene(config_file, sensor, scene_id):
+    """
+    A function which runs the process of converting the specified scene to an ARD product.
+    :param config_file:
+    :param sensor:
+    :param scene_id:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Load Specified Scene into DataCube ({0}: {1}).".format(sensor, scene_id), start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        if sensor_obj.get_sensor_name() == sensor:
+            sensor_obj_to_process = sensor_obj
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    try:
+        sensor_obj_to_process.scn2datacube(scene_id)
+    except Exception as e:
+        logger.error("Error occurred while loading scene ({0}) into DataCube for sensor: ({1})".format(
+                     scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Load Specified Scene into DataCube ({0}: {1}).".format(sensor, scene_id), end_block=True)
+
+
+def gen_quicklook_images(config_file, sensors):
+    """
+
+    :param config_file:
+    :param sensors:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Generating Quicklook Image for Available Scenes.", start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_objs_to_process = []
+    for sensor_obj in sensor_objs:
+        process_sensor = False
+        if sensors is None:
+            process_sensor = True
+        if sensors is not None:
+            if sensor_obj.get_sensor_name() in sensors:
+                process_sensor = True
+        if process_sensor:
+            sensor_objs_to_process.append(sensor_obj)
+
+    for sensor_obj in sensor_objs_to_process:
+        try:
+            sensor_obj.scns2quicklook_all_avail()
+        except Exception as e:
+            logger.error("Error occurred while generating quicklook images for sensor: " + sensor_obj.get_sensor_name())
+            logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Generating Quicklook Image for Available Scenes.", end_block=True)
+
+
+def gen_quicklook_scene(config_file, sensor, scene_id):
+    """
+    A function which runs the process of generating quicklook image for an input scene.
+    :param config_file:
+    :param sensor:
+    :param scene_id:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Generate quicklook image for specified scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        if sensor_obj.get_sensor_name() == sensor:
+            sensor_obj_to_process = sensor_obj
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    try:
+        sensor_obj_to_process.scn2quicklook(scene_id)
+    except Exception as e:
+        logger.error("Error occurred while generating quicklook for scene ({0}) from sensor: ({1})".format(
+                     scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Generate quicklook image for specified scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+
+
+def gen_tilecache_images(config_file, sensors):
+    """
+
+    :param config_file:
+    :param sensors:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Generating TileCache Image for Available Scenes.", start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_objs_to_process = []
+    for sensor_obj in sensor_objs:
+        process_sensor = False
+        if sensors is None:
+            process_sensor = True
+        if sensors is not None:
+            if sensor_obj.get_sensor_name() in sensors:
+                process_sensor = True
+        if process_sensor:
+            sensor_objs_to_process.append(sensor_obj)
+
+    for sensor_obj in sensor_objs_to_process:
+        try:
+            sensor_obj.scns2tilecache_all_avail()
+        except Exception as e:
+            logger.error("Error occurred while tile cache for sensor: " + sensor_obj.get_sensor_name())
+            logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Generating TileCache Image for Available Scenes.", end_block=True)
+
+
+def gen_scene_tilecache(config_file, sensor, scene_id):
+    """
+    A function which runs the process of generating a tilecache for an input scene.
+    :param config_file:
+    :param sensor:
+    :param scene_id:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Generate tilecache for specified scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        if sensor_obj.get_sensor_name() == sensor:
+            sensor_obj_to_process = sensor_obj
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    try:
+        sensor_obj_to_process.scn2tilecache(scene_id)
+    except Exception as e:
+        logger.error("Error occurred while generating tilecache for scene ({0}) from sensor: ({1})".format(
+                     scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Generate tilecache for specified scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
 
 
 def export_image_footprints_vector(config_file, sensor, table, vector_file, vector_lyr, vector_driver, add_layer):

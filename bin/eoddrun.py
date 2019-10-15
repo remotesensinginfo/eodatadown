@@ -56,6 +56,10 @@ if __name__ == "__main__":
                         help="Specify that the system should process downloads to and ARD product.")
     parser.add_argument("--loaddc", action='store_true', default=False,
                         help="Specify that the system should load available scenes into the associated datacube.")
+    parser.add_argument("--quicklook", action='store_true', default=False,
+                        help="Specify that the system should calculate a quicklook product.")
+    parser.add_argument("--tilecache", action='store_true', default=False,
+                        help="Specify that the system should calculate a tilecache product.")
     parser.add_argument("--sceneid", type=str, default=None,
                         help="Specify an ID of a scene to be processed.")
     parser.add_argument("--checkstart", action='store_true', default=False,
@@ -138,12 +142,40 @@ if __name__ == "__main__":
     if args.loaddc:
         try:
             if process_single_scn:
-                raise Exception('Error no implementation - should be loading into ODC "{}"'.format(args.sceneid))
+                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                eodatadown.eodatadownrun.datacube_load_scene(config_file, single_scn_sensor, args.sceneid)
+                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
             else:
                 logger.info('Running process to load data into a datacube.')
                 eodatadown.eodatadownrun.datacube_load_data(config_file, args.sensors)
                 logger.info('Finished process to load data into a datacube.')
         except Exception as e:
             logger.error('Failed to load data into a datacube.', exc_info=True)
+
+    if args.quicklook:
+        try:
+            if process_single_scn:
+                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                eodatadown.eodatadownrun.gen_quicklook_scene(config_file, single_scn_sensor, args.sceneid)
+                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
+            else:
+                logger.info('Running process to generate quicklook images.')
+                eodatadown.eodatadownrun.gen_quicklook_images(config_file, args.sensors)
+                logger.info('Finished process to load data into a datacube.')
+        except Exception as e:
+            logger.error('Failed to generate quicklook images.', exc_info=True)
+
+    if args.tilecache:
+        try:
+            if process_single_scn:
+                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                eodatadown.eodatadownrun.gen_scene_tilecache(config_file, single_scn_sensor, args.sceneid)
+                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
+            else:
+                logger.info('Running process to generate image tilecaches.')
+                eodatadown.eodatadownrun.gen_tilecache_images(config_file, args.sensors)
+                logger.info('Finished process to generate image tilecaches.')
+        except Exception as e:
+            logger.error('Failed to generate image tilecaches.', exc_info=True)
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrun.py.')
 
