@@ -670,15 +670,15 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 os.mkdir(tmp_ard_path)
 
             logger.debug("Create info for running ARD analysis for scene: " + record.Product_ID)
-            final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
+            final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_ID, record.PID))
             if not os.path.exists(final_ard_scn_path):
                 os.mkdir(final_ard_scn_path)
 
-            work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+            work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_ID, record.PID))
             if not os.path.exists(work_ard_scn_path):
                 os.mkdir(work_ard_scn_path)
 
-            tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+            tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_ID, record.PID))
             if not os.path.exists(tmp_ard_scn_path):
                 os.mkdir(tmp_ard_scn_path)
 
@@ -742,20 +742,20 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             ard_params = []
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: {}".format(record.Product_ID))
-                final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
+                final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_ID, record.PID))
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
 
-                work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+                work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_ID, record.PID))
                 if not os.path.exists(work_ard_scn_path):
                     os.mkdir(work_ard_scn_path)
 
-                tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_ID, record.PID))
                 if not os.path.exists(tmp_ard_scn_path):
                     os.mkdir(tmp_ard_scn_path)
 
                 if self.ardProjDefined:
-                    proj_wkt_file = os.path.join(work_ard_scn_path, record.Product_ID+"_wkt.wkt")
+                    proj_wkt_file = os.path.join(work_ard_scn_path, "{}_wkt.wkt".format(record.Product_ID))
                     rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
                 ard_params.append([record.PID, record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
