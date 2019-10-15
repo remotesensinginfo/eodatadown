@@ -71,7 +71,7 @@ log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "logg
 log_default_level=logging.INFO
 
 log_config_value = os.getenv('EDD_LOG_CFG', None)
-if log_config_value is None:
+if log_config_value == None:
     log_config_path = log_config_value
 
 if os.path.exists(log_config_path):
