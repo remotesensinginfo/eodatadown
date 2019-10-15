@@ -35,13 +35,14 @@ See other source files for details
 
 from distutils.version import LooseVersion
 import os
+import os.path
 import logging
 import logging.config
 import json
 
 EODATADOWN_VERSION_MAJOR = 0
 EODATADOWN_VERSION_MINOR = 25
-EODATADOWN_VERSION_PATCH = 1
+EODATADOWN_VERSION_PATCH = 2
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
 rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)
