@@ -81,7 +81,7 @@ def run_arcsi_landsat(input_mtl, dem_file, output_dir, tmp_dir, spacecraft_str, 
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
                                20, False, False, 1000, "cubic", "near", 3000, 3000, 1000, 21,
-                               True, False, False, None, None, False, None)
+                               True, False, False, None, None, False, None, 'FMASK')
     logger.info("Finished running ARCSI for: " + input_mtl)
 
 
@@ -112,7 +112,7 @@ def run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
                                20, False, False, 1000, "cubic", "near", 3000, 3000, 1000, 21,
-                               True, False, False, None, None, False, None)
+                               True, False, False, None, None, False, None, 'FMASK')
     logger.info("Finished running ARCSI for: " + input_hdr)
 
 
@@ -145,7 +145,7 @@ def run_arcsi_rapideye(input_xml, dem_file, output_dir, tmp_dir, reproj_outputs,
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
                                20, False, debug_mode, 1000, "cubic", "near", 3000, 3000, 1000, 21,
-                               True, False, False, None, None, False, None)
+                               True, False, False, None, None, False, None, 'FMASK')
     logger.info("Finished running ARCSI for: " + input_xml)
 
 
@@ -178,7 +178,7 @@ def run_arcsi_planetscope(input_xml, output_dir, tmp_dir, reproj_outputs, proj_w
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
                                20, False, debug_mode, 1000, "cubic", "near", 3000, 3000, 1000, 21,
-                               True, False, False, None, None, False, None)
+                               True, False, False, None, None, False, None, 'FMASK')
     logger.info("Finished running ARCSI for: " + input_xml)
 
 
