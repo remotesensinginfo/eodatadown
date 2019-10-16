@@ -106,19 +106,32 @@ def _download_scn_goog(params):
     bucket_name = params[5]
     scn_dwnlds_filelst = params[6]
     scn_lcl_dwnld_path = params[7]
-
-    logger.debug("Set up Google storage API.")
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = goog_key_json
-    os.environ["GOOGLE_CLOUD_PROJECT"] = goog_proj_name
-    from google.cloud import storage
-    storage_client = storage.Client()
-    bucket_obj = storage_client.get_bucket(bucket_name)
+    scn_remote_url = params[8]
+    goog_down_meth = params[9]
 
     logger.info("Downloading ".format(granule_id))
     start_date = datetime.datetime.now()
-    for dwnld in scn_dwnlds_filelst:
-        blob_obj = bucket_obj.blob(dwnld["bucket_path"])
-        blob_obj.download_to_filename(dwnld["dwnld_path"])
+    if goog_down_meth == 'PYAPI':
+        logger.debug("Using Google storage API to download.")
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = goog_key_json
+        os.environ["GOOGLE_CLOUD_PROJECT"] = goog_proj_name
+        from google.cloud import storage
+        storage_client = storage.Client()
+        bucket_obj = storage_client.get_bucket(bucket_name)
+
+        for dwnld in scn_dwnlds_filelst:
+            blob_obj = bucket_obj.blob(dwnld["bucket_path"])
+            blob_obj.download_to_filename(dwnld["dwnld_path"])
+    elif goog_down_meth == 'GSUTIL':
+        logger.debug("Using Google GSUTIL utility to download.")
+        cmd = "gsutil cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
+        try:
+            subprocess.call(cmd, shell=True)
+        except OSError as e:
+            logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
+        except Exception as e:
+            logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
+
     end_date = datetime.datetime.now()
     logger.info("Finished Downloading ".format(granule_id))
 
@@ -290,6 +303,12 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                                               ["eodatadown", "sensor", "googleinfo", "projectname"])
             self.goog_key_json = json_parse_helper.getStrValue(config_data,
                                                              ["eodatadown", "sensor", "googleinfo", "googlejsonkey"])
+            self.goog_down_meth = "PYAPI"
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "googleinfo", "googlejsonkey"]):
+                self.goog_down_meth = json_parse_helper.getStrListValue(config_data,
+                                                                        ["eodatadown", "sensor",
+                                                                         "googleinfo", "downloadtool"],
+                                                                        ["PYAPI", "GSUTIL"])
             logger.debug("Found Google Account params from config file")
 
     def init_sensor_db(self):
@@ -495,7 +514,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
                     _download_scn_goog([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
-                                        self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                                        self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path,
+                                        record.Remote_URL, self.goog_down_meth])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
@@ -570,7 +590,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
                 dwnld_params.append([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
-                                     self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path])
+                                     self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path,
+                                     record.Remote_URL, self.goog_down_meth])
             downloaded_new_scns = True
         else:
             downloaded_new_scns = False
