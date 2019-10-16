@@ -304,11 +304,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             self.goog_key_json = json_parse_helper.getStrValue(config_data,
                                                              ["eodatadown", "sensor", "googleinfo", "googlejsonkey"])
             self.goog_down_meth = "PYAPI"
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "googleinfo", "googlejsonkey"]):
-                self.goog_down_meth = json_parse_helper.getStrListValue(config_data,
-                                                                        ["eodatadown", "sensor",
-                                                                         "googleinfo", "downloadtool"],
-                                                                        ["PYAPI", "GSUTIL"])
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "googleinfo", "downloadtool"]):
+                self.goog_down_meth = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "googleinfo",
+                                                                                  "downloadtool"], ["PYAPI", "GSUTIL"])
             logger.debug("Found Google Account params from config file")
 
     def init_sensor_db(self):
