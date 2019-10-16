@@ -114,11 +114,11 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                 for c_img in fnl_imgs:
                     logger.debug("Reprojecting: {}".format(c_img))
                     img_file_basename = os.path.splitext(os.path.basename(c_img))[0]
+                    no_data_val = rsgis_utils.getImageNoDataValue(c_img, 1)
                     out_img_file = os.path.join(output_dir, "{}_{}.tif".format(img_file_basename, out_proj_str))
                     rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt_file, gdalformat='GTIFF',
-                                                       interp=img_interp_alg, inWKT=None, noData=0.0,
+                                                       interp=img_interp_alg, inWKT=None, noData=no_data_val,
                                                        outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
-                    no_data_val = rsgis_utils.getImageNoDataValue(c_img, 1)
                     rsgislib.imageutils.assignProj(out_img_file, sen1_out_proj_wkt, "")
                     rsgislib.imageutils.popImageStats(out_img_file, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
                     logger.debug("Finished Reprojecting: {}".format(out_img_file))

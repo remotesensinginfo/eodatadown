@@ -527,7 +527,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     scnfilename = blob.name.replace(bucket_prefix + "/", "")
                     dwnld_file = os.path.join(scn_lcl_dwnld_path, scnfilename)
                     dwnld_dirpath = os.path.split(dwnld_file)[0]
-                    if not os.path.exists(dwnld_dirpath):
+                    if (not os.path.exists(dwnld_dirpath)) and (self.goog_down_meth == "PYAPI"):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
@@ -603,7 +603,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     scnfilename = blob.name.replace(bucket_prefix+"/", "")
                     dwnld_file = os.path.join(scn_lcl_dwnld_path, scnfilename)
                     dwnld_dirpath = os.path.split(dwnld_file)[0]
-                    if not os.path.exists(dwnld_dirpath):
+                    if (not os.path.exists(dwnld_dirpath)) and (self.goog_down_meth == "PYAPI"):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
