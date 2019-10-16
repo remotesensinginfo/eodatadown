@@ -194,7 +194,7 @@ def _process_to_ard(params):
     projabbv = params[10]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-    input_hdr = edd_utils.findFile(scn_path, "*MTD*.xml")
+    input_hdr = edd_utils.findFirstFile(scn_path, "*MTD*.xml")
 
     start_date = datetime.datetime.now()
     eodatadown.eodatadownrunarcsi.run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs,
@@ -531,9 +531,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
-                    _download_scn_goog([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
-                                        self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path,
-                                        record.Remote_URL, self.goog_down_meth])
+                _download_scn_goog([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
+                                    self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path,
+                                    record.Remote_URL, self.goog_down_meth])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))

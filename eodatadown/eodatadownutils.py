@@ -135,7 +135,7 @@ class EODataDownUtils(object):
         except Exception as e:
             raise e
 
-    def findFile(self, dirPath, fileSearch):
+    def findFile(self, dirPath, fileSearch, recursive=False):
         """
         Search for a single file with a path using glob. Therefore, the file
         path returned is a true path. Within the fileSearch provide the file
@@ -144,7 +144,50 @@ class EODataDownUtils(object):
         :param fileSearch:
         :return:
         """
-        files = glob.glob(os.path.join(dirPath, fileSearch))
+        if recursive:
+            files = glob.glob(os.path.join(dirPath, '**', fileSearch), recursive=True)
+        else:
+            files = glob.glob(os.path.join(dirPath, fileSearch))
+
+        if len(files) != 1:
+            raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, dirPath, len(files)))
+        return files[0]
+
+    def findFileMultiPaths(self, dirPaths, fileSearch):
+        """
+        Search for a single file with a path using glob. Therefore, the file
+        path returned is a true path. Within the fileSearch provide the file
+        name with '*' as wildcard(s).
+        :param dirPath:
+        :param fileSearch:
+        :return:
+        """
+        c_dirPath = None
+        for dirPath in dirPaths:
+            files = glob.glob(os.path.join(dirPath, fileSearch))
+            if len(files) > 0:
+                c_dirPath = dirPath
+                break
+        if len(files) != 1:
+            raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, c_dirPath, len(files)))
+        return files[0]
+
+    def findFirstFile(self, dirPath, fileSearch):
+        """
+        Search for a single file with a path using glob. Therefore, the file
+        path returned is a true path. Within the fileSearch provide the file
+        name with '*' as wildcard(s).
+        :param dirPath:
+        :param fileSearch:
+        :return:
+        """
+        c_dirPath = dirPath
+        for root, dirs, files in os.walk(dirPath):
+            files = glob.glob(os.path.join(root, fileSearch))
+            if len(files) > 0:
+                c_dirPath = root
+                break
+
         if len(files) != 1:
             raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, dirPath, len(files)))
         return files[0]
