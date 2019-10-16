@@ -117,6 +117,7 @@ def _download_scn_goog(params):
     scn_remote_url = params[8]
     goog_down_meth = params[9]
 
+    download_completed = False
     logger.info("Downloading " + scn_id)
     start_date = datetime.datetime.now()
     if goog_down_meth == 'PYAPI':
@@ -126,40 +127,59 @@ def _download_scn_goog(params):
         from google.cloud import storage
         storage_client = storage.Client()
         bucket_obj = storage_client.get_bucket(bucket_name)
-
         for dwnld in scn_dwnlds_filelst:
             blob_obj = bucket_obj.blob(dwnld["bucket_path"])
             blob_obj.download_to_filename(dwnld["dwnld_path"])
+        download_completed = True
     elif goog_down_meth == 'GSUTIL':
         logger.debug("Using Google GSUTIL utility to download.")
         cmd = "gsutil cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
         try:
+            logger.debug("Running command: '{}'".format(cmd))
             subprocess.call(cmd, shell=True)
+            download_completed = True
         except OSError as e:
             logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
         except Exception as e:
             logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
+    elif goog_down_meth == 'GSUTIL_MULTI':
+        logger.debug("Using Google GSUTIL (multi threaded) utility to download.")
+        cmd = "gsutil -m cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
+        try:
+            logger.debug("Running command: '{}'".format(cmd))
+            subprocess.call(cmd, shell=True)
+            download_completed = True
+        except OSError as e:
+            logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
+        except Exception as e:
+            logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
+    else:
+        raise EODataDownException("Do not recognise the google download method provided.")
     end_date = datetime.datetime.now()
     logger.info("Finished Downloading " + scn_id)
 
-    logger.debug("Set up database connection and update record.")
-    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
-    session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
-    ses = session_sqlalc()
-    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == pid).one_or_none()
-    if query_result is None:
-        logger.error("Could not find the scene within local database: PID = {}".format(pid))
+    if download_completed:
+        logger.debug("Set up database connection and update record.")
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == pid).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: PID = {}".format(pid))
+            ses.commit()
+            ses.close()
+            raise EODataDownException("Could not find the scene within local database: PID = {}".format(pid))
+
+        query_result.Downloaded = True
+        query_result.Download_Start_Date = start_date
+        query_result.Download_End_Date = end_date
+        query_result.Download_Path = scn_lcl_dwnld_path
         ses.commit()
         ses.close()
-        raise EODataDownException("Could not find the scene within local database: PID = {}".format(pid))
+        logger.debug("Finished download and updated database.")
+    else:
+        logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
 
-    query_result.Downloaded = True
-    query_result.Download_Start_Date = start_date
-    query_result.Download_End_Date = end_date
-    query_result.Download_Path = scn_lcl_dwnld_path
-    ses.commit()
-    ses.close()
-    logger.debug("Finished download and updated database.")
 
 
 def _process_to_ard(params):
@@ -339,8 +359,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             self.goog_down_meth = "PYAPI"
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "googleinfo", "downloadtool"]):
-                self.goog_down_meth = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "googleinfo",
-                                                                                  "downloadtool"], ["PYAPI", "GSUTIL"])
+                self.goog_down_meth = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "googleinfo", "downloadtool"],
+                                                                    ["PYAPI", "GSUTIL", "GSUTIL_MULTI"])
             logger.debug("Found Google Account params from config file")
 
     def init_sensor_db(self):
@@ -814,15 +835,15 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 os.mkdir(tmp_ard_path)
 
             logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
-            final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
+            final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_ID, record.PID))
             if not os.path.exists(final_ard_scn_path):
                 os.mkdir(final_ard_scn_path)
 
-            work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+            work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_ID, record.PID))
             if not os.path.exists(work_ard_scn_path):
                 os.mkdir(work_ard_scn_path)
 
-            tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+            tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_ID, record.PID))
             if not os.path.exists(tmp_ard_scn_path):
                 os.mkdir(tmp_ard_scn_path)
 
@@ -886,15 +907,15 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: {}".format(record.Product_ID))
-                final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
+                final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_ID, record.PID))
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
 
-                work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+                work_ard_scn_path = os.path.join(work_ard_path, "{}_{}".format(record.Product_ID, record.PID))
                 if not os.path.exists(work_ard_scn_path):
                     os.mkdir(work_ard_scn_path)
 
-                tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_File_ID, record.PID))
+                tmp_ard_scn_path = os.path.join(tmp_ard_path, "{}_{}".format(record.Product_ID, record.PID))
                 if not os.path.exists(tmp_ard_scn_path):
                     os.mkdir(tmp_ard_scn_path)
 
