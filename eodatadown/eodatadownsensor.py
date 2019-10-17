@@ -71,6 +71,9 @@ class EODataDownSensor (object):
     def check_new_scns(self, check_from_start=False): pass
 
     @abstractmethod
+    def get_scnlist_all(self): pass
+
+    @abstractmethod
     def get_scnlist_download(self): pass
 
     @abstractmethod
@@ -158,7 +161,7 @@ class EODataDownSensor (object):
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False): pass
 
     @abstractmethod
-    def reset_scn(self, unq_id): pass
+    def reset_scn(self, unq_id, reset_download=False): pass
 
     @abstractmethod
     def reset_dc_load(self, unq_id): pass

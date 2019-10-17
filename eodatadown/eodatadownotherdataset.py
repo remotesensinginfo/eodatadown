@@ -305,6 +305,14 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.db_tab_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
 
+    def get_scnlist_all(self):
+        """
+        A function which returns a list of the unique IDs for all the scenes within the database.
+
+        :return: list of integers
+        """
+        raise EODataDownException("Not Implemented.")
+
     def get_scnlist_download(self):
         """
         A function which queries the database to retrieve a list of scenes which are within the
@@ -319,7 +327,6 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: boolean (True for downloaded; False for not downloaded)
         """
-
         raise EODataDownException("Not Implemented.")
 
     def download_scn(self, unq_id):
@@ -782,7 +789,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         except Exception as e:
             raise e
 
-    def reset_scn(self, unq_id):
+    def reset_scn(self, unq_id, reset_download=False):
         """
         A function which resets an image. This means any downloads and products are deleted
         and the database fields are reset to defaults. This allows the scene to be re-downloaded

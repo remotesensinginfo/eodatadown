@@ -49,6 +49,10 @@ if __name__ == "__main__":
                         help="Resets (deletes download) an images for which an ARD product hasn't been calculated.")
     parser.add_argument("--nodcload", action='store_true', default=False,
                         help="Resets flag for images loaded in a datacube - sets all to False.")
+    parser.add_argument("--all", action='store_true', default=False,
+                        help="Resets flags and removes ARD products for all the images.")
+    parser.add_argument("--rmdownloads", action='store_true', default=False,
+                        help="Used in combination with --all flag to remove download and ARD products for all images.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -70,7 +74,7 @@ if __name__ == "__main__":
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
             scns = sensor_obj.get_scnlist_con2ard()
             for scn in scns:
-                sensor_obj.reset_scn(scn)
+                sensor_obj.reset_scn(scn, True)
             logger.info('Finished process to reset scenes which have not been converted to ARD.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
@@ -82,6 +86,18 @@ if __name__ == "__main__":
             for scn in scns:
                 sensor_obj.reset_dc_load(scn)
             logger.info('Finished process to reset scenes which have been loaded into the datacube.')
+        except Exception as e:
+            logger.error('Failed to reset all scenes the available data.', exc_info=True)
+    elif args.all:
+        try:
+            logger.info('Running process to reset all scenes within the database so any ARD products are deleted.')
+            if args.rmdownloads:
+                logger.info('The downloads will also be removed and reset..')
+            sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
+            scns = sensor_obj.get_scnlist_all()
+            for scn in scns:
+                sensor_obj.reset_scn(scn, args.rmdownloads)
+            logger.info('Running process to reset all scenes within the database.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
     else:

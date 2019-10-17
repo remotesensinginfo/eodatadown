@@ -41,7 +41,7 @@ import logging.config
 import json
 
 EODATADOWN_VERSION_MAJOR = 0
-EODATADOWN_VERSION_MINOR = 29
+EODATADOWN_VERSION_MINOR = 30
 EODATADOWN_VERSION_PATCH = 0
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.

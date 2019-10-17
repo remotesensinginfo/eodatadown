@@ -527,6 +527,26 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
 
+    def get_scnlist_all(self):
+        """
+        A function which returns a list of the unique IDs for all the scenes within the database.
+
+        :return: list of integers
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDSentinel1ESA).all()
+        scns = []
+        if query_result is not None:
+            for record in query_result:
+                scns.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns
+
     def get_scnlist_download(self):
         """
         A function which queries the database to retrieve a list of scenes which are within the
@@ -926,7 +946,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         """
         raise EODataDownException("Not Implemented")
 
-    def reset_scn(self, unq_id):
+    def reset_scn(self, unq_id, reset_download=False):
         """
         A function which resets an image. This means any downloads and products are deleted
         and the database fields are reset to defaults. This allows the scene to be re-downloaded
@@ -961,7 +981,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
             scn_record.ARDProduct_Path = ""
             scn_record.ARDProduct = False
 
-        if scn_record.Downloaded:
+        if scn_record.Downloaded and reset_download:
             dwn_path = scn_record.Download_Path
             if os.path.exists(dwn_path):
                 shutil.rmtree(dwn_path)
