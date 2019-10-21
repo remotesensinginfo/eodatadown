@@ -592,6 +592,19 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                                                               ["eodatadown", "sensor", "paths", "ardfinal"])
             self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
                                                                 ["eodatadown", "sensor", "paths", "ardtmp"])
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
+                self.quicklookPath = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "paths", "quicklooks"])
+            else:
+                self.quicklookPath = None
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "tilecache"]):
+                self.tilecachePath = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "paths", "tilecache"])
+            else:
+                self.tilecachePath = None
+
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -722,7 +735,6 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         logger.debug("Closed the database session.")
         return scns
 
-
     def get_scnlist_download(self):
         """
         A function which queries the database to retrieve a list of scenes which are within the
@@ -817,7 +829,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.PID == unq_id).one()
         ses.close()
         logger.debug("Closed the database session.")
-        return query_result.ARDProduct
+        return (query_result.ARDProduct == True) and (EDDJAXASARTiles.Invalid == False)
 
     def scn2ard(self, unq_id):
         """
@@ -854,7 +866,8 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Downloaded == True,
-                                                         EDDJAXASARTiles.ARDProduct == False).all()
+                                                         EDDJAXASARTiles.ARDProduct == False,
+                                                         EDDJAXASARTiles.Invalid == False).all()
 
         proj_wkt_file = None
         if self.ardProjDefined:
@@ -997,7 +1010,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
     def get_scnlist_tilecache(self):
         """
-        Get a list of all scenes which a tile cache has not been generated.
+        Get a list of all scenes for which a tile cache has not been generated.
 
         :return: list of unique IDs
         """

@@ -209,6 +209,20 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                                                               ["eodatadown", "sensor", "paths", "ardwork"])
             self.ardFinalPath = json_parse_helper.getStrValue(config_data,
                                                               ["eodatadown", "sensor", "paths", "ardfinal"])
+            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
+                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
+                self.quicklookPath = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "paths", "quicklooks"])
+            else:
+                self.quicklookPath = None
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "tilecache"]):
+                self.tilecachePath = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "paths", "tilecache"])
+            else:
+                self.tilecachePath = None
             logger.debug("Found paths from config file")
 
             logger.debug("Read info params from config file")
@@ -565,7 +579,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
 
     def get_scnlist_tilecache(self):
         """
-        Get a list of all scenes which a tile cache has not been generated.
+        Get a list of all scenes for which a tile cache has not been generated.
 
         :return: list of unique IDs
         """

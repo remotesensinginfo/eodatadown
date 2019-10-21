@@ -54,6 +54,7 @@ import eodatadown.eodatadownrunarcsi
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
+import sqlalchemy.types
 
 logger = logging.getLogger(__name__)
 
@@ -311,6 +312,18 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                               ["eodatadown", "sensor", "paths", "ardfinal"])
             self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
                                                                 ["eodatadown", "sensor", "paths", "ardtmp"])
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
+                self.quicklookPath = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "paths", "quicklooks"])
+            else:
+                self.quicklookPath = None
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "tilecache"]):
+                self.tilecachePath = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "paths", "tilecache"])
+            else:
+                self.tilecachePath = None
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -784,7 +797,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
-                                                          EDDLandsatGoogle.ARDProduct == False).all()
+                                                          EDDLandsatGoogle.ARDProduct == False,
+                                                          EDDLandsatGoogle.Invalid == False).all()
 
         scns2ard = []
         if query_result is not None:
@@ -808,7 +822,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one()
         ses.close()
         logger.debug("Closed the database session.")
-        return query_result.ARDProduct
+        return (query_result.ARDProduct == True) and (query_result.Invalid == False)
 
     def scn2ard(self, unq_id):
         """
@@ -905,7 +919,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
-                                                          EDDLandsatGoogle.ARDProduct == False).all()
+                                                          EDDLandsatGoogle.ARDProduct == False,
+                                                          EDDLandsatGoogle.Invalid == False).all()
 
         proj_wkt_file = None
         if self.ardProjDefined:
@@ -1149,11 +1164,25 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
     def get_scnlist_tilecache(self):
         """
-        Get a list of all scenes which a tile cache has not been generated.
+        Get a list of all scenes for which a tile cache has not been generated.
 
         :return: list of unique IDs
         """
-        raise EODataDownException('get_scnlist_tilecache not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(
+            EDDLandsatGoogle.ExtendedInfo["tilecache", "tilecachecalcd"].astext.cast(sqlalchemy.types.Boolean) != True,
+            EDDLandsatGoogle.Invalid == False).all()
+        scns2dcload = []
+        if query_result is not None:
+            for record in query_result:
+                scns2dcload.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2dcload
 
     def has_scn_tilecache(self, unq_id):
         """
@@ -1162,7 +1191,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param unq_id: integer unique ID for the scene.
         :return: boolean (True = has quicklook. False = has not got a quicklook)
         """
-        raise EODataDownException('has_scn_tilecache not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one()
+        scn_json = query_result.ExtendedInfo
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+        tile_cache_calcd = False
+        if json_parse_helper.doesPathExist(scn_json, ["tilecache", "tilecachecalcd"]):
+            tile_cache_calcd = json_parse_helper.getBooleanValue(scn_json, ["tilecache", "tilecachecalcd"])
+        return tile_cache_calcd
 
     def scn2tilecache(self, unq_id):
         """
@@ -1170,14 +1213,65 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         :param unq_id: integer unique ID for the scene.
         """
-        raise EODataDownException('scn2tilecache not implemented')
+        if (self.tilecachePath is None) or (not os.path.exists(self.tilecachePath)):
+            raise EODataDownException("The tilecache path does not exist or not provided, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+        if query_result is not None:
+            if not query_result.ARDProduct:
+                raise EODataDownException("Cannot create a tilecache as an ARD product has not been created.")
+            if query_result.Invalid:
+                raise EODataDownException("Cannot create a tilecache as image has been assigned as 'invalid'.")
+
+            scn_json = query_result.ExtendedInfo
+
+            ard_img_path = query_result.ARDProduct_Path
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+            ard_img_file = eodd_utils.findFile(os.path.join(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea'))
+
+            out_tilecache_path = os.path.join(self.tilecachePath, "{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(out_tilecache_path):
+                os.mkdir(out_tilecache_path)
+
+            tmp_tilecache_path = os.path.join(self.ardProdTmpPath,
+                                              "webcache_{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(tmp_tilecache_path):
+                os.mkdir(tmp_tilecache_path)
+
+            bands = '4,5,3'
+            if query_result.Spacecraft_ID.upper() == 'LANDSAT_8'.upper():
+                bands = '5,6,4'
+
+            import rsgislib.tools.visualisation
+            rsgislib.tools.visualisation.createWebTilesImg(ard_img_file, bands, out_tilecache_path, zoomLevels='2-10',
+                              img_stats_msk=None, img_msk_vals=1, tmp_dir=tmp_tilecache_path)
+
+            if not ("tilecache" in scn_json):
+                scn_json["tilecache"] = dict()
+
+            scn_json["tilecache"]["tilecachecalcd"] = True
+            scn_json["tilecache"]["tilecachepath"] = out_tilecache_path
+
+            ses.close()
+            logger.debug("Closed the database session.")
+        else:
+            raise EODataDownException("Could not find input image with PID {}".format(unq_id))
 
     def scns2tilecache_all_avail(self):
         """
         Generate the tile cache for the scenes for which a tile cache does not exist.
-
         """
-        raise EODataDownException('scns2tilecache_all_avail not implemented')
+        scn_lst = self.get_scnlist_tilecache()
+        for scn in scn_lst:
+            self.scn2tilecache(scn)
 
     def get_scn_record(self, unq_id):
         """

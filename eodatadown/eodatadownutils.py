@@ -1465,3 +1465,5 @@ class EODDDefineSensorROI(object):
             logger.error("Failed to create sensor ROI file using LUT ({0}) for ROI ({1}).".format(sensor_lut_file,
                                                                                                   roi_vec_file))
             raise(e)
+
+
