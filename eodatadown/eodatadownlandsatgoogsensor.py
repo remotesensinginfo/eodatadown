@@ -1169,10 +1169,12 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Closed the database session.")
 
-        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
         quicklook_calcd = False
-        if json_parse_helper.doesPathExist(scn_json, ["quicklook", "quicklookcalcd"]):
-            quicklook_calcd = json_parse_helper.getBooleanValue(scn_json, ["quicklook", "quicklookcalcd"])
+        if scn_json is not None:
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            if json_parse_helper.doesPathExist(scn_json, ["quicklook", "quicklookcalcd"]):
+                quicklook_calcd = json_parse_helper.getBooleanValue(scn_json, ["quicklook", "quicklookcalcd"])
+
         return quicklook_calcd
 
     def scn2quicklook(self, unq_id):
@@ -1200,10 +1202,12 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 raise EODataDownException("Cannot create a quicklook as image has been assigned as 'invalid'.")
 
             scn_json = query_result.ExtendedInfo
+            if scn_json is None:
+                scn_json = dict()
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(os.path.join(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea'))
+            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea')
 
             out_quicklook_path = os.path.join(self.quicklookPath,
                                               "{}_{}".format(query_result.Product_ID, query_result.PID))
@@ -1233,10 +1237,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if not ("quicklook" in scn_json):
                 scn_json["quicklook"] = dict()
 
-            scn_json["quicklook"]["tilecachecalcd"] = True
+            scn_json["quicklook"]["quicklookcalcd"] = True
             scn_json["quicklook"]["quicklookpath"] = out_quicklook_path
             scn_json["quicklook"]["quicklookimgs"] = quicklook_imgs
-
+            query_result.ExtendedInfo = scn_json
+            ses.commit()
             ses.close()
             logger.debug("Closed the database session.")
         else:
@@ -1290,10 +1295,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         logger.debug("Closed the database session.")
 
-        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
         tile_cache_calcd = False
-        if json_parse_helper.doesPathExist(scn_json, ["tilecache", "tilecachecalcd"]):
-            tile_cache_calcd = json_parse_helper.getBooleanValue(scn_json, ["tilecache", "tilecachecalcd"])
+        if scn_json is not None:
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            if json_parse_helper.doesPathExist(scn_json, ["tilecache", "tilecachecalcd"]):
+                tile_cache_calcd = json_parse_helper.getBooleanValue(scn_json, ["tilecache", "tilecachecalcd"])
         return tile_cache_calcd
 
     def scn2tilecache(self, unq_id):
@@ -1321,6 +1327,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 raise EODataDownException("Cannot create a tilecache as image has been assigned as 'invalid'.")
 
             scn_json = query_result.ExtendedInfo
+            if scn_json is None:
+                scn_json = dict()
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
@@ -1348,7 +1356,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             scn_json["tilecache"]["tilecachecalcd"] = True
             scn_json["tilecache"]["tilecachepath"] = out_tilecache_path
-
+            query_result.ExtendedInfo = scn_json
+            ses.commit()
             ses.close()
             logger.debug("Closed the database session.")
         else:
