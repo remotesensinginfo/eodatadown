@@ -1136,7 +1136,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         :return: list of unique IDs
         """
-        raise EODataDownException('get_scnlist_quicklook not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(
+            EDDLandsatGoogle.ExtendedInfo["quicklook", "quicklookcalcd"].astext.cast(sqlalchemy.types.Boolean) != True,
+            EDDLandsatGoogle.Invalid == False).all()
+        scns2quicklook = []
+        if query_result is not None:
+            for record in query_result:
+                scns2quicklook.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2quicklook
 
     def has_scn_quicklook(self, unq_id):
         """
@@ -1145,7 +1159,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param unq_id: integer unique ID for the scene.
         :return: boolean (True = has quicklook. False = has not got a quicklook)
         """
-        raise EODataDownException('has_scn_quicklook not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one()
+        scn_json = query_result.ExtendedInfo
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+        quicklook_calcd = False
+        if json_parse_helper.doesPathExist(scn_json, ["quicklook", "quicklookcalcd"]):
+            quicklook_calcd = json_parse_helper.getBooleanValue(scn_json, ["quicklook", "quicklookcalcd"])
+        return quicklook_calcd
 
     def scn2quicklook(self, unq_id):
         """
@@ -1153,14 +1181,75 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         :param unq_id: integer unique ID for the scene.
         """
-        raise EODataDownException('scn2quicklook not implemented')
+        if (self.quicklookPath is None) or (not os.path.exists(self.quicklookPath)):
+            raise EODataDownException("The quicklook path does not exist or not provided, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+        if query_result is not None:
+            if not query_result.ARDProduct:
+                raise EODataDownException("Cannot create a quicklook as an ARD product has not been created.")
+            if query_result.Invalid:
+                raise EODataDownException("Cannot create a quicklook as image has been assigned as 'invalid'.")
+
+            scn_json = query_result.ExtendedInfo
+
+            ard_img_path = query_result.ARDProduct_Path
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+            ard_img_file = eodd_utils.findFile(os.path.join(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea'))
+
+            out_quicklook_path = os.path.join(self.quicklookPath,
+                                              "{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(out_quicklook_path):
+                os.mkdir(out_quicklook_path)
+
+            tmp_quicklook_path = os.path.join(self.ardProdTmpPath,
+                                              "quicklook_{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(tmp_quicklook_path):
+                os.mkdir(tmp_quicklook_path)
+
+            bands = '4,5,3'
+            if query_result.Spacecraft_ID.upper() == 'LANDSAT_8'.upper():
+                bands = '5,6,4'
+
+            ard_img_basename = os.path.splitext(os.path.basename(ard_img_file))[0]
+            
+            quicklook_imgs = []
+            quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_250px.jpg".format(ard_img_basename)))
+            quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_1000px.jpg".format(ard_img_basename)))
+
+            import rsgislib.tools.visualisation
+            rsgislib.tools.visualisation.createQuicklookImgs(ard_img_file, bands, outputImgs=quicklook_imgs,
+                                                             output_img_sizes=[250, 1000], img_stats_msk=None,
+                                                                img_msk_vals=1, tmp_dir=tmp_quicklook_path)
+
+            if not ("quicklook" in scn_json):
+                scn_json["quicklook"] = dict()
+
+            scn_json["quicklook"]["tilecachecalcd"] = True
+            scn_json["quicklook"]["quicklookpath"] = out_quicklook_path
+            scn_json["quicklook"]["quicklookimgs"] = quicklook_imgs
+
+            ses.close()
+            logger.debug("Closed the database session.")
+        else:
+            raise EODataDownException("Could not find input image with PID {}".format(unq_id))
 
     def scns2quicklook_all_avail(self):
         """
         Generate the quicklook images for the scenes for which a quicklook image do not exist.
 
         """
-        raise EODataDownException('scns2quicklook_all_avail not implemented')
+        scn_lst = self.get_scnlist_quicklook()
+        for scn in scn_lst:
+            self.scn2quicklook(scn)
 
     def get_scnlist_tilecache(self):
         """
@@ -1176,13 +1265,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         query_result = ses.query(EDDLandsatGoogle).filter(
             EDDLandsatGoogle.ExtendedInfo["tilecache", "tilecachecalcd"].astext.cast(sqlalchemy.types.Boolean) != True,
             EDDLandsatGoogle.Invalid == False).all()
-        scns2dcload = []
+        scns2tilecache = []
         if query_result is not None:
             for record in query_result:
-                scns2dcload.append(record.PID)
+                scns2tilecache.append(record.PID)
         ses.close()
         logger.debug("Closed the database session.")
-        return scns2dcload
+        return scns2tilecache
 
     def has_scn_tilecache(self, unq_id):
         """
@@ -1217,7 +1306,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             raise EODataDownException("The tilecache path does not exist or not provided, please create and run again.")
 
         if not os.path.exists(self.ardProdTmpPath):
-            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+            raise EODataDownException("The tmp path does not exist, please create and run again.")
 
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -1251,7 +1340,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 bands = '5,6,4'
 
             import rsgislib.tools.visualisation
-            rsgislib.tools.visualisation.createWebTilesImg(ard_img_file, bands, out_tilecache_path, zoomLevels='2-10',
+            rsgislib.tools.visualisation.createWebTilesImg(ard_img_file, bands, out_tilecache_path, zoomLevels='2-12',
                               img_stats_msk=None, img_msk_vals=1, tmp_dir=tmp_tilecache_path)
 
             if not ("tilecache" in scn_json):
