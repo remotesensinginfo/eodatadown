@@ -184,9 +184,10 @@ def run_arcsi_planetscope(input_xml, output_dir, tmp_dir, reproj_outputs, proj_w
 
 def move_arcsi_stdsref_products(arcsi_out_dir, ard_products_dir):
     """
+    A function to copy the outputs from ARCSI to the appropriate directory for EODataDown.
 
-    :param arcsi_out_dir:
-    :param ard_products_dir:
+    :param arcsi_out_dir: the output directory for arcsi where files should be copied from
+    :param ard_products_dir: the directory where the appropriate files should be copied too.
     :return: bool True - valid result and task completed.
                   False - invalid result ARD not produced (e.g., 100% cloud cover)
     """
@@ -228,14 +229,17 @@ def move_arcsi_stdsref_products(arcsi_out_dir, ard_products_dir):
                 return False
         else:
             return False
+        return True
 
 
 def move_arcsi_dos_products(arcsi_out_dir, ard_products_dir):
     """
+    A function to copy the outputs from ARCSI to the appropriate directory for EODataDown.
 
-    :param arcsi_out_dir:
-    :param ard_products_dir:
-    :return:
+    :param arcsi_out_dir: the output directory for arcsi where files should be copied from
+    :param ard_products_dir: the directory where the appropriate files should be copied too.
+    :return: bool True - valid result and task completed.
+                  False - invalid result ARD not produced
     """
     eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
     metadata_file = eoddutils.findFile(arcsi_out_dir, "*meta.json")
@@ -255,3 +259,5 @@ def move_arcsi_dos_products(arcsi_out_dir, ard_products_dir):
 
         metadata_json_file = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "METADATA"])
         eoddutils.copyFile2DIR(os.path.join(arcsi_out_dir, metadata_json_file), ard_products_dir)
+
+    return True
