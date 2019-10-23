@@ -51,6 +51,7 @@ from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
+import sqlalchemy.dialects.postgresql
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class EDDSentinel1ESA(Base):
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
     RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
@@ -813,7 +814,24 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         :return: list of unique IDs
         """
-        raise EODataDownException('get_scnlist_quicklook not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(
+            sqlalchemy.or_(
+                EDDSentinel1ESA.ExtendedInfo.is_(None),
+                sqlalchemy.not_(EDDSentinel1ESA.ExtendedInfo.has_key('quicklook'))),
+            EDDSentinel1ESA.Invalid == False,
+            EDDSentinel1ESA.ARDProduct == True).all()
+        scns2quicklook = []
+        if query_result is not None:
+            for record in query_result:
+                scns2quicklook.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2quicklook
 
     def has_scn_quicklook(self, unq_id):
         """
@@ -822,7 +840,21 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         :param unq_id: integer unique ID for the scene.
         :return: boolean (True = has quicklook. False = has not got a quicklook)
         """
-        raise EODataDownException('has_scn_quicklook not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).one()
+        scn_json = query_result.ExtendedInfo
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        quicklook_calcd = False
+        if scn_json is not None:
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            quicklook_calcd = json_parse_helper.doesPathExist(scn_json, ["quicklook"])
+        return quicklook_calcd
 
     def scn2quicklook(self, unq_id):
         """
@@ -830,14 +862,76 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         :param unq_id: integer unique ID for the scene.
         """
-        raise EODataDownException('scn2quicklook not implemented')
+        if (self.quicklookPath is None) or (not os.path.exists(self.quicklookPath)):
+            raise EODataDownException("The quicklook path does not exist or not provided, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).one_or_none()
+        if query_result is not None:
+            if not query_result.ARDProduct:
+                raise EODataDownException("Cannot create a quicklook as an ARD product has not been created.")
+            if query_result.Invalid:
+                raise EODataDownException("Cannot create a quicklook as image has been assigned as 'invalid'.")
+
+            scn_json = query_result.ExtendedInfo
+            if scn_json is None:
+                scn_json = dict()
+
+            ard_img_path = query_result.ARDProduct_Path
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+            ard_img_file = eodd_utils.findFile(ard_img_path, '*dB*.tif')
+
+            out_quicklook_path = os.path.join(self.quicklookPath,
+                                              "{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(out_quicklook_path):
+                os.mkdir(out_quicklook_path)
+
+            tmp_quicklook_path = os.path.join(self.ardProdTmpPath,
+                                              "quicklook_{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(tmp_quicklook_path):
+                os.mkdir(tmp_quicklook_path)
+
+            # VV, VH, VV/VH
+            bands = '1,2,3'
+
+            ard_img_basename = os.path.splitext(os.path.basename(ard_img_file))[0]
+
+            quicklook_imgs = []
+            quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_250px.jpg".format(ard_img_basename)))
+            quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_1000px.jpg".format(ard_img_basename)))
+
+            import rsgislib.tools.visualisation
+            rsgislib.tools.visualisation.createQuicklookImgs(ard_img_file, bands, outputImgs=quicklook_imgs,
+                                                             output_img_sizes=[250, 1000], img_stats_msk=None,
+                                                             img_msk_vals=1, tmp_dir=tmp_quicklook_path)
+
+            if not ("quicklook" in scn_json):
+                scn_json["quicklook"] = dict()
+
+            scn_json["quicklook"]["quicklookpath"] = out_quicklook_path
+            scn_json["quicklook"]["quicklookimgs"] = quicklook_imgs
+            query_result.ExtendedInfo = scn_json
+            ses.commit()
+            ses.close()
+            logger.debug("Closed the database session.")
+        else:
+            raise EODataDownException("Could not find input image with PID {}".format(unq_id))
 
     def scns2quicklook_all_avail(self):
         """
         Generate the quicklook images for the scenes for which a quicklook image do not exist.
 
         """
-        raise EODataDownException('scns2quicklook_all_avail not implemented')
+        scn_lst = self.get_scnlist_quicklook()
+        for scn in scn_lst:
+            self.scn2quicklook(scn)
 
     def get_scnlist_tilecache(self):
         """
@@ -845,16 +939,47 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         :return: list of unique IDs
         """
-        raise EODataDownException('get_scnlist_tilecache not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(
+            sqlalchemy.or_(
+                EDDSentinel1ESA.ExtendedInfo.is_(None),
+                sqlalchemy.not_(EDDSentinel1ESA.ExtendedInfo.has_key('tilecache'))),
+            EDDSentinel1ESA.Invalid == False,
+            EDDSentinel1ESA.ARDProduct == True).all()
+        scns2tilecache = []
+        if query_result is not None:
+            for record in query_result:
+                scns2tilecache.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2tilecache
 
     def has_scn_tilecache(self, unq_id):
         """
         Check whether a tile cache has been generated for an individual scene.
 
         :param unq_id: integer unique ID for the scene.
-        :return: boolean (True = has quicklook. False = has not got a quicklook)
+        :return: boolean (True = has tile cache. False = has not got a tile cache)
         """
-        raise EODataDownException('has_scn_tilecache not implemented')
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).one()
+        scn_json = query_result.ExtendedInfo
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        tile_cache_calcd = False
+        if scn_json is not None:
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            tile_cache_calcd = json_parse_helper.doesPathExist(scn_json, ["tilecache"])
+        return tile_cache_calcd
 
     def scn2tilecache(self, unq_id):
         """
@@ -862,14 +987,68 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         :param unq_id: integer unique ID for the scene.
         """
-        raise EODataDownException('scn2tilecache not implemented')
+        if (self.tilecachePath is None) or (not os.path.exists(self.tilecachePath)):
+            raise EODataDownException("The tilecache path does not exist or not provided, please create and run again.")
+
+        if not os.path.exists(self.ardProdTmpPath):
+            raise EODataDownException("The tmp path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).one_or_none()
+        if query_result is not None:
+            if not query_result.ARDProduct:
+                raise EODataDownException("Cannot create a tilecache as an ARD product has not been created.")
+            if query_result.Invalid:
+                raise EODataDownException("Cannot create a tilecache as image has been assigned as 'invalid'.")
+
+            scn_json = query_result.ExtendedInfo
+            if scn_json is None:
+                scn_json = dict()
+
+            ard_img_path = query_result.ARDProduct_Path
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+            ard_img_file = eodd_utils.findFile(ard_img_path, '*dB*.tif')
+
+            out_tilecache_path = os.path.join(self.tilecachePath,
+                                              "{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(out_tilecache_path):
+                os.mkdir(out_tilecache_path)
+
+            tmp_tilecache_path = os.path.join(self.ardProdTmpPath,
+                                              "webcache_{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(tmp_tilecache_path):
+                os.mkdir(tmp_tilecache_path)
+
+            # VV, VH, VV/VH
+            bands = '1,2,3'
+
+            import rsgislib.tools.visualisation
+            rsgislib.tools.visualisation.createWebTilesImg(ard_img_file, bands, out_tilecache_path, zoomLevels='2-12',
+                                                           img_stats_msk=None, img_msk_vals=1,
+                                                           tmp_dir=tmp_tilecache_path)
+
+            if not ("tilecache" in scn_json):
+                scn_json["tilecache"] = dict()
+
+            scn_json["tilecache"]["tilecachepath"] = out_tilecache_path
+            query_result.ExtendedInfo = scn_json
+            ses.commit()
+            ses.close()
+            logger.debug("Closed the database session.")
+        else:
+            raise EODataDownException("Could not find input image with PID {}".format(unq_id))
 
     def scns2tilecache_all_avail(self):
         """
         Generate the tile cache for the scenes for which a tile cache does not exist.
-
         """
-        raise EODataDownException('scns2tilecache_all_avail not implemented')
+        scn_lst = self.get_scnlist_tilecache()
+        for scn in scn_lst:
+            self.scn2tilecache(scn)
 
     def get_scn_record(self, unq_id):
         """
@@ -877,7 +1056,27 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         :param unq_id:
         :return: Returns the database record object
         """
-        raise EODataDownException("Not implemented.")
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.PID == unq_id).all()
+        ses.close()
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                    "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
+                raise EODataDownException(
+                    "There was more than 1 scene which has been found - soomething has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return scn_record
 
     def query_scn_records_date(self, start_date, end_date):
         """

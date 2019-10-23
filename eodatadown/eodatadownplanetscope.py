@@ -50,6 +50,7 @@ import eodatadown.eodatadownrunarcsi
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
+import sqlalchemy.dialects.postgresql
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class EDDPlanetScope(Base):
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
     RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 

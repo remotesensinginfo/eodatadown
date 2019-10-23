@@ -55,6 +55,7 @@ import eodatadown.eodatadownrunarcsi
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
 import sqlalchemy.types
+import sqlalchemy.dialects.postgresql
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ class EDDLandsatGoogle(Base):
     DCLoaded_End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     DCLoaded = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
-    ExtendedInfo = sqlalchemy.Column(sqlalchemy.JSON, nullable=True)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
     RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
@@ -1142,8 +1143,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session_sqlalc()
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(
-            EDDLandsatGoogle.ExtendedInfo["quicklook", "quicklookcalcd"].astext.cast(sqlalchemy.types.Boolean) != True,
-            EDDLandsatGoogle.Invalid == False).all()
+            sqlalchemy.or_(
+                EDDLandsatGoogle.ExtendedInfo.is_(None),
+                sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('quicklook'))),
+            EDDLandsatGoogle.Invalid == False,
+            EDDLandsatGoogle.ARDProduct == True).all()
         scns2quicklook = []
         if query_result is not None:
             for record in query_result:
@@ -1172,9 +1176,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         quicklook_calcd = False
         if scn_json is not None:
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-            if json_parse_helper.doesPathExist(scn_json, ["quicklook", "quicklookcalcd"]):
-                quicklook_calcd = json_parse_helper.getBooleanValue(scn_json, ["quicklook", "quicklookcalcd"])
-
+            quicklook_calcd = json_parse_helper.doesPathExist(scn_json, ["quicklook"])
         return quicklook_calcd
 
     def scn2quicklook(self, unq_id):
@@ -1219,6 +1221,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if not os.path.exists(tmp_quicklook_path):
                 os.mkdir(tmp_quicklook_path)
 
+            # NIR, SWIR, RED
             bands = '4,5,3'
             if query_result.Spacecraft_ID.upper() == 'LANDSAT_8'.upper():
                 bands = '5,6,4'
@@ -1237,7 +1240,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if not ("quicklook" in scn_json):
                 scn_json["quicklook"] = dict()
 
-            scn_json["quicklook"]["quicklookcalcd"] = True
             scn_json["quicklook"]["quicklookpath"] = out_quicklook_path
             scn_json["quicklook"]["quicklookimgs"] = quicklook_imgs
             query_result.ExtendedInfo = scn_json
@@ -1268,8 +1270,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session_sqlalc()
         logger.debug("Perform query to find scene.")
         query_result = ses.query(EDDLandsatGoogle).filter(
-            EDDLandsatGoogle.ExtendedInfo["tilecache", "tilecachecalcd"].astext.cast(sqlalchemy.types.Boolean) != True,
-            EDDLandsatGoogle.Invalid == False).all()
+            sqlalchemy.or_(
+                EDDLandsatGoogle.ExtendedInfo.is_(None),
+                sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('tilecache'))),
+            EDDLandsatGoogle.Invalid == False,
+            EDDLandsatGoogle.ARDProduct == True).all()
         scns2tilecache = []
         if query_result is not None:
             for record in query_result:
@@ -1283,7 +1288,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         Check whether a tile cache has been generated for an individual scene.
 
         :param unq_id: integer unique ID for the scene.
-        :return: boolean (True = has quicklook. False = has not got a quicklook)
+        :return: boolean (True = has tile cache. False = has not got a tile cache)
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -1298,8 +1303,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         tile_cache_calcd = False
         if scn_json is not None:
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-            if json_parse_helper.doesPathExist(scn_json, ["tilecache", "tilecachecalcd"]):
-                tile_cache_calcd = json_parse_helper.getBooleanValue(scn_json, ["tilecache", "tilecachecalcd"])
+            tile_cache_calcd = json_parse_helper.doesPathExist(scn_json, ["tilecache"])
         return tile_cache_calcd
 
     def scn2tilecache(self, unq_id):
@@ -1332,7 +1336,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(os.path.join(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea'))
+            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea')
 
             out_tilecache_path = os.path.join(self.tilecachePath, "{}_{}".format(query_result.Product_ID, query_result.PID))
             if not os.path.exists(out_tilecache_path):
@@ -1343,6 +1347,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if not os.path.exists(tmp_tilecache_path):
                 os.mkdir(tmp_tilecache_path)
 
+            # NIR, SWIR, RED
             bands = '4,5,3'
             if query_result.Spacecraft_ID.upper() == 'LANDSAT_8'.upper():
                 bands = '5,6,4'
@@ -1354,7 +1359,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if not ("tilecache" in scn_json):
                 scn_json["tilecache"] = dict()
 
-            scn_json["tilecache"]["tilecachecalcd"] = True
             scn_json["tilecache"]["tilecachepath"] = out_tilecache_path
             query_result.ExtendedInfo = scn_json
             ses.commit()

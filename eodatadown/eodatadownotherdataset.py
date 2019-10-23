@@ -50,6 +50,7 @@ from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
+import sqlalchemy.dialects.postgresql
 
 logger = logging.getLogger(__name__)
 
@@ -268,7 +269,8 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                                                                     default=False),
                                                   sqlalchemy.Column('Invalid', sqlalchemy.Boolean, nullable=False,
                                                                     default=False),
-                                                  sqlalchemy.Column('ExtendedInfo', sqlalchemy.JSON, nullable=True),
+                                                  sqlalchemy.Column('ExtendedInfo', sqlalchemy.dialects.postgresql.JSONB,
+                                                                    nullable=True),
                                                   sqlalchemy.Column('RegCheck', sqlalchemy.Boolean, nullable=False,
                                                                     default=False)
                                                   )
