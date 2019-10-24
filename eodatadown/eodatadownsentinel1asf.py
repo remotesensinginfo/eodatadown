@@ -944,12 +944,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             ard_img_file = eodd_utils.findFile(ard_img_path, '*dB*.tif')
 
             out_quicklook_path = os.path.join(self.quicklookPath,
-                                              "{}_{}".format(query_result.Product_ID, query_result.PID))
+                                              "{}_{}".format(query_result.Product_File_ID, query_result.PID))
             if not os.path.exists(out_quicklook_path):
                 os.mkdir(out_quicklook_path)
 
             tmp_quicklook_path = os.path.join(self.ardProdTmpPath,
-                                              "quicklook_{}_{}".format(query_result.Product_ID, query_result.PID))
+                                              "quicklook_{}_{}".format(query_result.Product_File_ID, query_result.PID))
             if not os.path.exists(tmp_quicklook_path):
                 os.mkdir(tmp_quicklook_path)
 
@@ -1069,12 +1069,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             ard_img_file = eodd_utils.findFile(ard_img_path, '*dB*.tif')
 
             out_tilecache_path = os.path.join(self.tilecachePath,
-                                              "{}_{}".format(query_result.Product_ID, query_result.PID))
+                                              "{}_{}".format(query_result.Product_File_ID, query_result.PID))
             if not os.path.exists(out_tilecache_path):
                 os.mkdir(out_tilecache_path)
 
             tmp_tilecache_path = os.path.join(self.ardProdTmpPath,
-                                              "webcache_{}_{}".format(query_result.Product_ID, query_result.PID))
+                                              "webcache_{}_{}".format(query_result.Product_File_ID, query_result.PID))
             if not os.path.exists(tmp_tilecache_path):
                 os.mkdir(tmp_tilecache_path)
 
