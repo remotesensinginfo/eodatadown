@@ -9,7 +9,7 @@ metadata:
         name: OLI_TIRS
     product_type: ARCSI_SREF
     format:
-        name: KEA
+        name: GTIFF
 
 measurements:
     - name: 'coastal'

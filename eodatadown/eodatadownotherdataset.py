@@ -85,13 +85,13 @@ def _process_to_ard(params):
         else:
             in_datatype = rsgis_utils.getGDALDataTypeFromImg(download_file)
             if ard_proj_defined:
-                ard_file = os.path.join(ard_final_path, base_name +'_'+projabbv+ '.kea')
-                rsgislib.imageutils.reprojectImage(download_file, ard_file, proj_wkt_file, gdalformat='KEA', interp=reproj_interp,
+                ard_file = os.path.join(ard_final_path, base_name +'_'+projabbv+ '.tif')
+                rsgislib.imageutils.reprojectImage(download_file, ard_file, proj_wkt_file, gdalformat='GTIFF', interp=reproj_interp,
                                                    inWKT=None, noData=no_data_val, outPxlRes=str(out_proj_img_res), snap2Grid=True,
                                                    multicore=False)
             else:
-                ard_file = os.path.join(ard_final_path, base_name+'.kea')
-                rsgislib.imagecalc.imageMath(download_file, ard_file, 'b1', 'KEA', in_datatype)
+                ard_file = os.path.join(ard_final_path, base_name+'.tif')
+                rsgislib.imagecalc.imageMath(download_file, ard_file, 'b1', 'GTIFF', in_datatype)
             rsgislib.imageutils.popImageStats(ard_file, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
         success = True
         logger.debug("Processed to ARD Product.")

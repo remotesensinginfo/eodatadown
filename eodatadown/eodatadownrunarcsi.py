@@ -201,30 +201,49 @@ def move_arcsi_stdsref_products(arcsi_out_dir, ard_products_dir):
         if json_parse_helper.doesPathExist(meta_data_json, ["ProductsInfo","ARCSI_CLOUD_COVER"]):
             cloud_cover = json_parse_helper.getNumericValue(meta_data_json, ["ProductsInfo","ARCSI_CLOUD_COVER"], valid_lower=0.0, valid_upper=1.0)
 
+            out_file_info_dict = dict()
             if cloud_cover < 0.95:
                 sref_mskd_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_IMG"])
-                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_mskd_image), ard_products_dir)
+                sref_mskd_image_tif = eoddutils.translateCloudOpGTIFF(os.path.join(arcsi_out_dir, sref_mskd_image), ard_products_dir)
+                out_file_info_dict["STD_SREF_IMG"] = sref_mskd_image_tif
 
                 sref_full_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_WHOLE_IMG"])
-                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, sref_full_image), ard_products_dir)
+                sref_full_image_tif = eoddutils.translateCloudOpGTIFF(os.path.join(arcsi_out_dir, sref_full_image), ard_products_dir)
+                out_file_info_dict["STD_SREF_WHOLE_IMG"] = sref_full_image_tif
 
                 try:
                     cloud_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "CLOUD_MASK"])
-                    eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, cloud_msk_image), ard_products_dir)
+                    cloud_msk_image_tif = eoddutils.translateCloudOpGTIFF(os.path.join(arcsi_out_dir, cloud_msk_image), ard_products_dir)
+                    out_file_info_dict["CLOUD_MASK"] = cloud_msk_image_tif
                 except Exception as e:
                     logger.info("Cloud mask was not available - assume it wasn't calculated")
 
                 valid_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "VALID_MASK"])
-                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, valid_msk_image), ard_products_dir)
+                valid_msk_image_tif = eoddutils.translateCloudOpGTIFF(os.path.join(arcsi_out_dir, valid_msk_image), ard_products_dir)
+                out_file_info_dict["VALID_MASK"] = valid_msk_image_tif
 
                 topo_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "TOPO_SHADOW_MASK"])
-                eoddutils.moveFile2DIR(os.path.join(arcsi_out_dir, topo_msk_image), ard_products_dir)
+                topo_msk_image_tif = eoddutils.translateCloudOpGTIFF(os.path.join(arcsi_out_dir, topo_msk_image), ard_products_dir)
+                out_file_info_dict["TOPO_SHADOW_MASK"] = topo_msk_image_tif
 
-                footprint_shp = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "FOOTPRINT"])
-                eoddutils.moveFilesWithBase2DIR(os.path.join(arcsi_out_dir, footprint_shp), ard_products_dir)
+                view_angle_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "VIEW_ANGLE"])
+                view_angle_image_tif = eoddutils.translateCloudOpGTIFF(os.path.join(arcsi_out_dir, view_angle_image), ard_products_dir)
+                out_file_info_dict["VIEW_ANGLE"] = view_angle_image_tif
+
+                footprint_vec = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "FOOTPRINT"])
+                eoddutils.moveFilesWithBase2DIR(os.path.join(arcsi_out_dir, footprint_vec), ard_products_dir)
+                out_file_info_dict["FOOTPRINT"] = footprint_vec
+
+                out_file_info_dict["METADATA"] = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "METADATA"])
+                out_file_info_dict["ProviderMetadata"] = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "ProviderMetadata"])
+                out_file_info_dict["FileBaseName"] = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "FileBaseName"])
+
+                meta_data_json["FileInfo"] = out_file_info_dict
 
                 metadata_json_file = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "METADATA"])
-                eoddutils.copyFile2DIR(os.path.join(arcsi_out_dir, metadata_json_file), ard_products_dir)
+                output_meta_data_file = os.path.join(arcsi_out_dir, metadata_json_file)
+                with open(output_meta_data_file, 'w') as outfile:
+                    json.dump(meta_data_json, outfile, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
             else:
                 return False
         else:

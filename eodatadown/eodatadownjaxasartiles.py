@@ -218,12 +218,12 @@ def _process_to_ard(params):
                 logger.error("Could not find HH file in '{}'".format(work_ard_scn_path))
                 raise e
 
-            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_hh.kea')
+            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_hh.tif')
             if ard_proj_defined:
-                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_hh.kea')
-                rsgislib.imageutils.reprojectImage(hh_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_hh.tif')
+                rsgislib.imageutils.reprojectImage(hh_file, sar_stack_file, proj_wkt_file, gdalformat='GTIFF', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
             else:
-                rsgislib.imagecalc.imageMath(hh_file, sar_stack_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(hh_file))
+                rsgislib.imagecalc.imageMath(hh_file, sar_stack_file, "b1", "GTIFF", rsgis_utils.getGDALDataTypeFromImg(hh_file))
             rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
 
             try:
@@ -260,19 +260,19 @@ def _process_to_ard(params):
                 raise e
 
             # Add HH/HV ratio.
-            hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
+            hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.tif')
             band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
-            rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
+            rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'GTIFF', rsgislib.TYPE_16UINT, band_defns)
 
             # Stack Image bands
-            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
+            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.tif')
             if ard_proj_defined:
-                sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.kea')
-                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
-                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.kea')
-                rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+                sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.tif')
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'GTIFF', rsgislib.TYPE_16UINT)
+                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.tif')
+                rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='GTIFF', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
             else:
-                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'GTIFF', rsgislib.TYPE_16UINT)
             rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
 
             try:
@@ -315,19 +315,19 @@ def _process_to_ard(params):
                     raise e
 
             # Add HH/HV ratio.
-            hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.kea')
+            hhhv_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_hhhv.tif')
             band_defns = [rsgislib.imagecalc.BandDefn('hh', hh_file, 1), rsgislib.imagecalc.BandDefn('hv', hv_file, 1)]
-            rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'KEA', rsgislib.TYPE_16UINT, band_defns)
+            rsgislib.imagecalc.bandMath(hhhv_file, 'hv==0?0:(hh/hv)*1000', 'GTIFF', rsgislib.TYPE_16UINT, band_defns)
 
             # Stack Image bands
-            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.kea')
+            sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + '_HHHV.tif')
             if ard_proj_defined:
-                sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.kea')
-                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
-                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.kea')
-                rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='KEA', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+                sar_stack_tmp_file = os.path.join(tmp_ard_scn_path, unique_base_name + '_HHHV.tif')
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_tmp_file, None, 0, 'GTIFF', rsgislib.TYPE_16UINT)
+                sar_stack_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_HHHV.tif')
+                rsgislib.imageutils.reprojectImage(sar_stack_tmp_file, sar_stack_file, proj_wkt_file, gdalformat='GTIFF', interp='cubic', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
             else:
-                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'KEA', rsgislib.TYPE_16UINT)
+                rsgislib.imageutils.stackImageBands([hh_file, hv_file, hhhv_file], ["HH", "HV", "HH/HV"], sar_stack_file, None, 0, 'GTIFF', rsgislib.TYPE_16UINT)
             rsgislib.imageutils.popImageStats(sar_stack_file, usenodataval=True, nodataval=0, calcpyramids=True)
 
             try:
@@ -357,12 +357,12 @@ def _process_to_ard(params):
                     logger.error("Could not find Incidence Angle file in '{}'".format(work_ard_scn_path))
                     raise e
 
-        out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + '_mask.kea')
+        out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + '_mask.tif')
         if ard_proj_defined:
-            out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_mask.kea')
-            rsgislib.imageutils.reprojectImage(msk_file, out_msk_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+            out_msk_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_mask.tif')
+            rsgislib.imageutils.reprojectImage(msk_file, out_msk_file, proj_wkt_file, gdalformat='GTIFF', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
         else:
-            rsgislib.imagecalc.imageMath(msk_file, out_msk_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(msk_file))
+            rsgislib.imagecalc.imageMath(msk_file, out_msk_file, "b1", "GTIFF", rsgis_utils.getGDALDataTypeFromImg(msk_file))
         rsgislib.rastergis.populateStats(out_msk_file, True, True, True)
 
         ####### Add Mask descriptions ##########
@@ -383,12 +383,12 @@ def _process_to_ard(params):
         rat_img_dataset = None
         ########################################
 
-        out_date_file = os.path.join(final_ard_scn_path, unique_base_name + '_date.kea')
+        out_date_file = os.path.join(final_ard_scn_path, unique_base_name + '_date.tif')
         if ard_proj_defined:
-            out_date_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_date.kea')
-            rsgislib.imageutils.reprojectImage(date_file, out_date_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+            out_date_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_date.tif')
+            rsgislib.imageutils.reprojectImage(date_file, out_date_file, proj_wkt_file, gdalformat='GTIFF', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
         else:
-            rsgislib.imagecalc.imageMath(date_file, out_date_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(date_file))
+            rsgislib.imagecalc.imageMath(date_file, out_date_file, "b1", "GTIFF", rsgis_utils.getGDALDataTypeFromImg(date_file))
         rsgislib.rastergis.populateStats(out_date_file, True, True, True)
 
         ##################### Define Dates #######################
@@ -419,12 +419,12 @@ def _process_to_ard(params):
         rat_img_dataset = None
         #############################################################
 
-        out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + '_linci.kea')
+        out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + '_linci.tif')
         if ard_proj_defined:
-            out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_linci.kea')
-            rsgislib.imageutils.reprojectImage(linci_file, out_linci_file, proj_wkt_file, gdalformat='KEA', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
+            out_linci_file = os.path.join(final_ard_scn_path, unique_base_name + "_" + proj_abbv + '_linci.tif')
+            rsgislib.imageutils.reprojectImage(linci_file, out_linci_file, proj_wkt_file, gdalformat='GTIFF', interp='near', inWKT=None, noData=0.0, outPxlRes=str(out_proj_img_res), snap2Grid=True, multicore=False)
         else:
-            rsgislib.imagecalc.imageMath(linci_file, out_linci_file, "b1", "KEA", rsgis_utils.getGDALDataTypeFromImg(linci_file))
+            rsgislib.imagecalc.imageMath(linci_file, out_linci_file, "b1", "GTIFF", rsgis_utils.getGDALDataTypeFromImg(linci_file))
         rsgislib.rastergis.populateStats(out_linci_file, True, True, True)
         success = True
     except Exception as e:

@@ -44,7 +44,7 @@ import time
 import gzip
 import pycurl
 import subprocess
-
+import rsgislib
 import eodatadown
 
 logger = logging.getLogger(__name__)
@@ -310,6 +310,25 @@ class EODataDownUtils(object):
         except Exception:
             wktString = None
         return wktString
+
+    def translateCloudOpGTIFF(self, input_img, out_dir):
+        """
+        Using GDAL translate to convert input image to a cloud optimised GeoTIFF.
+        :param input_img: Input image which is GDAL readable.
+        :param out_dir: Output image directory. The output file name will be the same as the input with the extension
+                        replaced with .tif
+        :return: returns the output image filename and path.
+        """
+        import osgeo.gdal
+        basename = os.path.splitext(os.path.basename(input_img))[0]
+        output_img = os.path.join(out_dir, "{}.tif".format(basename))
+
+        rsgis_utils = rsgislib.RSGISPyUtils()
+        no_data_val = rsgis_utils.getImageNoDataValue(input_img)
+        options = ["TILED=YES", "INTERLEAVE=PIXEL", "BLOCKXSIZE=256", "BLOCKYSIZE=256", "COMPRESS=LZW", "BIGTIFF=YES", "COPY_SRC_OVERVIEWS=YES"]
+        trans_opt = osgeo.gdal.TranslateOptions(format='GTIFF', noData=no_data_val, options=options)
+        osgeo.gdal.Translate(input_img, output_img, options=trans_opt)
+        return output_img
 
 
 class EODataDownDatabaseInfo(object):

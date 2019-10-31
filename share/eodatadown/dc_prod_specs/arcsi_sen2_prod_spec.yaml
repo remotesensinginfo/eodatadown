@@ -9,7 +9,7 @@ metadata:
     name: MSI
   product_type: ARCSI_SREF
   format:
-    name: KEA
+    name: GTIFF
 
 measurements:
   - name: 'blue'

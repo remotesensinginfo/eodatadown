@@ -1051,9 +1051,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 start_date = datetime.datetime.now()
                 scn_id = str(str(uuid.uuid5(uuid.NAMESPACE_URL, record.ARDProduct_Path)))
                 print("{}: {}".format(record.Scene_ID, scn_id))
-                img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.kea')
-                vmsk_img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*_valid.kea')
-                cmsk_img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*_clouds.kea')
+                img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.tif')
+                vmsk_img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*_valid.tif')
+                cmsk_img_file = rsgis_utils.findFile(record.ARDProduct_Path, '*_clouds.tif')
                 yaml_file = os.path.splitext(img_file)[0]+"_yaml.yaml"
                 epsg_code = rsgis_utils.getEPSGCode(img_file)
                 lcl_proj_bbox = rsgis_utils.getImageBBOX(img_file)
@@ -1098,7 +1098,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                             'ur': {'lat': record.North_Lat, 'lon': record.East_Lon}
                         }
                     },
-                    'format': {'name': 'KEA'},
+                    'format': {'name': 'GTIFF'},
                     'grid_spatial': {
                         'projection': {
                             'spatial_reference': 'EPSG:{}'.format(epsg_code),
@@ -1209,7 +1209,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea')
+            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
 
             out_quicklook_path = os.path.join(self.quicklookPath,
                                               "{}_{}".format(query_result.Product_ID, query_result.PID))
@@ -1336,7 +1336,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.kea')
+            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
 
             out_tilecache_path = os.path.join(self.tilecachePath, "{}_{}".format(query_result.Product_ID, query_result.PID))
             if not os.path.exists(out_tilecache_path):
