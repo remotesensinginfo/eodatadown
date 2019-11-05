@@ -116,11 +116,15 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                     img_file_basename = os.path.splitext(os.path.basename(c_img))[0]
                     no_data_val = rsgis_utils.getImageNoDataValue(c_img, 1)
                     out_img_file = os.path.join(output_dir, "{}_{}.tif".format(img_file_basename, out_proj_str))
+                    out_file_opts = ["TILED=YES", "COMPRESS=LZW", "BIGTIFF=YES", "INTERLEAVE=PIXEL", "BLOCKXSIZE=256",
+                                     "BLOCKYSIZE=256"]
                     rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt_file, gdalformat='GTIFF',
                                                        interp=img_interp_alg, inWKT=None, noData=no_data_val,
-                                                       outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False)
+                                                       outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False,
+                                                       gdal_options=out_file_opts)
                     rsgislib.imageutils.assignProj(out_img_file, sen1_out_proj_wkt, "")
-                    rsgislib.imageutils.popImageStats(out_img_file, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
+                    rsgislib.imageutils.popImageStats(out_img_file, usenodataval=True, nodataval=no_data_val,
+                                                      calcpyramids=True)
                     logger.debug("Finished Reprojecting: {}".format(out_img_file))
             if unzip_tmp_dir_created:
                 shutil.rmtree(unzip_dir)
