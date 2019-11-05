@@ -51,6 +51,7 @@ import eodatadown.eodatadownrunarcsi
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
+from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
 
@@ -1097,11 +1098,12 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             scn_json["quicklook"]["quicklookpath"] = out_quicklook_path
             scn_json["quicklook"]["quicklookimgs"] = quicklook_imgs
             query_result.ExtendedInfo = scn_json
+            flag_modified(query_result, "ExtendedInfo")
             ses.commit()
-            ses.close()
-            logger.debug("Closed the database session.")
         else:
             raise EODataDownException("Could not find input image with PID {}".format(unq_id))
+        ses.close()
+        logger.debug("Closed the database session.")
 
     def scns2quicklook_all_avail(self):
         """
@@ -1215,11 +1217,12 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             scn_json["tilecache"]["tilecachepath"] = out_tilecache_path
             query_result.ExtendedInfo = scn_json
+            flag_modified(query_result, "ExtendedInfo")
             ses.commit()
-            ses.close()
-            logger.debug("Closed the database session.")
         else:
             raise EODataDownException("Could not find input image with PID {}".format(unq_id))
+        ses.close()
+        logger.debug("Closed the database session.")
 
     def scns2tilecache_all_avail(self):
         """

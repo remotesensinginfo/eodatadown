@@ -57,6 +57,7 @@ from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
+from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
 
