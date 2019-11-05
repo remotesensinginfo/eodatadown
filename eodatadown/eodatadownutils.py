@@ -325,9 +325,9 @@ class EODataDownUtils(object):
 
         rsgis_utils = rsgislib.RSGISPyUtils()
         no_data_val = rsgis_utils.getImageNoDataValue(input_img)
-        options = ["TILED=YES", "INTERLEAVE=PIXEL", "BLOCKXSIZE=256", "BLOCKYSIZE=256", "COMPRESS=LZW", "BIGTIFF=YES", "COPY_SRC_OVERVIEWS=YES"]
+        options = "-co TILED=YES -co INTERLEAVE=PIXEL -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 -co COMPRESS=LZW -co BIGTIFF=YES -co COPY_SRC_OVERVIEWS=YES"
         trans_opt = osgeo.gdal.TranslateOptions(format='GTIFF', noData=no_data_val, options=options)
-        osgeo.gdal.Translate(input_img, output_img, options=trans_opt)
+        osgeo.gdal.Translate(output_img, input_img, options=trans_opt)
         return output_img
 
 
