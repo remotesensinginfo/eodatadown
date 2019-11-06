@@ -94,7 +94,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             sen1_ard_gamma.sen1_grd_ard_tools.run_sen1_grd_ard_analysis(input_safe_file, out_sen1_files_dir, tmp_dir,
                                                                         dem_img_file, out_img_res, sen1_out_proj_epsg,
                                                                         polarisations, 'GTIFF', False, False,
-                                                                        no_dem_check=False)
+                                                                        no_dem_check=False, out_int_imgs=True)
 
             if sen1_out_proj_epsg is None:
                 # Reproject the UTM outputs to required projection.
