@@ -112,7 +112,7 @@ def run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs
                                "GreenVegetation", 0, None, None, False, None, None, None, None, False,
                                None, None, tmp_dir, 0.05, 0.5, 0.1, 0.4, dem_file, None, None, True,
                                20, False, False, 1000, "cubic", "near", 3000, 3000, 1000, 21,
-                               True, False, False, None, None, False, None, 'S2CLOUDLESS')
+                               True, False, False, None, None, False, None, 'S2LESSFMSK')
     logger.info("Finished running ARCSI for: " + input_hdr)
 
 
