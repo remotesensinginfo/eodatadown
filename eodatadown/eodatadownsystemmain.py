@@ -65,7 +65,6 @@ class EODataDownSystemMain(object):
         return self.__repr__()
 
     def __repr__(self):
-
         db_info = {'connection':self.db_info_obj.getDBConnection()}
         sys_info = {'name:':self.name, 'description':self.description}
         data = {'database':db_info, 'details':sys_info, 'sensors':self.sensorConfigFiles}

@@ -862,7 +862,19 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def query_scn_records_date(self, start_date, end_date):
+    def query_scn_records_date_count(self, start_date, end_date, valid=True):
+        """
+        A function which queries the database to find scenes within a specified date range
+        and returns the number of records available.
+
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :return: count of records available
+        """
+        raise Exception("Not Implemented")
+
+    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True):
         """
         A function which queries the database to find scenes within a specified date range.
         :param start_date: A python datetime object specifying the start date

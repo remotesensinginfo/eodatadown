@@ -54,7 +54,7 @@ def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     :param sensors:
     :return:
     """
-    logger.info("Running process to fund new downloads.")
+    logger.info("Running process to find new downloads.")
     # Create the System 'Main' object and parse the configuration file.
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
     sys_main_obj.parse_config(config_file)
