@@ -1455,7 +1455,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                                  EDDLandsatGoogle.Date_Acquired > end_date,
                                                                  EDDLandsatGoogle.Invalid == False,
                                                                  EDDLandsatGoogle.ARDProduct == True).order_by(
-                    EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)].all()
+                    EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
             else:
                 query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
                                                                  EDDLandsatGoogle.Date_Acquired > end_date,
@@ -1466,7 +1466,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if n_recs > 0:
                 query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
                                                                  EDDLandsatGoogle.Date_Acquired > end_date).order_by(
-                    EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)].all()
+                    EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
             else:
                 query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
                                                                  EDDLandsatGoogle.Date_Acquired > end_date).order_by(

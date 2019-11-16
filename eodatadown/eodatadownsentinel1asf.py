@@ -1185,7 +1185,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                                     EDDSentinel1ASF.Acquisition_Date > end_date,
                                                                     EDDSentinel1ASF.Invalid == False,
                                                                     EDDSentinel1ASF.ARDProduct == True).order_by(
-                    EDDSentinel1ASF.Acquisition_Date.desc())[start_rec:(start_rec + n_recs)].all()
+                    EDDSentinel1ASF.Acquisition_Date.desc())[start_rec:(start_rec + n_recs)]
             else:
                 query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Acquisition_Date < start_date,
                                                                     EDDSentinel1ASF.Acquisition_Date > end_date,
@@ -1196,7 +1196,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if n_recs > 0:
                 query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Acquisition_Date < start_date,
                                                                     EDDSentinel1ASF.Acquisition_Date > end_date).order_by(
-                    EDDSentinel1ASF.Acquisition_Date.desc())[start_rec:(start_rec + n_recs)].all()
+                    EDDSentinel1ASF.Acquisition_Date.desc())[start_rec:(start_rec + n_recs)]
             else:
                 query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Acquisition_Date < start_date,
                                                                     EDDSentinel1ASF.Acquisition_Date > end_date).order_by(

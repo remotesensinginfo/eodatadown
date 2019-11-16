@@ -1308,7 +1308,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                                                     EDDSentinel2Google.Sensing_Time > end_date,
                                                                     EDDSentinel2Google.Invalid == False,
                                                                     EDDSentinel2Google.ARDProduct == True).order_by(
-                    EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)].all()
+                    EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)]
             else:
                 query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
                                                                     EDDSentinel2Google.Sensing_Time > end_date,
@@ -1319,7 +1319,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             if n_recs > 0:
                 query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
                                                                     EDDSentinel2Google.Sensing_Time > end_date).order_by(
-                    EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)].all()
+                    EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)]
             else:
                 query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
                                                                     EDDSentinel2Google.Sensing_Time > end_date).order_by(
