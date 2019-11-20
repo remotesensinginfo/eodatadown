@@ -1340,14 +1340,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
             ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
 
-            out_tilecache_path = os.path.join(self.tilecachePath, "{}_{}".format(query_result.Product_ID, query_result.PID))
-            if not os.path.exists(out_tilecache_path):
-                os.mkdir(out_tilecache_path)
+            out_mbtiles_file = os.path.join(self.tilecachePath,
+                                            "{}_{}.mbtiles".format(query_result.Product_ID, query_result.PID))
 
-            tmp_tilecache_path = os.path.join(self.ardProdTmpPath,
-                                              "webcache_{}_{}".format(query_result.Product_ID, query_result.PID))
-            if not os.path.exists(tmp_tilecache_path):
-                os.mkdir(tmp_tilecache_path)
+            tmp_mbtiles_path = os.path.join(self.ardProdTmpPath,
+                                            "mbtiles_{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(tmp_mbtiles_path):
+                os.mkdir(tmp_mbtiles_path)
 
             # NIR, SWIR, RED
             bands = '4,5,3'
@@ -1355,13 +1354,14 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 bands = '5,6,4'
 
             import rsgislib.tools.visualisation
-            rsgislib.tools.visualisation.createWebTilesImg(ard_img_file, bands, out_tilecache_path, zoomLevels='2-12',
-                              img_stats_msk=None, img_msk_vals=1, tmp_dir=tmp_tilecache_path)
+            rsgislib.tools.visualisation.createMBTileFile(ard_img_file, bands, out_mbtiles_file, scale_input_img=50,
+                                                          img_stats_msk=None, img_msk_vals=1,
+                                                          tmp_dir=tmp_mbtiles_path, tile_format='JPG')
 
             if not ("tilecache" in scn_json):
                 scn_json["tilecache"] = dict()
 
-            scn_json["tilecache"]["tilecachepath"] = out_tilecache_path
+            scn_json["tilecache"]["tilecachepath"] = out_mbtiles_file
             query_result.ExtendedInfo = scn_json
             flag_modified(query_result, "ExtendedInfo")
             ses.commit()
@@ -1747,6 +1747,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             scn_record.Download_End_Date = None
             scn_record.Download_Path = ""
             scn_record.Downloaded = False
+
+        scn_record.ExtendedInfo = ""
+        flag_modified(scn_record, "ExtendedInfo")
 
         ses.commit()
         ses.close()
