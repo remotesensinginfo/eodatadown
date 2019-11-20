@@ -1194,26 +1194,31 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
             ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_sharp_rad_srefdem_stdsref.tif')
 
-            out_mbtiles_file = os.path.join(self.tilecachePath,
-                                            "{}_{}.mbtiles".format(query_result.Product_ID, query_result.PID))
+            out_tilecache_dir = os.path.join(self.tilecachePath,
+                                            "{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(out_tilecache_dir):
+                os.mkdir(out_tilecache_dir)
 
-            tmp_mbtiles_path = os.path.join(self.ardProdTmpPath,
-                                            "mbtiles_{}_{}".format(query_result.Product_ID, query_result.PID))
-            if not os.path.exists(tmp_mbtiles_path):
-                os.mkdir(tmp_mbtiles_path)
+            out_visual_gtiff = os.path.join(out_tilecache_dir,
+                                            "{}_{}_vis.tif".format(query_result.Product_ID, query_result.PID))
+
+            tmp_tilecache_path = os.path.join(self.ardProdTmpPath,
+                                            "tilecache_{}_{}".format(query_result.Product_ID, query_result.PID))
+            if not os.path.exists(tmp_tilecache_path):
+                os.mkdir(tmp_tilecache_path)
 
             # NIR, SWIR, RED
             bands = '7,10,3'
 
             import rsgislib.tools.visualisation
-            rsgislib.tools.visualisation.createMBTileFile(ard_img_file, bands, out_mbtiles_file, scale_input_img=50,
-                                                          img_stats_msk=None, img_msk_vals=1,
-                                                          tmp_dir=tmp_mbtiles_path, tile_format='JPG')
-
+            rsgislib.tools.visualisation.createWebTilesVisGTIFFImg(ard_img_file, bands, out_tilecache_dir,
+                                                                   out_visual_gtiff, zoomLevels='2-12',
+                                                                   img_stats_msk=None, img_msk_vals=1,
+                                                                   tmp_dir=tmp_tilecache_path, webview=True)
             if not ("tilecache" in scn_json):
                 scn_json["tilecache"] = dict()
-
-            scn_json["tilecache"]["tilecachepath"] = out_mbtiles_file
+            scn_json["tilecache"]["tilecachepath"] = out_tilecache_dir
+            scn_json["tilecache"]["visgtiff"] = out_visual_gtiff
             query_result.ExtendedInfo = scn_json
             flag_modified(query_result, "ExtendedInfo")
             ses.commit()
@@ -1221,6 +1226,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             raise EODataDownException("Could not find input image with PID {}".format(unq_id))
         ses.close()
         logger.debug("Closed the database session.")
+        shutil.rmtree(tmp_tilecache_path)
 
     def scns2tilecache_all_avail(self):
         """
