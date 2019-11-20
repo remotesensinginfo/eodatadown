@@ -1354,7 +1354,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 bands = '5,6,4'
 
             import rsgislib.tools.visualisation
-            rsgislib.tools.visualisation.createMBTileFile(ard_img_file, bands, out_mbtiles_file, scale_input_img=50,
+            rsgislib.tools.visualisation.createMBTileFile(ard_img_file, bands, out_mbtiles_file, scale_input_img=75,
                                                           img_stats_msk=None, img_msk_vals=1,
                                                           tmp_dir=tmp_mbtiles_path, tile_format='JPG')
 
