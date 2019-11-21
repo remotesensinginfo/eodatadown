@@ -47,6 +47,7 @@ import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownutils import EODataDownResponseException
 from eodatadown.eodatadownsensor import EODataDownSensor
+from eodatadown.eodatadownsentinel1 import EODataDownSentinel1ProcessorSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
 from sqlalchemy.ext.declarative import declarative_base
@@ -246,7 +247,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if not len(geo_bounds_lst) > 0:
                 raise EODataDownException("There must be at least 1 geographic boundary given.")
 
-            self.geoBounds = []
+            self.geoBounds = list()
             for geo_bound_json in geo_bounds_lst:
                 edd_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
                 edd_bbox.setNorthLat(json_parse_helper.getNumericValue(geo_bound_json, ["north_lat"], -90, 90))
@@ -332,8 +333,8 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         """
 
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-        db_records = []
-        entry_lst = []
+        db_records = list()
+        entry_lst = list()
         if n_records == 1:
             entry_lst.append(rsp_json['entry'])
         else:
@@ -553,7 +554,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel1ESA).all()
-        scns = []
+        scns = list()
         if query_result is not None:
             for record in query_result:
                 scns.append(record.PID)
@@ -612,7 +613,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.Downloaded == False).filter(
             EDDSentinel1ESA.Remote_URL is not None).all()
-        dwnld_params = []
+        dwnld_params = list()
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
             dt_obj = datetime.datetime.now()
@@ -658,7 +659,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                          EDDSentinel1ESA.ARDProduct == False,
                                                          EDDSentinel1ESA.Invalid == False).all()
 
-        scns2ard = []
+        scns2ard = list()
         if query_result is not None:
             for record in query_result:
                 scns2ard.append(record.PID)
@@ -770,7 +771,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel1ESA).filter(EDDSentinel1ESA.ARDProduct == True,
                                                          EDDSentinel1ESA.DCLoaded == loaded).all()
-        scns2dcload = []
+        scns2dcload = list()
         if query_result is not None:
             for record in query_result:
                 scns2dcload.append(record.PID)
@@ -826,7 +827,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 sqlalchemy.not_(EDDSentinel1ESA.ExtendedInfo.has_key('quicklook'))),
             EDDSentinel1ESA.Invalid == False,
             EDDSentinel1ESA.ARDProduct == True).all()
-        scns2quicklook = []
+        scns2quicklook = list()
         if query_result is not None:
             for record in query_result:
                 scns2quicklook.append(record.PID)
@@ -904,7 +905,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
             ard_img_basename = os.path.splitext(os.path.basename(ard_img_file))[0]
 
-            quicklook_imgs = []
+            quicklook_imgs = list()
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_250px.jpg".format(ard_img_basename)))
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_1000px.jpg".format(ard_img_basename)))
 
@@ -952,7 +953,7 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 sqlalchemy.not_(EDDSentinel1ESA.ExtendedInfo.has_key('tilecache'))),
             EDDSentinel1ESA.Invalid == False,
             EDDSentinel1ESA.ARDProduct == True).all()
-        scns2tilecache = []
+        scns2tilecache = list()
         if query_result is not None:
             for record in query_result:
                 scns2tilecache.append(record.PID)
@@ -1147,11 +1148,10 @@ class EODataDownSentinel1ESAProcessorSensor (EODataDownSentinel1ProcessorSensor)
         """
         raise EODataDownException("Not implemented.")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
         raise EODataDownException("Not implemented.")
 

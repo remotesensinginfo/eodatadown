@@ -109,7 +109,7 @@ class EODataDownUtils(object):
         :return: list
 
         """
-        outList = []
+        outList = list()
         try:
             dataFile = open(file, 'r')
             for line in dataFile:
@@ -200,7 +200,7 @@ class EODataDownUtils(object):
         :param file_ext: file extension (include dot; e.g., .kea)
         :return: returns list of files.
         """
-        found_files = []
+        found_files = list()
         for root, dirs, files in os.walk(dir_path):
             for file in files:
                 if file.endswith(file_ext):
@@ -330,6 +330,16 @@ class EODataDownUtils(object):
         osgeo.gdal.Translate(output_img, input_img, options=trans_opt)
         return output_img
 
+    def getDateTimeAsString(self, date_time_obj):
+        """
+        Returns the datetime, date, or time object as an iso string. If None then an empty string will be returned.
+        :param date_time_obj: a datetime, date or time object.
+        :return: iso string representation of the date and/or time.
+        """
+        if date_time_obj is None:
+            return ''
+        else:
+            return date_time_obj.isoformat()
 
 class EODataDownDatabaseInfo(object):
 
@@ -814,9 +824,9 @@ class EDDGeoBBox(object):
             cut_north_south = True
             cut_north_south_lgr_poly = True
 
-        out_bboxs = []
+        out_bboxs = list()
         if cut_east_west or cut_north_south:
-            out_tmp_bboxs = []
+            out_tmp_bboxs = list()
             if cut_east_west_lgr_poly:
                 geoBBOXWest = EDDGeoBBox()
                 geoBBOXWest.setBBOX(self.north_lat, self.south_lat, -180, self.west_lon)
@@ -1273,10 +1283,10 @@ class EODDFTPDownload(object):
         :param try_n_times: if server connection fails try again (sleeping for 5 secs in between) n times for failing.
         :return:
         """
-        dirs = []
-        nondirs = []
+        dirs = list()
+        nondirs = list()
         if ftp_path not in ftp_files:
-            ftp_files[ftp_path] = []
+            ftp_files[ftp_path] = list()
         count = 0
         for i in range(try_n_times):
             if count > try_n_times:
@@ -1297,7 +1307,7 @@ class EODDFTPDownload(object):
                 c_dir = os.path.join(ftp_path, item[0])
                 dirs.append(c_dir)
                 if c_dir not in ftp_files:
-                    ftp_files[c_dir] = []
+                    ftp_files[c_dir] = list()
                 logger.debug("Found a directory: {}".format(c_dir))
             elif not ((item[0] == '.') or (item[0] == '..')):
                 c_file = os.path.join(ftp_path, item[0])
@@ -1448,7 +1458,7 @@ class EODDDefineSensorROI(object):
             if 'Landsat' in sensor_lst:
                 lsatts = rsgislib.vectorutils.getAttLstSelectFeats(sensor_lut_file, 'landsat_wrs2_lut', ['PATH', 'ROW'],
                                                                    roi_vec_file, roi_vec_lyr)
-                lstiles = []
+                lstiles = list()
                 for tile in lsatts:
                     lstiles.append({"path":tile['PATH'], "row":tile['ROW']})
                 outvalsdict['landsat'] = lstiles
@@ -1456,7 +1466,7 @@ class EODDDefineSensorROI(object):
             if 'Sentinel2' in sensor_lst:
                 sen2atts = rsgislib.vectorutils.getAttLstSelectFeats(sensor_lut_file, 'sen2_tiles_lut', ['Name'],
                                                                      roi_vec_file, roi_vec_lyr)
-                sen2tiles = []
+                sen2tiles = list()
                 for tile in sen2atts:
                     sen2tiles.append(tile['Name'])
                 sen2tilesset = set(sen2tiles)
@@ -1467,7 +1477,7 @@ class EODDDefineSensorROI(object):
 
             if 'OtherBBOX' in sensor_lst:
                 envs = rsgislib.vectorutils.getFeatEnvs(roi_vec_file, roi_vec_lyr)
-                bboxlst = []
+                bboxlst = list()
                 for env in envs:
                     env_dict = dict()
                     env_dict["north_lat"] = env[3]

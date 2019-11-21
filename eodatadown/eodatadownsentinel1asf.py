@@ -255,7 +255,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if not len(geo_bounds_lst) > 0:
                 raise EODataDownException("There must be at least 1 geographic boundary given.")
 
-            self.geoBounds = []
+            self.geoBounds = list()
             for geo_bound_json in geo_bounds_lst:
                 edd_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
                 edd_bbox.setNorthLat(json_parse_helper.getNumericValue(geo_bound_json, ["north_lat"], -90, 90))
@@ -353,7 +353,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         eoed_utils = eodatadown.eodatadownutils.EODataDownUtils()
 
         new_scns_avail = False
-        db_records = []
+        db_records = list()
         for geo_bound in self.geoBounds:
             csv_poly = geo_bound.getCSVPolygon()
             logger.info("Checking for available scenes for \"" + csv_poly + "\"")
@@ -452,7 +452,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel1ASF).all()
-        scns = []
+        scns = list()
         if query_result is not None:
             for record in query_result:
                 scns.append(record.PID)
@@ -475,7 +475,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == False).filter(
             EDDSentinel1ASF.Remote_URL is not None).all()
 
-        scns2dwnld = []
+        scns2dwnld = list()
         if query_result is not None:
             for record in query_result:
                 scns2dwnld.append(record.PID)
@@ -560,7 +560,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == False).filter(
                                                          EDDSentinel1ASF.Remote_URL is not None).all()
-        dwnld_params = []
+        dwnld_params = list()
         downloaded_new_scns = False
         if query_result is not None:
             for record in query_result:
@@ -602,7 +602,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                          EDDSentinel1ASF.ARDProduct == False,
                                                          EDDSentinel1ASF.Invalid == False).all()
 
-        scns2ard = []
+        scns2ard = list()
         if query_result is not None:
             for record in query_result:
                 scns2ard.append(record.PID)
@@ -686,7 +686,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             if not os.path.exists(wrk_ard_scn_path):
                 os.mkdir(wrk_ard_scn_path)
 
-            pols = []
+            pols = list()
             if 'VV' in query_result.Polarization:
                 pols.append('VV')
             if 'VH' in query_result.Polarization:
@@ -781,7 +781,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 if not os.path.exists(wrk_ard_scn_path):
                     os.mkdir(wrk_ard_scn_path)
 
-                pols = []
+                pols = list()
                 if 'VV' in record.Polarization:
                     pols.append('VV')
                 if 'VH' in record.Polarization:
@@ -825,7 +825,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.ARDProduct == True,
                                                          EDDSentinel1ASF.DCLoaded == loaded).all()
-        scns2dcload = []
+        scns2dcload = list()
         if query_result is not None:
             for record in query_result:
                 scns2dcload.append(record.PID)
@@ -881,7 +881,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('quicklook'))),
             EDDSentinel1ASF.Invalid == False,
             EDDSentinel1ASF.ARDProduct == True).all()
-        scns2quicklook = []
+        scns2quicklook = list()
         if query_result is not None:
             for record in query_result:
                 scns2quicklook.append(record.PID)
@@ -959,7 +959,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
             ard_img_basename = os.path.splitext(os.path.basename(ard_img_file))[0]
 
-            quicklook_imgs = []
+            quicklook_imgs = list()
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_250px.jpg".format(ard_img_basename)))
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_1000px.jpg".format(ard_img_basename)))
 
@@ -1007,7 +1007,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('tilecache'))),
             EDDSentinel1ASF.Invalid == False,
             EDDSentinel1ASF.ARDProduct == True).all()
-        scns2tilecache = []
+        scns2tilecache = list()
         if query_result is not None:
             for record in query_result:
                 scns2tilecache.append(record.PID)
@@ -1262,13 +1262,72 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         """
         raise EODataDownException("Not implemented.")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
-        raise EODataDownException("Not implemented.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+
+        query_result = ses.query(EDDSentinel1ASF).all()
+        db_scn_dict = dict()
+        for scn in query_result:
+            db_scn_dict[scn.PID] = dict()
+            db_scn_dict[scn.PID]['PID'] = scn.PID
+            db_scn_dict[scn.PID]['Scene_ID'] = scn.Scene_ID
+            db_scn_dict[scn.PID]['Product_Name'] = scn.Product_Name
+            db_scn_dict[scn.PID]['Product_File_ID'] = scn.Product_File_ID
+            db_scn_dict[scn.PID]['ABS_Orbit'] = scn.ABS_Orbit
+            db_scn_dict[scn.PID]['Rel_Orbit'] = scn.Rel_Orbit
+            db_scn_dict[scn.PID]['Doppler'] = scn.Doppler
+            db_scn_dict[scn.PID]['Flight_Direction'] = scn.Flight_Direction
+            db_scn_dict[scn.PID]['Granule_Name'] = scn.Granule_Name
+            db_scn_dict[scn.PID]['Granule_Type'] = scn.Granule_Type
+            db_scn_dict[scn.PID]['Incidence_Angle'] = scn.Incidence_Angle
+            db_scn_dict[scn.PID]['Look_Direction'] = scn.Look_Direction
+            db_scn_dict[scn.PID]['Platform'] = scn.Platform
+            db_scn_dict[scn.PID]['Polarization'] = scn.Polarization
+            db_scn_dict[scn.PID]['Process_Date'] = eodd_utils.getDateTimeAsString(scn.Process_Date)
+            db_scn_dict[scn.PID]['Process_Description'] = scn.Process_Description
+            db_scn_dict[scn.PID]['Process_Level'] = scn.Process_Level
+            db_scn_dict[scn.PID]['Process_Type'] = scn.Process_Type
+            db_scn_dict[scn.PID]['Process_Type_Disp'] = scn.Process_Type_Disp
+            db_scn_dict[scn.PID]['Acquisition_Date'] = eodd_utils.getDateTimeAsString(scn.Acquisition_Date)
+            db_scn_dict[scn.PID]['Sensor'] = scn.Sensor
+            db_scn_dict[scn.PID]['BeginPosition'] = eodd_utils.getDateTimeAsString(scn.BeginPosition)
+            db_scn_dict[scn.PID]['EndPosition'] = eodd_utils.getDateTimeAsString(scn.EndPosition)
+            db_scn_dict[scn.PID]['North_Lat'] = scn.North_Lat
+            db_scn_dict[scn.PID]['South_Lat'] = scn.South_Lat
+            db_scn_dict[scn.PID]['East_Lon'] = scn.East_Lon
+            db_scn_dict[scn.PID]['West_Lon'] = scn.West_Lon
+            db_scn_dict[scn.PID]['Remote_URL'] = scn.Remote_URL
+            db_scn_dict[scn.PID]['Remote_FileName'] = scn.Remote_FileName
+            db_scn_dict[scn.PID]['Remote_URL_MD5'] = scn.Remote_URL_MD5
+            db_scn_dict[scn.PID]['Total_Size'] = scn.Total_Size
+            db_scn_dict[scn.PID]['Query_Date'] = eodd_utils.getDateTimeAsString(scn.Query_Date)
+            db_scn_dict[scn.PID]['Download_Start_Date'] = eodd_utils.getDateTimeAsString(scn.Download_Start_Date)
+            db_scn_dict[scn.PID]['Download_End_Date'] = eodd_utils.getDateTimeAsString(scn.Download_End_Date)
+            db_scn_dict[scn.PID]['Downloaded'] = scn.Downloaded
+            db_scn_dict[scn.PID]['Download_Path'] = scn.Download_Path
+            db_scn_dict[scn.PID]['Archived'] = scn.Archived
+            db_scn_dict[scn.PID]['ARDProduct_Start_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_Start_Date)
+            db_scn_dict[scn.PID]['ARDProduct_End_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_End_Date)
+            db_scn_dict[scn.PID]['ARDProduct'] = scn.ARDProduct
+            db_scn_dict[scn.PID]['ARDProduct_Path'] = scn.ARDProduct_Path
+            db_scn_dict[scn.PID]['DCLoaded_Start_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_Start_Date)
+            db_scn_dict[scn.PID]['DCLoaded_End_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_End_Date)
+            db_scn_dict[scn.PID]['DCLoaded'] = scn.DCLoaded
+            db_scn_dict[scn.PID]['Invalid'] = scn.Invalid
+            db_scn_dict[scn.PID]['ExtendedInfo'] = scn.ExtendedInfo
+            db_scn_dict[scn.PID]['RegCheck'] = scn.RegCheck
+        ses.close()
+
+        with open(out_json_file, 'w') as outfile:
+            json.dump(db_scn_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
 
     def import_append_db(self, db_info_obj):
         """
@@ -1295,6 +1354,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         and the database fields are reset to defaults. This allows the scene to be re-downloaded
         and processed.
         :param unq_id: unique id for the scene to be reset.
+        :param reset_download: if True the download is deleted and reset in the database.
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)

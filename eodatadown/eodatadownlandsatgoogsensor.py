@@ -408,7 +408,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Find duplicate records for the scene_id: "+scn_id)
         query_rtn = ses.query(EDDLandsatGoogle.PID, EDDLandsatGoogle.Scene_ID, EDDLandsatGoogle.Product_ID).\
             filter(EDDLandsatGoogle.Scene_ID == scn_id).all()
-        process_dates = []
+        process_dates = list()
         for record in query_rtn:
             prod_id = record.Product_ID
             logger.debug("Record (Product ID): " + prod_id)
@@ -532,7 +532,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                               ", Row:" + str(wrs2['row']) + ")")
 
                 if query_results.result():
-                    db_records = []
+                    db_records = list()
                     for row in query_results.result():
                         query_rtn = ses.query(EDDLandsatGoogle).filter(
                             EDDLandsatGoogle.Scene_ID == row.scene_id).one_or_none()
@@ -594,7 +594,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).all()
-        scns = []
+        scns = list()
         if query_result is not None:
             for record in query_result:
                 scns.append(record.PID)
@@ -616,7 +616,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
 
-        scns2dwnld = []
+        scns2dwnld = list()
         if query_result is not None:
             for record in query_result:
                 scns2dwnld.append(record.PID)
@@ -686,7 +686,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 logger.debug("Get the storage bucket and blob objects.")
                 bucket_obj = storage_client.get_bucket(bucket_name)
                 bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
-                scn_dwnlds_filelst = []
+                scn_dwnlds_filelst = list()
                 for blob in bucket_blobs:
                     if "$folder$" in blob.name:
                         continue
@@ -737,7 +737,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
 
-        dwnld_params = []
+        dwnld_params = list()
         if query_result is not None:
             logger.debug("Build download file list.")
             for record in query_result:
@@ -759,7 +759,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 logger.debug("Get the storage bucket and blob objects.")
                 bucket_obj = storage_client.get_bucket(bucket_name)
                 bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
-                scn_dwnlds_filelst = []
+                scn_dwnlds_filelst = list()
                 for blob in bucket_blobs:
                     if "$folder$" in blob.name:
                         continue
@@ -802,7 +802,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                           EDDLandsatGoogle.ARDProduct == False,
                                                           EDDLandsatGoogle.Invalid == False).all()
 
-        scns2ard = []
+        scns2ard = list()
         if query_result is not None:
             for record in query_result:
                 scns2ard.append(record.PID)
@@ -929,7 +929,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             rsgis_utils = rsgislib.RSGISPyUtils()
             proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
 
-        ard_params = []
+        ard_params = list()
         if query_result is not None:
             logger.debug("Create the specific output directories for the ARD processing.")
             dt_obj = datetime.datetime.now()
@@ -992,7 +992,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
                                                           EDDLandsatGoogle.DCLoaded == loaded).all()
-        scns2dcload = []
+        scns2dcload = list()
         if query_result is not None:
             for record in query_result:
                 scns2dcload.append(record.PID)
@@ -1149,7 +1149,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('quicklook'))),
             EDDLandsatGoogle.Invalid == False,
             EDDLandsatGoogle.ARDProduct == True).all()
-        scns2quicklook = []
+        scns2quicklook = list()
         if query_result is not None:
             for record in query_result:
                 scns2quicklook.append(record.PID)
@@ -1229,7 +1229,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             ard_img_basename = os.path.splitext(os.path.basename(ard_img_file))[0]
             
-            quicklook_imgs = []
+            quicklook_imgs = list()
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_250px.jpg".format(ard_img_basename)))
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_1000px.jpg".format(ard_img_basename)))
 
@@ -1277,7 +1277,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('tilecache'))),
             EDDLandsatGoogle.Invalid == False,
             EDDLandsatGoogle.ARDProduct == True).all()
-        scns2tilecache = []
+        scns2tilecache = list()
         if query_result is not None:
             for record in query_result:
                 scns2tilecache.append(record.PID)
@@ -1533,14 +1533,60 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
-        # TODO function to export data from DB.
-        raise EODataDownException("Not implemented.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+
+        query_result = ses.query(EDDLandsatGoogle).all()
+        db_scn_dict = dict()
+        for scn in query_result:
+            db_scn_dict[scn.PID] = dict()
+            db_scn_dict[scn.PID]['PID'] = scn.PID
+            db_scn_dict[scn.PID]['Scene_ID'] = scn.Scene_ID
+            db_scn_dict[scn.PID]['Product_ID'] = scn.Product_ID
+            db_scn_dict[scn.PID]['Spacecraft_ID'] = scn.Spacecraft_ID
+            db_scn_dict[scn.PID]['Sensor_ID'] = scn.Sensor_ID
+            db_scn_dict[scn.PID]['Date_Acquired'] = eodd_utils.getDateTimeAsString(scn.Date_Acquired)
+            db_scn_dict[scn.PID]['Collection_Number'] = scn.Collection_Number
+            db_scn_dict[scn.PID]['Collection_Catagory'] = scn.Collection_Catagory
+            db_scn_dict[scn.PID]['Sensing_Time'] = eodd_utils.getDateTimeAsString(scn.Sensing_Time)
+            db_scn_dict[scn.PID]['Data_Type'] = scn.Data_Type
+            db_scn_dict[scn.PID]['WRS_Path'] = scn.WRS_Path
+            db_scn_dict[scn.PID]['WRS_Row'] = scn.WRS_Row
+            db_scn_dict[scn.PID]['Cloud_Cover'] = scn.Cloud_Cover
+            db_scn_dict[scn.PID]['North_Lat'] = scn.North_Lat
+            db_scn_dict[scn.PID]['South_Lat'] = scn.South_Lat
+            db_scn_dict[scn.PID]['East_Lon'] = scn.East_Lon
+            db_scn_dict[scn.PID]['West_Lon'] = scn.West_Lon
+            db_scn_dict[scn.PID]['Total_Size'] = scn.Total_Size
+            db_scn_dict[scn.PID]['Remote_URL'] = scn.Remote_URL
+            db_scn_dict[scn.PID]['Query_Date'] = eodd_utils.getDateTimeAsString(scn.Query_Date)
+            db_scn_dict[scn.PID]['Download_Start_Date'] = eodd_utils.getDateTimeAsString(scn.Download_Start_Date)
+            db_scn_dict[scn.PID]['Download_End_Date'] = eodd_utils.getDateTimeAsString(scn.Download_End_Date)
+            db_scn_dict[scn.PID]['Downloaded'] = scn.Downloaded
+            db_scn_dict[scn.PID]['Download_Path'] = scn.Download_Path
+            db_scn_dict[scn.PID]['Archived'] = scn.Archived
+            db_scn_dict[scn.PID]['ARDProduct_Start_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_Start_Date)
+            db_scn_dict[scn.PID]['ARDProduct_End_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_End_Date)
+            db_scn_dict[scn.PID]['ARDProduct'] = scn.ARDProduct
+            db_scn_dict[scn.PID]['ARDProduct_Path'] = scn.ARDProduct_Path
+            db_scn_dict[scn.PID]['DCLoaded_Start_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_Start_Date)
+            db_scn_dict[scn.PID]['DCLoaded_End_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_End_Date)
+            db_scn_dict[scn.PID]['DCLoaded'] = scn.DCLoaded
+            db_scn_dict[scn.PID]['Invalid'] = scn.Invalid
+            db_scn_dict[scn.PID]['ExtendedInfo'] = scn.ExtendedInfo
+            db_scn_dict[scn.PID]['RegCheck'] = scn.RegCheck
+        ses.close()
+
+        with open(out_json_file, 'w') as outfile:
+            json.dump(db_scn_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
 
     def import_append_db(self, db_info_obj):
         """
@@ -1717,6 +1763,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         and the database fields are reset to defaults. This allows the scene to be re-downloaded
         and processed.
         :param unq_id: unique id for the scene to be reset.
+        :param reset_download: if True the download is deleted and reset in the database.
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)

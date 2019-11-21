@@ -155,7 +155,7 @@ class EODataDownSensor (object):
     def dwnlds_archived(self, new_path=None): pass
 
     @abstractmethod
-    def export2db(self, db_info_obj): pass
+    def export_db_to_json(self, out_json_file): pass
 
     @abstractmethod
     def import_append_db(self, db_info_obj): pass

@@ -46,7 +46,7 @@ avail_years = [1996, 2007, 2008, 2009, 2010, 2015, 2016, 2017]
 jaxafileslst = dict()
 
 for cyear in avail_years:
-    jaxafileslst[cyear] = []
+    jaxafileslst[cyear] = list()
     query_rtn = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.Year == cyear).all()
     
     for rec in query_rtn:

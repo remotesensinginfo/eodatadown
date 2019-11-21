@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     t = rsgislib.RSGISTime()
     t.start(True)
-    cmds_lst = []
+    cmds_lst = list()
     if args.process == 'performdownload':
         try:
             logger.info('Running process to generate commands to perform image downloads.')
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         outfile_base, outfile_ext = os.path.splitext(args.output)
 
         # Loop through and create individual files.
-        out_file_lst = []
+        out_file_lst = list()
         outfile_id = 1
         for i in range(n_out_files):
             l_bound = i * n_out_cmds

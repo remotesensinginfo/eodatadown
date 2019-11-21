@@ -412,7 +412,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
                 logger.debug("Process google query result and add to local database (Granule: " + granule_str + ")")
                 if query_results.result():
-                    db_records = []
+                    db_records = list()
                     for row in query_results.result():
                         generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
                         query_rtn = ses.query(EDDSentinel2Google).filter(
@@ -462,7 +462,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel2Google).all()
-        scns = []
+        scns = list()
         if query_result is not None:
             for record in query_result:
                 scns.append(record.PID)
@@ -484,7 +484,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).all()
 
-        scns2dwnld = []
+        scns2dwnld = list()
         if query_result is not None:
             for record in query_result:
                 scns2dwnld.append(record.PID)
@@ -554,7 +554,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 logger.debug("Get the storage bucket and blob objects.")
                 bucket_obj = storage_client.get_bucket(bucket_name)
                 bucket_blobs = bucket_obj.list_blobs(prefix=bucket_prefix)
-                scn_dwnlds_filelst = []
+                scn_dwnlds_filelst = list()
                 for blob in bucket_blobs:
                     if "$folder$" in blob.name:
                         continue
@@ -1083,7 +1083,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             ard_img_basename = os.path.splitext(os.path.basename(ard_img_file))[0]
 
-            quicklook_imgs = []
+            quicklook_imgs = list()
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_250px.jpg".format(ard_img_basename)))
             quicklook_imgs.append(os.path.join(out_quicklook_path, "{}_1000px.jpg".format(ard_img_basename)))
 
@@ -1383,13 +1383,57 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
-        raise EODataDownException("Not implemented.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+
+        query_result = ses.query(EDDSentinel2Google).all()
+        db_scn_dict = dict()
+        for scn in query_result:
+            db_scn_dict[scn.PID] = dict()
+            db_scn_dict[scn.PID]['PID'] = scn.PID
+            db_scn_dict[scn.PID]['Granule_ID'] = scn.Granule_ID
+            db_scn_dict[scn.PID]['Product_ID'] = scn.Product_ID
+            db_scn_dict[scn.PID]['Datatake_Identifier'] = scn.Datatake_Identifier
+            db_scn_dict[scn.PID]['Mgrs_Tile'] = scn.Mgrs_Tile
+            db_scn_dict[scn.PID]['Sensing_Time'] = eodd_utils.getDateTimeAsString(scn.Sensing_Time)
+            db_scn_dict[scn.PID]['Geometric_Quality_Flag'] = scn.Geometric_Quality_Flag
+            db_scn_dict[scn.PID]['Generation_Time'] = eodd_utils.getDateTimeAsString(scn.Generation_Time)
+            db_scn_dict[scn.PID]['Cloud_Cover'] = scn.Cloud_Cover
+            db_scn_dict[scn.PID]['North_Lat'] = scn.North_Lat
+            db_scn_dict[scn.PID]['South_Lat'] = scn.South_Lat
+            db_scn_dict[scn.PID]['East_Lon'] = scn.East_Lon
+            db_scn_dict[scn.PID]['West_Lon'] = scn.West_Lon
+            db_scn_dict[scn.PID]['Total_Size'] = scn.Total_Size
+            db_scn_dict[scn.PID]['Remote_URL'] = scn.Remote_URL
+            db_scn_dict[scn.PID]['Query_Date'] = eodd_utils.getDateTimeAsString(scn.Query_Date)
+            db_scn_dict[scn.PID]['Download_Start_Date'] = eodd_utils.getDateTimeAsString(scn.Download_Start_Date)
+            db_scn_dict[scn.PID]['Download_End_Date'] = eodd_utils.getDateTimeAsString(scn.Download_End_Date)
+            db_scn_dict[scn.PID]['Downloaded'] = scn.Downloaded
+            db_scn_dict[scn.PID]['Download_Path'] = scn.Download_Path
+            db_scn_dict[scn.PID]['Archived'] = scn.Archived
+            db_scn_dict[scn.PID]['ARDProduct_Start_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_Start_Date)
+            db_scn_dict[scn.PID]['ARDProduct_End_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_End_Date)
+            db_scn_dict[scn.PID]['ARDProduct'] = scn.ARDProduct
+            db_scn_dict[scn.PID]['ARDProduct_Path'] = scn.ARDProduct_Path
+            db_scn_dict[scn.PID]['DCLoaded_Start_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_Start_Date)
+            db_scn_dict[scn.PID]['DCLoaded_End_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_End_Date)
+            db_scn_dict[scn.PID]['DCLoaded'] = scn.DCLoaded
+            db_scn_dict[scn.PID]['Invalid'] = scn.Invalid
+            db_scn_dict[scn.PID]['ExtendedInfo'] = scn.ExtendedInfo
+            db_scn_dict[scn.PID]['RegCheck'] = scn.RegCheck
+        ses.close()
+
+        with open(out_json_file, 'w') as outfile:
+            json.dump(db_scn_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
+
 
     def import_append_db(self, db_info_obj):
         """
@@ -1416,6 +1460,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         and the database fields are reset to defaults. This allows the scene to be re-downloaded
         and processed.
         :param unq_id: unique id for the scene to be reset.
+        :param reset_download: if True the download is deleted and reset in the database.
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)

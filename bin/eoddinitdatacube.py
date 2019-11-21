@@ -64,7 +64,7 @@ if __name__ == "__main__":
         logger.info("The config file does not exist: '" + config_file + "'")
         raise Exception("Config file does not exist")
 
-    sensors = []
+    sensors = list()
     if args.sensor == None:
         sensors = EODATADOWN_SENSORS_LIST
     else:

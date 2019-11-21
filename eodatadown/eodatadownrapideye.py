@@ -321,7 +321,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             if not len(geo_bounds_lst) > 0:
                 raise EODataDownException("There must be at least 1 geographic boundary given.")
 
-            self.geoBounds = []
+            self.geoBounds = list()
             for geo_bound_json in geo_bounds_lst:
                 edd_bbox = eodatadown.eodatadownutils.EDDGeoBBox()
                 edd_bbox.setNorthLat(json_parse_helper.getNumericValue(geo_bound_json, ["north_lat"], -90, 90))
@@ -396,7 +396,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             request = planet.api.filters.build_search_request(query, ["REOrthoTile"])
             results = client.quick_search(request)
 
-            db_records = []
+            db_records = list()
             # items_iter returns an iterator over API response pages
             for record in results.items_iter(limit=1000000000):
                 if json_parse_helper.doesPathExist(record, ["id"]):
@@ -522,7 +522,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDRapideyePlanet).all()
-        scns = []
+        scns = list()
         if query_result is not None:
             for record in query_result:
                 scns.append(record.PID)
@@ -588,7 +588,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.Downloaded == False).all()
         eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
 
-        dwnld_params = []
+        dwnld_params = list()
         if query_result is not None:
             logger.debug("Create the output directory for this download.")
             dt_obj = datetime.datetime.now()
@@ -704,7 +704,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
             if not os.path.exists(tmp_ard_path):
                 os.mkdir(tmp_ard_path)
 
-            ard_params = []
+            ard_params = list()
             for record in query_result:
                 logger.debug("Create info for running ARD analysis for scene: " + record.Scene_ID)
                 final_ard_scn_path = os.path.join(self.ardFinalPath, record.Scene_ID)
@@ -751,7 +751,7 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDRapideyePlanet).filter(EDDRapideyePlanet.ARDProduct == True,
                                                            EDDRapideyePlanet.DCLoaded == loaded).all()
-        scns2dcload = []
+        scns2dcload = list()
         if query_result is not None:
             for record in query_result:
                 scns2dcload.append(record.PID)
@@ -928,11 +928,10 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
         raise EODataDownException("Not implemented.")
 

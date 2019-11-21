@@ -336,7 +336,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         database but have yet to be downloaded.
         :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to download.
         """
-        return []
+        return list()
 
     def has_scn_download(self, unq_id):
         """
@@ -387,7 +387,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         query_obj = sqlalchemy.select([self.generic_table]).where(self.generic_table.c.Downloaded == True, self.generic_table.c.ARDProduct == False)
         query_rtn = ses.execute(query_obj).fetchall()
 
-        scns2ard = []
+        scns2ard = list()
         if len(query_rtn) > 0:
             for record in query_rtn:
                 scns2ard.append(record.PID)
@@ -488,7 +488,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
                 rsgis_utils = rsgislib.RSGISPyUtils()
                 proj_wkt = rsgis_utils.getWKTFromEPSGCode(self.projEPSG)
 
-            ard_params = []
+            ard_params = list()
             for record in query_rtn:
                 work_ard_scn_path = os.path.join(work_ard_path, record.Base_Name)
                 if not os.path.exists(work_ard_scn_path):
@@ -686,11 +686,10 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
         raise EODataDownException("Not Implemented")
 

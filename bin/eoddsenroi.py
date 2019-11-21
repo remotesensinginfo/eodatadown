@@ -60,7 +60,7 @@ if __name__ == "__main__":
         install_prefix = os.path.split(os.path.dirname(__file__))[0]
         sensor_luts_file = os.path.join(install_prefix, "share", "eodatadown", "sensor_scn_lut.gpkg")
 
-        sensors_lst = []
+        sensors_lst = list()
         if (args.sensors is None) or (not args.sensors):
             sensors_lst = ['Landsat', 'Sentinel2', 'OtherBBOX']
         else:

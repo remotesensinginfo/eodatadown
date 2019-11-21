@@ -64,7 +64,7 @@ def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     edd_usage_db.add_entry("Started: Finding Available Downloads.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = []
+    sensor_objs_to_process = list()
     for sensor_obj in sensor_objs:
         process_sensor = False
         if sensors is None:
@@ -124,7 +124,7 @@ def perform_downloads(config_file, n_cores, sensors):
     edd_usage_db.add_entry("Started: Downloading Available Scenes.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = []
+    sensor_objs_to_process = list()
     for sensor_obj in sensor_objs:
         process_sensor = False
         if sensors is None:
@@ -197,7 +197,7 @@ def process_data_ard(config_file, n_cores, sensors):
     edd_usage_db.add_entry("Starting: Converting Available Scenes to ARD Product.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = []
+    sensor_objs_to_process = list()
     for sensor_obj in sensor_objs:
         process_sensor = False
         if sensors is None:
@@ -269,7 +269,7 @@ def datacube_load_data(config_file, sensors):
     edd_usage_db.add_entry("Starting: Loading Available Scenes to Data Cube.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = []
+    sensor_objs_to_process = list()
     for sensor_obj in sensor_objs:
         process_sensor = False
         if sensors is None:
@@ -341,7 +341,7 @@ def gen_quicklook_images(config_file, sensors):
     edd_usage_db.add_entry("Starting: Generating Quicklook Image for Available Scenes.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = []
+    sensor_objs_to_process = list()
     for sensor_obj in sensor_objs:
         process_sensor = False
         if sensors is None:
@@ -413,7 +413,7 @@ def gen_tilecache_images(config_file, sensors):
     edd_usage_db.add_entry("Starting: Generating TileCache Image for Available Scenes.", start_block=True)
 
     sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = []
+    sensor_objs_to_process = list()
     for sensor_obj in sensor_objs:
         process_sensor = False
         if sensors is None:
@@ -503,3 +503,24 @@ def export_image_footprints_vector(config_file, sensor, table, vector_file, vect
                 break
     edd_usage_db.add_entry("Finished: Export vector footprints.", end_block=True)
 
+
+def export_sensor_database(config_file, sensor, out_json_file):
+    """
+    A function to export a sensors database table to a JSON file.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor to be exported.
+    :param out_json_file: the file path of the output JSON file.
+
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Export {} sensors database table.".format(sensor), start_block=True)
+
+    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+    sensor_obj.export_db_to_json(out_json_file)
+
+    edd_usage_db.add_entry("Finished: Export {} sensors database table.".format(sensor), end_block=True)

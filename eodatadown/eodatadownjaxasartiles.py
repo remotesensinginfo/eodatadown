@@ -657,11 +657,11 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         ses = session_sqlalc()
 
         query_rtn = ses.query(EDDJAXASARTiles.Year).group_by(EDDJAXASARTiles.Year).all()
-        years_in_db = []
+        years_in_db = list()
         for result in query_rtn:
             years_in_db.append(result[0])
 
-        years_to_dwn = []
+        years_to_dwn = list()
         for year_tmp in self.years_of_interest:
             if year_tmp not in years_in_db:
                 years_to_dwn.append(year_tmp)
@@ -674,7 +674,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
                     logger.info("Processing {} from remote server.".format(cyear))
                     file_dict, file_lst = edd_ftp_utils.getFTPFileListings(self.jaxa_ftp, self.ftp_paths[cyear], "", "",
                                                                            ftp_timeout=None)
-                    db_records = []
+                    db_records = list()
                     for file_path in file_lst:
                         file_base_path = os.path.split(file_path)[0]
                         parent_tile = os.path.basename(file_base_path)
@@ -695,7 +695,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
 
                 for cyear in years_to_dwn:
                     logger.info("Processing {} from local file specified.".format(cyear))
-                    db_records = []
+                    db_records = list()
                     for file_path in jaxa_file_lst[str(cyear)]:
                         file_base_path = os.path.split(file_path)[0]
                         parent_tile = os.path.basename(file_base_path)
@@ -729,7 +729,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDJAXASARTiles).all()
-        scns = []
+        scns = list()
         if query_result is not None:
             for record in query_result:
                 scns.append(record.PID)
@@ -788,7 +788,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         download_new_scns = False
         if query_result is not None:
             logger.debug("Build download file list.")
-            dwnld_params = []
+            dwnld_params = list()
             for record in query_result:
                 if self.all_jaxa_tiles or (record.Tile_Name in self.tile_lst):
                     logger.debug("Building download info for '"+record.File_Name+"'")
@@ -888,7 +888,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
             if not os.path.exists(tmp_ard_path):
                 os.mkdir(tmp_ard_path)
 
-            ard_params = []
+            ard_params = list()
             for record in query_result:
                 if self.all_jaxa_tiles or (record.Tile_Name in self.tile_lst):
                     logger.debug("Create info for running ARD analysis for scene: {0} in {1}".format(record.Tile_Name, record.Year))
@@ -939,7 +939,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDJAXASARTiles).filter(EDDJAXASARTiles.ARDProduct == True,
                                                          EDDJAXASARTiles.DCLoaded == loaded).all()
-        scns2dcload = []
+        scns2dcload = list()
         if query_result is not None:
             for record in query_result:
                 scns2dcload.append(record.PID)
@@ -1116,11 +1116,10 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def export2db(self, db_info_obj):
+    def export_db_to_json(self, out_json_file):
         """
-        This function exports the existing database to the database specified by the
-        input database info object.
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
         """
         raise EODataDownException("Not implemented.")
 
