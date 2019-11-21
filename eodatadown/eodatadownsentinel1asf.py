@@ -1090,7 +1090,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             rsgislib.tools.visualisation.createWebTilesVisGTIFFImg(ard_img_file, bands, out_tilecache_dir,
                                                                    out_visual_gtiff, zoomLevels='2-12',
                                                                    img_stats_msk=None, img_msk_vals=1,
-                                                                   tmp_dir=tmp_tilecache_path, webview=True)
+                                                                   tmp_dir=tmp_tilecache_path, webview=True,
+                                                                   scale=50)
 
             if not ("tilecache" in scn_json):
                 scn_json["tilecache"] = dict()
