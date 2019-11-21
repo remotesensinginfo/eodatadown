@@ -1329,14 +1329,76 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         with open(out_json_file, 'w') as outfile:
             json.dump(db_scn_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
 
-    def import_append_db(self, db_info_obj):
+    def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
-        This function imports from the database specified by the input database info object
-        and appends the data to the exisitng database. This might be used if data was processed
-        on another system (e.g., HPC cluster).
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function imports from the database records from the specified input JSON file.
+        The database table checks are not made for duplicated as records are just appended 
+        to the table with a new PID.
+        :param input_json_file: input JSON file with the records to be imported.
+        :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
         """
-        raise EODataDownException("Not implemented.")
+        db_records = list()
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        with open(input_json_file) as json_file_obj:
+            sensor_rows = json.load(json_file_obj)
+            for row in sensor_rows:
+                # This is due to typo - in original table def so will keep this for a while to allow export and import
+                if 'Collection_Category' in row:
+                    collect_cat = row['Collection_Category']
+                else:
+                    collect_cat = row['Collection_Catagory']
+                db_records.append(EDDSentinel1ASF(Scene_ID=row['Scene_ID'],
+                                                  Product_Name=row['Product_Name'],
+                                                  Product_File_ID=row['Product_File_ID'],
+                                                  ABS_Orbit=row['ABS_Orbit'],
+                                                  Rel_Orbit=row['Rel_Orbit'],
+                                                  Doppler=row['Doppler'],
+                                                  Flight_Direction=row['Flight_Direction'],
+                                                  Granule_Name=row['Granule_Name'],
+                                                  Granule_Type=row['Granule_Type'],
+                                                  Incidence_Angle=row['Incidence_Angle'],
+                                                  Look_Direction=row['Look_Direction'],
+                                                  Platform=row['Platform'],
+                                                  Polarization=row['Polarization'],
+                                                  Process_Date=eodd_utils.getDateTimeFromISOString(row['Process_Date']),
+                                                  Process_Description=row['Process_Description'],
+                                                  Process_Level=row['Process_Level'],
+                                                  Process_Type=row['Process_Type'],
+                                                  Process_Type_Disp=row['Process_Type_Disp'],
+                                                  Acquisition_Date=eodd_utils.getDateTimeFromISOString(row['Acquisition_Date']),
+                                                  Sensor=row['Sensor'],
+                                                  BeginPosition=eodd_utils.getDateTimeFromISOString(row['BeginPosition']),
+                                                  EndPosition=eodd_utils.getDateTimeFromISOString(row['EndPosition']),
+                                                  North_Lat=row['North_Lat'],
+                                                  South_Lat=row['South_Lat'],
+                                                  East_Lon=row['East_Lon'],
+                                                  West_Lon=row['West_Lon'],
+                                                  Remote_URL=row['Remote_URL'],
+                                                  Remote_FileName=row['Remote_FileName'],
+                                                  Remote_URL_MD5=row['Remote_URL_MD5'],
+                                                  Total_Size=row['Total_Size'],
+                                                  Query_Date=eodd_utils.getDateTimeFromISOString(row['Query_Date']),
+                                                  Download_Start_Date=eodd_utils.getDateTimeFromISOString(row['Download_Start_Date']),
+                                                  Download_End_Date=eodd_utils.getDateTimeFromISOString(row['Download_End_Date']),
+                                                  Downloaded=row['Downloaded'],
+                                                  Download_Path=eodd_utils.update_file_path(row['Download_Path'],replace_path_dict),
+                                                  Archived=row['Archived'],
+                                                  ARDProduct_Start_Date=eodd_utils.getDateTimeFromISOString(row['ARDProduct_Start_Date']),
+                                                  ARDProduct_End_Date=eodd_utils.getDateTimeFromISOString(row['ARDProduct_End_Date']),
+                                                  ARDProduct=row['ARDProduct'],
+                                                  ARDProduct_Path=eodd_utils.update_file_path(row['ARDProduct_Path'],replace_path_dict),
+                                                  DCLoaded_Start_Date=eodd_utils.getDateTimeFromISOString(row['DCLoaded_Start_Date']),
+                                                  DCLoaded_End_Date=eodd_utils.getDateTimeFromISOString(row['DCLoaded_End_Date']),
+                                                  DCLoaded=row['DCLoaded'],
+                                                  Invalid=row['Invalid'],
+                                                  ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(row['ExtendedInfo']),
+                                                  RegCheck=row['RegCheck']))
+        if len(db_records) > 0:
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            ses.add_all(db_records)
+            ses.commit()
 
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         """

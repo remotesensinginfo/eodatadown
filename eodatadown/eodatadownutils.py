@@ -341,6 +341,53 @@ class EODataDownUtils(object):
         else:
             return date_time_obj.isoformat()
 
+    def getDateTimeFromISOString(self, datetimeisostr):
+        """
+        A function which returns a datetime object from a datetime ISO string.
+        :param datetimeisostr: string representation, in ISO format, of the datetime. If the string is blank or None,
+                               then None will be returned.
+        :return: a Python datetime object. Can return None.
+        """
+        if datetimeisostr is None:
+            return None
+        if datetimeisostr is "":
+            return None
+        return datetime.datetime.fromisoformat(datetimeisostr)
+
+    def getDateFromISOString(self, dateisostr):
+        """
+        A function which returns a datetime object from a date ISO string.
+        :param dateisostr: string representation, in ISO format, of the datetime. If the string is blank or None,
+                               then None will be returned.
+        :return: a Python date object. Can return None.
+        """
+        if dateisostr is None:
+            return None
+        if dateisostr is "":
+            return None
+        return datetime.date.fromisoformat(dateisostr)
+
+    def update_file_path(self, input_path, paths_dict):
+        """
+        A function which updates the input file path by replacing
+        using one of the input paths in the dict. If the dict is
+        None then ignored and input_path returned. If paths dict
+        doesn't contain a path which matches the input_path then
+        the input path is returned.
+        :param input_path: The input path within which part may by replaced.
+        :param paths_dict: a dictionary of paths (keys are the path to replace and value is the replacement value)
+        :return: returns path updated is a match was found.
+        """
+        if paths_dict is None:
+            return input_path
+        out_path = input_path
+        for path_val in paths_dict:
+            if path_val in input_path:
+                out_path = input_path.replace(path_val, paths_dict[path_val])
+                break
+        return out_path
+
+
 class EODataDownDatabaseInfo(object):
 
     def __init__(self, dbConn):

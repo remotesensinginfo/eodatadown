@@ -32,6 +32,7 @@ EODataDown - run the EODataDown System.
 # Version 2.0 - Removed class structure to make it easier to integrate with other systems.
 
 import logging
+import json
 import multiprocessing
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
@@ -524,3 +525,31 @@ def export_sensor_database(config_file, sensor, out_json_file):
     sensor_obj.export_db_to_json(out_json_file)
 
     edd_usage_db.add_entry("Finished: Export {} sensors database table.".format(sensor), end_block=True)
+
+
+def import_sensor_database(config_file, sensor, in_json_file, replace_path_jsonfile):
+    """
+    A function to import a sensors database table from a JSON file.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor to be exported.
+    :param in_json_file: the file path of the output JSON file.
+    :param replace_path_jsonfile: a JSON file with pairs of paths to be updated during import.
+
+    """
+    with open(replace_path_jsonfile) as json_file_obj:
+        replace_path_dict = json.load(json_file_obj)
+
+        sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+        sys_main_obj.parse_config(config_file)
+        logger.debug("Parsed the system configuration.")
+
+        edd_usage_db = sys_main_obj.get_usage_db_obj()
+        edd_usage_db.add_entry("Starting: Import {} sensors database table.".format(sensor), start_block=True)
+
+        sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+        sensor_obj.import_sensor_db(in_json_file, replace_path_dict)
+
+        edd_usage_db.add_entry("Finished: Import {} sensors database table.".format(sensor), end_block=True)
+
+

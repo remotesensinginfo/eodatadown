@@ -73,7 +73,7 @@ class EDDLandsatGoogle(Base):
     Sensor_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Date_Acquired = sqlalchemy.Column(sqlalchemy.Date, nullable=True)
     Collection_Number = sqlalchemy.Column(sqlalchemy.String, nullable=True)
-    Collection_Catagory = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Collection_Category = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Sensing_Time = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Data_Type = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     WRS_Path = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
@@ -546,7 +546,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                  Date_Acquired=datetime.datetime.strptime(row.date_acquired,
                                                                                           "%Y-%m-%d").date(),
                                                  Collection_Number=row.collection_number,
-                                                 Collection_Catagory=row.collection_category,
+                                                 Collection_Category=row.collection_category,
                                                  Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
                                                                                          "%Y-%m-%dT%H:%M:%S.%f"),
                                                  Data_Type=row.data_type, WRS_Path=row.wrs_path, WRS_Row=row.wrs_row,
@@ -1555,7 +1555,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             db_scn_dict[scn.PID]['Sensor_ID'] = scn.Sensor_ID
             db_scn_dict[scn.PID]['Date_Acquired'] = eodd_utils.getDateTimeAsString(scn.Date_Acquired)
             db_scn_dict[scn.PID]['Collection_Number'] = scn.Collection_Number
-            db_scn_dict[scn.PID]['Collection_Catagory'] = scn.Collection_Catagory
+            db_scn_dict[scn.PID]['Collection_Category'] = scn.Collection_Category
             db_scn_dict[scn.PID]['Sensing_Time'] = eodd_utils.getDateTimeAsString(scn.Sensing_Time)
             db_scn_dict[scn.PID]['Data_Type'] = scn.Data_Type
             db_scn_dict[scn.PID]['WRS_Path'] = scn.WRS_Path
@@ -1588,15 +1588,64 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         with open(out_json_file, 'w') as outfile:
             json.dump(db_scn_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
 
-    def import_append_db(self, db_info_obj):
+    def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
-        This function imports from the database specified by the input database info object
-        and appends the data to the exisitng database. This might be used if data was processed
-        on another system (e.g., HPC cluster).
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function imports from the database records from the specified input JSON file.
+        The database table checks are not made for duplicated as records are just appended 
+        to the table with a new PID.
+        :param input_json_file: input JSON file with the records to be imported.
+        :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
         """
-        # TODO function to import data from a DB
-        raise EODataDownException("Not implemented.")
+        db_records = list()
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        with open(input_json_file) as json_file_obj:
+            sensor_rows = json.load(json_file_obj)
+            for row in sensor_rows:
+                # This is due to typo - in original table def so will keep this for a while to allow export and import
+                if 'Collection_Category' in row:
+                    collect_cat = row['Collection_Category']
+                else:
+                    collect_cat = row['Collection_Catagory']
+                db_records.append(EDDLandsatGoogle(Scene_ID=row['Scene_ID'],
+                                                   Product_ID=row['Product_ID'],
+                                                   Spacecraft_ID=row['Spacecraft_ID'],
+                                                   Sensor_ID=row['Sensor_ID'],
+                                                   Date_Acquired=eodd_utils.getDateTimeFromISOString(row['Date_Acquired']),
+                                                   Collection_Number=row['Collection_Number'],
+                                                   Collection_Category=collect_cat,
+                                                   Sensing_Time=eodd_utils.getDateTimeFromISOString(row['Sensing_Time']),
+                                                   Data_Type=row['Data_Type'],
+                                                   WRS_Path=row['WRS_Path'],
+                                                   WRS_Row=row['WRS_Row'],
+                                                   Cloud_Cover=row['Cloud_Cover'],
+                                                   North_Lat=row['North_Lat'],
+                                                   South_Lat=row['South_Lat'],
+                                                   East_Lon=row['East_Lon'],
+                                                   West_Lon=row['West_Lon'],
+                                                   Total_Size=row['Total_Size'],
+                                                   Remote_URL=row['Remote_URL'],
+                                                   Query_Date=eodd_utils.getDateTimeFromISOString(row['Query_Date']),
+                                                   Download_Start_Date=eodd_utils.getDateTimeFromISOString(row['Download_Start_Date']),
+                                                   Download_End_Date=eodd_utils.getDateTimeFromISOString(row['Download_End_Date']),
+                                                   Downloaded=row['Downloaded'],
+                                                   Download_Path=eodd_utils.update_file_path(row['Download_Path'], replace_path_dict),
+                                                   Archived=row['Archived'],
+                                                   ARDProduct_Start_Date=eodd_utils.getDateTimeFromISOString(row['ARDProduct_Start_Date']),
+                                                   ARDProduct_End_Date=eodd_utils.getDateTimeFromISOString(row['ARDProduct_End_Date']),
+                                                   ARDProduct=row['ARDProduct'],
+                                                   ARDProduct_Path=eodd_utils.update_file_path(row['ARDProduct_Path'], replace_path_dict),
+                                                   DCLoaded_Start_Date=eodd_utils.getDateTimeFromISOString(row['DCLoaded_Start_Date']),
+                                                   DCLoaded_End_Date=eodd_utils.getDateTimeFromISOString(row['DCLoaded_End_Date']),
+                                                   DCLoaded=row['DCLoaded'],
+                                                   Invalid=row['Invalid'],
+                                                   ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(row['ExtendedInfo']),
+                                                   RegCheck=row['RegCheck']))
+        if len(db_records) > 0:
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            ses.add_all(db_records)
+            ses.commit()
 
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         """
@@ -1659,10 +1708,10 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if out_vec_lyr.CreateField(collect_num_field_defn) != 0:
                 raise EODataDownException("Could not create 'Collection_Number' field in output vector lyr.")
 
-            collect_cat_field_defn = ogr.FieldDefn("Collection_Catagory", ogr.OFTString)
+            collect_cat_field_defn = ogr.FieldDefn("Collection_Category", ogr.OFTString)
             collect_cat_field_defn.SetWidth(256)
             if out_vec_lyr.CreateField(collect_cat_field_defn) != 0:
-                raise EODataDownException("Could not create 'Collection_Catagory' field in output vector lyr.")
+                raise EODataDownException("Could not create 'Collection_Category' field in output vector lyr.")
 
             sense_time_field_defn = ogr.FieldDefn("Sensing_Time", ogr.OFTString)
             sense_time_field_defn.SetWidth(32)
@@ -1734,7 +1783,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                         out_feat.SetField("Sensor_ID", record.Sensor_ID)
                         out_feat.SetField("Date_Acquired", record.Date_Acquired.strftime('%Y-%m-%d'))
                         out_feat.SetField("Collection_Number", record.Collection_Number)
-                        out_feat.SetField("Collection_Catagory", record.Collection_Catagory)
+                        out_feat.SetField("Collection_Category", record.Collection_Category)
                         out_feat.SetField("Sensing_Time", record.Sensing_Time.strftime('%Y-%m-%d %H:%M:%S'))
                         out_feat.SetField("WRS_Path", record.WRS_Path)
                         out_feat.SetField("WRS_Row", record.WRS_Row)

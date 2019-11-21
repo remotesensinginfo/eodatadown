@@ -1123,10 +1123,10 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def import_append_db(self, db_info_obj):
+    def import_sensor_db(self, input_json_file):
         """
-        This function imports from the database specified by the input database info object
-        and appends the data to the exisitng database. This might be used if data was processed
+        This function imports from the database records from the specified input JSON file.
+        The database table is expected to be empty and an error will be raised if there are . This might be used if data was processed
         on another system (e.g., HPC cluster).
         :param db_info_obj: Instance of a EODataDownDatabaseInfo object
         """

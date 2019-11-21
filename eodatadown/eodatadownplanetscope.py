@@ -906,12 +906,13 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
-    def import_append_db(self, db_info_obj):
+    def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
-        This function imports from the database specified by the input database info object
-        and appends the data to the exisitng database. This might be used if data was processed
-        on another system (e.g., HPC cluster).
-        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        This function imports from the database records from the specified input JSON file.
+        The database table checks are not made for duplicated as records are just appended 
+        to the table with a new PID.
+        :param input_json_file: input JSON file with the records to be imported.
+        :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
         """
         raise EODataDownException("Not implemented.")
 
