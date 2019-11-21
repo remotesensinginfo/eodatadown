@@ -1447,42 +1447,37 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
         with open(input_json_file) as json_file_obj:
             sensor_rows = json.load(json_file_obj)
-            for row in sensor_rows:
-                # This is due to typo - in original table def so will keep this for a while to allow export and import
-                if 'Collection_Category' in row:
-                    collect_cat = row['Collection_Category']
-                else:
-                    collect_cat = row['Collection_Catagory']
-                db_records.append(EDDSentinel2Google(Granule_ID=row['Granule_ID'],
-                                                     Product_ID=row['Product_ID'],
-                                                     Datatake_Identifier=row['Datatake_Identifier'],
-                                                     Mgrs_Tile=row['Mgrs_Tile'],
-                                                     Sensing_Time=eodd_utils.getDateFromISOString(row['Sensing_Time']),
-                                                     Geometric_Quality_Flag=row['Geometric_Quality_Flag'],
-                                                     Generation_Time=eodd_utils.getDateTimeFromISOString(row['Generation_Time']),
-                                                     Cloud_Cover=row['Cloud_Cover'],
-                                                     North_Lat=row['North_Lat'],
-                                                     South_Lat=row['South_Lat'],
-                                                     East_Lon=row['East_Lon'],
-                                                     West_Lon=row['West_Lon'],
-                                                     Total_Size=row['Total_Size'],
-                                                     Remote_URL=row['Remote_URL'],
-                                                     Query_Date=eodd_utils.getDateTimeFromISOString(row['Query_Date']),
-                                                     Download_Start_Date=eodd_utils.getDateTimeFromISOString(row['Download_Start_Date']),
-                                                     Download_End_Date=eodd_utils.getDateTimeFromISOString(row['Download_End_Date']),
-                                                     Downloaded=row['Downloaded'],
-                                                     Download_Path=eodd_utils.update_file_path(row['Download_Path'],replace_path_dict),
-                                                     Archived=row['Archived'],
-                                                     ARDProduct_Start_Date=eodd_utils.getDateTimeFromISOString(row['ARDProduct_Start_Date']),
-                                                     ARDProduct_End_Date=eodd_utils.getDateTimeFromISOString(row['ARDProduct_End_Date']),
-                                                     ARDProduct=row['ARDProduct'],
-                                                     ARDProduct_Path=eodd_utils.update_file_path(row['ARDProduct_Path'], replace_path_dict),
-                                                     DCLoaded_Start_Date=eodd_utils.getDateTimeFromISOString(row['DCLoaded_Start_Date']),
-                                                     DCLoaded_End_Date=eodd_utils.getDateTimeFromISOString( row['DCLoaded_End_Date']),
-                                                     DCLoaded=row['DCLoaded'],
-                                                     Invalid=row['Invalid'],
-                                                     ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(row['ExtendedInfo']),
-                                                     RegCheck=row['RegCheck']))
+            for pid in sensor_rows:
+                db_records.append(EDDSentinel2Google(Granule_ID=sensor_rows[pid]['Granule_ID'],
+                                                     Product_ID=sensor_rows[pid]['Product_ID'],
+                                                     Datatake_Identifier=sensor_rows[pid]['Datatake_Identifier'],
+                                                     Mgrs_Tile=sensor_rows[pid]['Mgrs_Tile'],
+                                                     Sensing_Time=eodd_utils.getDateFromISOString(sensor_rows[pid]['Sensing_Time']),
+                                                     Geometric_Quality_Flag=sensor_rows[pid]['Geometric_Quality_Flag'],
+                                                     Generation_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Generation_Time']),
+                                                     Cloud_Cover=sensor_rows[pid]['Cloud_Cover'],
+                                                     North_Lat=sensor_rows[pid]['North_Lat'],
+                                                     South_Lat=sensor_rows[pid]['South_Lat'],
+                                                     East_Lon=sensor_rows[pid]['East_Lon'],
+                                                     West_Lon=sensor_rows[pid]['West_Lon'],
+                                                     Total_Size=sensor_rows[pid]['Total_Size'],
+                                                     Remote_URL=sensor_rows[pid]['Remote_URL'],
+                                                     Query_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Query_Date']),
+                                                     Download_Start_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Download_Start_Date']),
+                                                     Download_End_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Download_End_Date']),
+                                                     Downloaded=sensor_rows[pid]['Downloaded'],
+                                                     Download_Path=eodd_utils.update_file_path(sensor_rows[pid]['Download_Path'],replace_path_dict),
+                                                     Archived=sensor_rows[pid]['Archived'],
+                                                     ARDProduct_Start_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['ARDProduct_Start_Date']),
+                                                     ARDProduct_End_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['ARDProduct_End_Date']),
+                                                     ARDProduct=sensor_rows[pid]['ARDProduct'],
+                                                     ARDProduct_Path=eodd_utils.update_file_path(sensor_rows[pid]['ARDProduct_Path'], replace_path_dict),
+                                                     DCLoaded_Start_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['DCLoaded_Start_Date']),
+                                                     DCLoaded_End_Date=eodd_utils.getDateTimeFromISOString( sensor_rows[pid]['DCLoaded_End_Date']),
+                                                     DCLoaded=sensor_rows[pid]['DCLoaded'],
+                                                     Invalid=sensor_rows[pid]['Invalid'],
+                                                     ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(sensor_rows[pid]['ExtendedInfo']),
+                                                     RegCheck=sensor_rows[pid]['RegCheck']))
         if len(db_records) > 0:
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
             session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)

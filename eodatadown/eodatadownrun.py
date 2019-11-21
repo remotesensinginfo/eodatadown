@@ -537,19 +537,22 @@ def import_sensor_database(config_file, sensor, in_json_file, replace_path_jsonf
     :param replace_path_jsonfile: a JSON file with pairs of paths to be updated during import.
 
     """
-    with open(replace_path_jsonfile) as json_file_obj:
+    if replace_path_jsonfile is None:
+        replace_path_dict = None
+    else:
+        json_file_obj = open(replace_path_jsonfile)
         replace_path_dict = json.load(json_file_obj)
 
-        sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
-        sys_main_obj.parse_config(config_file)
-        logger.debug("Parsed the system configuration.")
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
 
-        edd_usage_db = sys_main_obj.get_usage_db_obj()
-        edd_usage_db.add_entry("Starting: Import {} sensors database table.".format(sensor), start_block=True)
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Import {} sensors database table.".format(sensor), start_block=True)
 
-        sensor_obj = sys_main_obj.get_sensor_obj(sensor)
-        sensor_obj.import_sensor_db(in_json_file, replace_path_dict)
+    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+    sensor_obj.import_sensor_db(in_json_file, replace_path_dict)
 
-        edd_usage_db.add_entry("Finished: Import {} sensors database table.".format(sensor), end_block=True)
+    edd_usage_db.add_entry("Finished: Import {} sensors database table.".format(sensor), end_block=True)
 
 
