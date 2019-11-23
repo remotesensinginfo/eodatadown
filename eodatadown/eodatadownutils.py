@@ -330,6 +330,35 @@ class EODataDownUtils(object):
         osgeo.gdal.Translate(output_img, input_img, options=trans_opt)
         return output_img
 
+    def subsetMaskImg(self, input_img, output_img, gdal_format, subset_vec_file, subset_vec_lyr, mask_outputs, mask_vec_file, mask_vec_lyr, tmp_dir):
+        """
+        Apply commands to subset and optionally mask the input image.
+
+        :param input_img:
+        :param output_img:
+        :param intersect_vec_file:
+        :param intersect_vec_lyr:
+        :param subset_vec_file:
+        :param subset_vec_lyr:
+        :param mask_outputs:
+        :param mask_vec_file:
+        :param mask_vec_lyr:
+        :param tmp_dir:
+
+        """
+        if mask_outputs:
+            in_image_base = self.get_file_basename(input_img)
+            sub_img_file = os.path.join(tmp_dir, "{}_sub.kea".format(in_image_base))
+            rsgislib.imageutils.subset_to_vec(input_img, sub_img_file, gdal_format, subset_vec_file, subset_vec_lyr)
+            sub_msk_img_file = os.path.join(tmp_dir, "{}_sub_msk.kea".format(in_image_base))
+            rsgislib.imageutils.mask_img_with_vec(sub_img_file, output_img, gdal_format, mask_vec_file,
+                                                  mask_vec_lyr, tmp_dir, outvalue=0)
+        else:
+            rsgislib.imageutils.subset_to_vec(input_img, output_img, gdal_format, subset_vec_file, subset_vec_lyr)
+
+
+
+
     def getDateTimeAsString(self, date_time_obj):
         """
         Returns the datetime, date, or time object as an iso string. If None then an empty string will be returned.
@@ -386,6 +415,40 @@ class EODataDownUtils(object):
                 out_path = input_path.replace(path_val, paths_dict[path_val])
                 break
         return out_path
+
+    def get_file_basename(self, filepath, checkvalid=False, n_comps=0):
+        """
+        Uses os.path module to return file basename (i.e., path and extension removed)
+        :param filepath: string for the input file name and path
+        :param checkvalid: if True then resulting basename will be checked for punctuation
+                            characters (other than underscores) and spaces, punctuation
+                            will be either removed and spaces changed to an underscore.
+                           (Default = False)
+        :param n_comps: if > 0 then the resulting basename will be split using underscores
+                        and the return based name will be defined using the n_comps
+                        components split by under scores.
+        :return: basename for file
+        """
+        import string
+        basename = os.path.splitext(os.path.basename(filepath))[0]
+        if checkvalid:
+            basename = basename.replace(' ', '_')
+            for punch in string.punctuation:
+                if (punch != '_') and (punch != '-'):
+                    basename = basename.replace(punch, '')
+        if n_comps > 0:
+            basename_split = basename.split('_')
+            if len(basename_split) < n_comps:
+                raise Exception(
+                    "The number of components specified is more than the number of components in the basename.")
+            out_basename = ""
+            for i in range(n_comps):
+                if i == 0:
+                    out_basename = basename_split[i]
+                else:
+                    out_basename = out_basename + '_' + basename_split[i]
+            basename = out_basename
+        return basename
 
 
 class EODataDownDatabaseInfo(object):

@@ -170,6 +170,15 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         self.db_tab_name = "EDDSentinel1ASF"
         self.base_api_url = "https://api.daac.asf.alaska.edu/services/search/param"
 
+        self.use_roi = False
+        self.intersect_vec_file = ''
+        self.intersect_vec_lyr = ''
+        self.subset_vec_file = ''
+        self.subset_vec_lyr = ''
+        self.mask_outputs = False
+        self.mask_vec_file = ''
+        self.mask_vec_lyr = ''
+
     def parse_sensor_config(self, config_file, first_parse=False):
         """
         Parse the JSON configuration file. If first_parse=True then a signature file will be created
@@ -224,6 +233,29 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 self.ardMethod = json_parse_helper.getStrValue(config_data,
                                                                ["eodatadown", "sensor", "ardparams", "software"],
                                                                valid_values=["GAMMA", "SNAP"])
+            self.use_roi = False
+            if json_parse_helper.doesPathExist(config_data,["eodatadown", "sensor", "ardparams", "roi"]):
+                self.use_roi = True
+                self.intersect_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                        ["eodatadown", "sensor", "ardparams", "roi",
+                                                                         "intersect", "vec_file"])
+                self.intersect_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                        ["eodatadown", "sensor", "ardparams", "roi",
+                                                                         "intersect", "vec_layer"])
+                self.subset_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "ardparams", "roi",
+                                                                     "subset", "vec_file"])
+                self.subset_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "ardparams", "roi",
+                                                                     "subset", "vec_layer"])
+                self.mask_outputs = False
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "roi", "mask"]):
+                    self.mask_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                         ["eodatadown", "sensor", "ardparams", "roi",
+                                                                          "mask", "vec_file"])
+                    self.mask_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                        ["eodatadown", "sensor", "ardparams", "roi",
+                                                                         "mask", "vec_layer"])
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
@@ -700,7 +732,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                     "Could not find unique zip file for Sentinel-1 zip: PID = {}".format(query_result.PID))
             success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path, tmp_ard_scn_path,
                                                       self.demFile, self.outImgRes, pols, proj_epsg, self.projabbv,
-                                                      self.out_proj_img_res, self.out_proj_interp)
+                                                      self.out_proj_img_res, self.out_proj_interp, self.use_roi,
+                                                      self.intersect_vec_file, self.intersect_vec_lyr,
+                                                      self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
+                                                      self.mask_vec_file, self.mask_vec_lyr)
             end_date = datetime.datetime.now()
             if success_process_ard:
                 query_result.ARDProduct = True
@@ -796,7 +831,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path,
                                                           tmp_ard_scn_path, self.demFile, self.outImgRes, pols,
                                                           proj_epsg, self.projabbv, self.out_proj_img_res,
-                                                          self.out_proj_interp)
+                                                          self.out_proj_interp, self.use_roi,
+                                                          self.intersect_vec_file, self.intersect_vec_lyr,
+                                                          self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
+                                                          self.mask_vec_file, self.mask_vec_lyr)
                 end_date = datetime.datetime.now()
                 if success_process_ard:
                     record.ARDProduct = True

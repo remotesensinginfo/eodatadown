@@ -194,6 +194,14 @@ def _process_to_ard(params):
     reproj_outputs = params[8]
     proj_wkt_file = params[9]
     projabbv = params[10]
+    use_roi = params[11]
+    intersect_vec_file = params[12]
+    intersect_vec_lyr = params[13]
+    subset_vec_file = params[14]
+    subset_vec_lyr = params[15]
+    mask_outputs = params[16]
+    mask_vec_file = params[17]
+    mask_vec_lyr = params[18]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
     input_hdr = edd_utils.findFirstFile(scn_path, "*MTD*.xml")
@@ -204,7 +212,11 @@ def _process_to_ard(params):
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
-    valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path)
+    valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path, use_roi,
+                                                                             intersect_vec_file, intersect_vec_lyr,
+                                                                             subset_vec_file, subset_vec_lyr,
+                                                                             mask_outputs, mask_vec_file, mask_vec_lyr,
+                                                                             tmp_dir)
     # Remove Remaining files.
     shutil.rmtree(output_dir)
     shutil.rmtree(tmp_dir)
@@ -254,6 +266,15 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         self.sensor_name = "Sentinel2GOOG"
         self.db_tab_name = "EDDSentinel2Google"
 
+        self.use_roi = False
+        self.intersect_vec_file = ''
+        self.intersect_vec_lyr = ''
+        self.subset_vec_file = ''
+        self.subset_vec_lyr = ''
+        self.mask_outputs = False
+        self.mask_vec_file = ''
+        self.mask_vec_lyr = ''
+
     def parse_sensor_config(self, config_file, first_parse=False):
         """
         Parse the JSON configuration file. If first_parse=True then a signature file will be created
@@ -291,6 +312,29 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
                                                                       ["eodatadown", "sensor", "ardparams", "proj",
                                                                        "epsg"], 0, 1000000000))
+            self.use_roi = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "roi"]):
+                self.use_roi = True
+                self.intersect_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                        ["eodatadown", "sensor", "ardparams", "roi",
+                                                                         "intersect", "vec_file"])
+                self.intersect_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                       ["eodatadown", "sensor", "ardparams", "roi",
+                                                                        "intersect", "vec_layer"])
+                self.subset_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                     ["eodatadown", "sensor", "ardparams", "roi",
+                                                                      "subset", "vec_file"])
+                self.subset_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "ardparams", "roi",
+                                                                     "subset", "vec_layer"])
+                self.mask_outputs = False
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "roi", "mask"]):
+                    self.mask_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                       ["eodatadown", "sensor", "ardparams", "roi",
+                                                                        "mask", "vec_file"])
+                    self.mask_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                      ["eodatadown", "sensor", "ardparams", "roi",
+                                                                       "mask", "vec_layer"])
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
@@ -761,8 +805,10 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 rsgis_utils.writeList2File([proj_wkt], proj_wkt_file)
 
             _process_to_ard([record.PID, record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
-                               work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
-                               proj_wkt_file, self.projabbv])
+                             work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
+                             proj_wkt_file, self.projabbv, self.use_roi, self.intersect_vec_file,
+                             self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
+                             self.mask_vec_file, self.mask_vec_lyr])
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -835,7 +881,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
                 ard_params.append([record.PID, record.Granule_ID, self.db_info_obj, record.Download_Path, self.demFile,
                                    work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
-                                   proj_wkt_file, self.projabbv])
+                                   proj_wkt_file, self.projabbv, self.use_roi, self.intersect_vec_file,
+                                   self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
+                                   self.mask_vec_file, self.mask_vec_lyr])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()

@@ -51,7 +51,9 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     """
 
     def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res,
-                       polarisations, out_proj_epsg, out_proj_str, out_proj_img_res=-1, out_proj_interp=None):
+                       polarisations, out_proj_epsg, out_proj_str, out_proj_img_res=-1, out_proj_interp=None,
+                       use_roi=False, intersect_vec_file='', intersect_vec_lyr='', subset_vec_file='',
+                       subset_vec_lyr='', mask_outputs=False, mask_vec_file='', mask_vec_lyr=''):
         """
 
         :param input_safe_zipfile:
@@ -65,7 +67,15 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         :param out_proj_str:
         :param out_proj_img_res:
         :param out_proj_interp:
-        :return:
+        :param use_roi:
+        :param intersect_vec_file:
+        :param intersect_vec_lyr:
+        :param subset_vec_file:
+        :param subset_vec_lyr:
+        :param mask_outputs:
+        :param mask_vec_file:
+        :param mask_vec_lyr:
+
         """
         sen1_ard_success = False
         try:

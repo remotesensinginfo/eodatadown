@@ -205,6 +205,14 @@ def _process_to_ard(params):
     reproj_outputs = params[10]
     proj_wkt_file = params[11]
     projabbv = params[12]
+    use_roi = params[13]
+    intersect_vec_file = params[14]
+    intersect_vec_lyr = params[15]
+    subset_vec_file = params[16]
+    subset_vec_lyr = params[17]
+    mask_outputs = params[18]
+    mask_vec_file = params[19]
+    mask_vec_lyr = params[20]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
     input_mtl = edd_utils.findFirstFile(scn_path, "*MTL.txt")
@@ -215,7 +223,11 @@ def _process_to_ard(params):
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
-    valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path)
+    valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path, use_roi,
+                                                                             intersect_vec_file, intersect_vec_lyr,
+                                                                             subset_vec_file, subset_vec_lyr,
+                                                                             mask_outputs, mask_vec_file, mask_vec_lyr,
+                                                                             tmp_dir)
     # Remove Remaining files.
     shutil.rmtree(output_dir)
     shutil.rmtree(tmp_dir)
@@ -266,6 +278,15 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         self.sensor_name = "LandsatGOOG"
         self.db_tab_name = "EDDLandsatGoogle"
 
+        self.use_roi = False
+        self.intersect_vec_file = ''
+        self.intersect_vec_lyr = ''
+        self.subset_vec_file = ''
+        self.subset_vec_lyr = ''
+        self.mask_outputs = False
+        self.mask_vec_file = ''
+        self.mask_vec_lyr = ''
+
     def parse_sensor_config(self, config_file, first_parse=False):
         """
         Parse the JSON configuration file. If first_parse=True then a signature file will be created
@@ -303,6 +324,29 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 self.projEPSG = int(json_parse_helper.getNumericValue(config_data,
                                                                       ["eodatadown", "sensor", "ardparams", "proj",
                                                                        "epsg"], 0, 1000000000))
+            self.use_roi = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "roi"]):
+                self.use_roi = True
+                self.intersect_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                        ["eodatadown", "sensor", "ardparams", "roi",
+                                                                         "intersect", "vec_file"])
+                self.intersect_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                       ["eodatadown", "sensor", "ardparams", "roi",
+                                                                        "intersect", "vec_layer"])
+                self.subset_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                     ["eodatadown", "sensor", "ardparams", "roi",
+                                                                      "subset", "vec_file"])
+                self.subset_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                    ["eodatadown", "sensor", "ardparams", "roi",
+                                                                     "subset", "vec_layer"])
+                self.mask_outputs = False
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "roi", "mask"]):
+                    self.mask_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                       ["eodatadown", "sensor", "ardparams", "roi",
+                                                                        "mask", "vec_file"])
+                    self.mask_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                      ["eodatadown", "sensor", "ardparams", "roi",
+                                                                       "mask", "vec_layer"])
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
@@ -889,7 +933,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             _process_to_ard([record.PID, record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
                              work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
-                             final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                             final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv, self.use_roi,
+                             self.intersect_vec_file, self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr,
+                             self.mask_outputs, self.mask_vec_file, self.mask_vec_lyr])
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -962,7 +1008,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
                 ard_params.append([record.PID, record.Scene_ID, self.db_info_obj, record.Download_Path, self.demFile,
                                    work_ard_scn_path, tmp_ard_scn_path, record.Spacecraft_ID, record.Sensor_ID,
-                                   final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv])
+                                   final_ard_scn_path, self.ardProjDefined, proj_wkt_file, self.projabbv, self.use_roi,
+                                   self.intersect_vec_file, self.intersect_vec_lyr, self.subset_vec_file,
+                                   self.subset_vec_lyr, self.mask_outputs, self.mask_vec_file, self.mask_vec_lyr])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
@@ -1591,7 +1639,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
     def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
         This function imports from the database records from the specified input JSON file.
-        The database table checks are not made for duplicated as records are just appended 
+        The database table checks are not made for duplicated as records are just appended
         to the table with a new PID.
         :param input_json_file: input JSON file with the records to be imported.
         :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
