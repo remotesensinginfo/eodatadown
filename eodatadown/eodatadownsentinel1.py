@@ -80,11 +80,24 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         sen1_ard_success = False
         try:
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            sen1_out_proj_epsg = None
-            out_sen1_files_dir = work_dir
             if eodd_utils.isEPSGUTM(out_proj_epsg):
                 sen1_out_proj_epsg = out_proj_epsg
-                out_sen1_files_dir = output_dir
+                reproj_outputs = False
+                if use_roi:
+                    out_sen1_files_dir = work_dir
+                else:
+                    out_sen1_files_dir = output_dir
+            elif out_proj_epsg is not None:
+                reproj_outputs = True
+                sen1_out_proj_epsg = None
+                out_sen1_files_dir = work_dir
+            else:
+                reproj_outputs = False
+                sen1_out_proj_epsg = None
+                if use_roi:
+                    out_sen1_files_dir = work_dir
+                else:
+                    out_sen1_files_dir = output_dir
 
             logger.info("Extracting Sentinel-1 file zip.")
             unzip_tmp_dir_created = False
@@ -106,7 +119,34 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                                                                         polarisations, 'GTIFF', False, False,
                                                                         no_dem_check=False, out_int_imgs=True)
 
-            if sen1_out_proj_epsg is None:
+            if use_roi:
+                sen1_vmsk_img = eodd_utils.findFile(out_sen1_files_dir, '*_vmsk.tif')
+                if rsgislib.vectorutils.does_vmsk_img_intersect(sen1_vmsk_img, intersect_vec_file, intersect_vec_lyr,
+                                                                tmp_dir, vec_epsg=None):
+
+                    if reproj_outputs:
+                        sub_out_dir = os.path.join(tmp_dir, "scn_subset_msk_{}".format(uid_val))
+                    else:
+                        sub_out_dir = output_dir
+
+                    if not os.path.exists(sub_out_dir):
+                        os.makedirs(sub_out_dir)
+
+                    scn_imgs = glob.glob(os.path.join(out_sen1_files_dir, "*.tif"))
+                    for c_img in scn_imgs:
+                        img_file_name = os.path.splitext(os.path.basename(c_img))
+                        out_img = os.path.join(sub_out_dir, img_file_name)
+                        eodd_utils.subsetMaskImg(c_img, out_img, "GTIFF", subset_vec_file,
+                                                 subset_vec_lyr, mask_outputs, mask_vec_file, mask_vec_lyr, tmp_dir)
+                    out_sen1_files_dir = sub_out_dir
+                else:
+                    # If not intersecting the ROI
+                    sen1_ard_success = False
+                    if unzip_tmp_dir_created:
+                        shutil.rmtree(unzip_dir)
+                    return sen1_ard_success
+
+            if reproj_outputs:
                 # Reproject the UTM outputs to required projection.
                 rsgis_utils = rsgislib.RSGISPyUtils()
                 logger.info("Reprojecting Sentinel-1 ARD product.")
@@ -120,7 +160,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                     img_interp_alg = 'bilinear'
                 elif out_proj_interp == 'CUBIC':
                     img_interp_alg = 'cubic'
-                fnl_imgs = glob.glob(os.path.join(work_dir, "*.tif"))
+                fnl_imgs = glob.glob(os.path.join(out_sen1_files_dir, "*.tif"))
                 for c_img in fnl_imgs:
                     logger.debug("Reprojecting: {}".format(c_img))
                     img_file_basename = os.path.splitext(os.path.basename(c_img))[0]
@@ -128,8 +168,11 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                     out_img_file = os.path.join(output_dir, "{}_{}.tif".format(img_file_basename, out_proj_str))
                     out_file_opts = ["TILED=YES", "COMPRESS=LZW", "BIGTIFF=YES", "INTERLEAVE=PIXEL", "BLOCKXSIZE=256",
                                      "BLOCKYSIZE=256"]
+                    interp_alg = img_interp_alg
+                    if 'vmsk' in c_img:
+                        interp_alg = 'near'
                     rsgislib.imageutils.reprojectImage(c_img, out_img_file, sen1_out_proj_wkt_file, gdalformat='GTIFF',
-                                                       interp=img_interp_alg, inWKT=None, noData=no_data_val,
+                                                       interp=interp_alg, inWKT=None, noData=no_data_val,
                                                        outPxlRes=out_proj_img_res, snap2Grid=True, multicore=False,
                                                        gdal_options=out_file_opts)
                     rsgislib.imageutils.assignProj(out_img_file, sen1_out_proj_wkt, "")

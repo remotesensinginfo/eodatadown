@@ -743,6 +743,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 query_result.ARDProduct_End_Date = end_date
                 query_result.ARDProduct_Path = final_ard_scn_path
                 ses.commit()
+            else:
+                query_result.ARDProduct = False
+                query_result.ARDProduct_Start_Date = start_date
+                query_result.ARDProduct_End_Date = end_date
+                query_result.Invalid = True
+                ses.commit()
 
             if os.path.exists(tmp_ard_scn_path):
                 shutil.rmtree(tmp_ard_scn_path)
@@ -841,6 +847,12 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                     record.ARDProduct_Start_Date = start_date
                     record.ARDProduct_End_Date = end_date
                     record.ARDProduct_Path = final_ard_scn_path
+                    ses.commit()
+                else:
+                    record.ARDProduct = False
+                    record.ARDProduct_Start_Date = start_date
+                    record.ARDProduct_End_Date = end_date
+                    record.Invalid = True
                     ses.commit()
 
                 if os.path.exists(tmp_ard_scn_path):
