@@ -134,8 +134,8 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
 
                     scn_imgs = glob.glob(os.path.join(out_sen1_files_dir, "*.tif"))
                     for c_img in scn_imgs:
-                        img_file_name = os.path.splitext(os.path.basename(c_img))
-                        out_img = os.path.join(sub_out_dir, img_file_name)
+                        img_file_name = os.path.splitext(os.path.basename(c_img))[0]
+                        out_img = os.path.join(sub_out_dir, "{}.tif".format(img_file_name))
                         eodd_utils.subsetMaskImg(c_img, out_img, "GTIFF", subset_vec_file,
                                                  subset_vec_lyr, mask_outputs, mask_vec_file, mask_vec_lyr, tmp_dir)
                     out_sen1_files_dir = sub_out_dir

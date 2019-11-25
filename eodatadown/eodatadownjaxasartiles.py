@@ -1142,7 +1142,7 @@ class EODataDownJAXASARTileSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def reset_scn(self, unq_id, reset_download=False):
+    def reset_scn(self, unq_id, reset_download=False, reset_invalid=False):
         """
         A function which resets an image. This means any downloads and products are deleted
         and the database fields are reset to defaults. This allows the scene to be re-downloaded

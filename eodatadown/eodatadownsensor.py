@@ -195,7 +195,7 @@ class EODataDownSensor (object):
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False): pass
 
     @abstractmethod
-    def reset_scn(self, unq_id, reset_download=False): pass
+    def reset_scn(self, unq_id, reset_download=False, reset_invalid=False): pass
 
     @abstractmethod
     def reset_dc_load(self, unq_id): pass

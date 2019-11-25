@@ -1543,7 +1543,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def reset_scn(self, unq_id, reset_download=False):
+    def reset_scn(self, unq_id, reset_download=False, reset_invalid=False):
         """
         A function which resets an image. This means any downloads and products are deleted
         and the database fields are reset to defaults. This allows the scene to be re-downloaded
@@ -1587,6 +1587,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             scn_record.Download_End_Date = None
             scn_record.Download_Path = ""
             scn_record.Downloaded = False
+
+        if reset_invalid:
+            scn_record.Invalid = False
 
         scn_record.ExtendedInfo = None
         flag_modified(scn_record, "ExtendedInfo")
