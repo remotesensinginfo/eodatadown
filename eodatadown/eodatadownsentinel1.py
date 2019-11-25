@@ -185,5 +185,5 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             sen1_ard_success = True
         except Exception as e:
             logger.error("Failed in processing: '{}'".format(input_safe_file))
-            sen1_ard_success = False
+            raise e
         return sen1_ard_success
