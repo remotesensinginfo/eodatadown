@@ -1109,7 +1109,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 raise EODataDownException("Cannot create a quicklook as image has been assigned as 'invalid'.")
 
             scn_json = query_result.ExtendedInfo
-            if scn_json is None:
+            if (scn_json is None) or (scn_json == ""):
                 scn_json = dict()
 
             ard_img_path = query_result.ARDProduct_Path
@@ -1235,7 +1235,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 raise EODataDownException("Cannot create a tilecache as image has been assigned as 'invalid'.")
 
             scn_json = query_result.ExtendedInfo
-            if scn_json is None:
+            if (scn_json is None) or (scn_json == ""):
                 scn_json = dict()
 
             ard_img_path = query_result.ARDProduct_Path
@@ -1588,7 +1588,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             scn_record.Download_Path = ""
             scn_record.Downloaded = False
 
-        scn_record.ExtendedInfo = ""
+        scn_record.ExtendedInfo = None
         flag_modified(scn_record, "ExtendedInfo")
 
         ses.commit()
