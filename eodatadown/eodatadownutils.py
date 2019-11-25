@@ -346,17 +346,19 @@ class EODataDownUtils(object):
         :param tmp_dir:
 
         """
+        rsgis_utils = rsgislib.RSGISPyUtils()
+        no_data_val = rsgis_utils.getImageNoDataValue(input_img)
         if mask_outputs:
             in_image_base = self.get_file_basename(input_img)
             sub_img_file = os.path.join(tmp_dir, "{}_sub.kea".format(in_image_base))
             rsgislib.imageutils.subset_to_vec(input_img, sub_img_file, gdal_format, subset_vec_file, subset_vec_lyr)
             sub_msk_img_file = os.path.join(tmp_dir, "{}_sub_msk.kea".format(in_image_base))
             rsgislib.imageutils.mask_img_with_vec(sub_img_file, output_img, gdal_format, mask_vec_file,
-                                                  mask_vec_lyr, tmp_dir, outvalue=0)
+                                                  mask_vec_lyr, tmp_dir, outvalue=no_data_val)
         else:
             rsgislib.imageutils.subset_to_vec(input_img, output_img, gdal_format, subset_vec_file, subset_vec_lyr)
 
-
+        rsgislib.imageutils.popImageStats(output_img, usenodataval=True, nodataval=no_data_val, calcpyramids=True)
 
 
     def getDateTimeAsString(self, date_time_obj):

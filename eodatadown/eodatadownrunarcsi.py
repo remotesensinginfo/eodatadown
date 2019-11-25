@@ -218,7 +218,7 @@ def move_arcsi_stdsref_products(arcsi_out_dir, ard_products_dir, use_roi, inters
             if cloud_cover < 0.95:
                 if use_roi:
                     valid_msk_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "VALID_MASK"])
-                    if rsgislib.vectorutils.does_vmsk_img_intersect(valid_msk_image, intersect_vec_file, intersect_vec_lyr, tmp_dir, vec_epsg=None):
+                    if rsgislib.vectorutils.does_vmsk_img_intersect(os.path.join(arcsi_out_dir, valid_msk_image), intersect_vec_file, intersect_vec_lyr, tmp_dir, vec_epsg=None):
                         sref_mskd_image = json_parse_helper.getStrValue(meta_data_json, ["FileInfo", "STD_SREF_IMG"])
                         sref_mskd_image_path = os.path.join(arcsi_out_dir, sref_mskd_image)
                         sref_mskd_image_sub_path = os.path.join(tmp_dir, sref_mskd_image)
