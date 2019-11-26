@@ -45,6 +45,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config", type=str, default="", help="Path to the JSON config file.")
     parser.add_argument("-s", "--sensor", type=str, required=True, choices=EODATADOWN_SENSORS_LIST,
                         help='''Specify the sensor for which this process should be executed''')
+    parser.add_argument("--scene", type=int, help="Specify an individual scene by the PID to reset.")
     parser.add_argument("--noard", action='store_true', default=False,
                         help="Resets (deletes download) an images for which an ARD product hasn't been calculated.")
     parser.add_argument("--nodcload", action='store_true', default=False,
@@ -52,7 +53,10 @@ if __name__ == "__main__":
     parser.add_argument("--all", action='store_true', default=False,
                         help="Resets flags and removes ARD products for all the images.")
     parser.add_argument("--rmdownloads", action='store_true', default=False,
-                        help="Used in combination with --all flag to remove download and ARD products for all images.")
+                        help="Used in combination with --all flag to remove download and "
+                             "ARD products for all images.")
+    parser.add_argument("--invalid", action='store_true', default=False,
+                        help="Resets images including those which have been assigned as invalid.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -72,9 +76,12 @@ if __name__ == "__main__":
         try:
             logger.info('Running process to reset scenes which have not been converted to ARD.')
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
-            scns = sensor_obj.get_scnlist_con2ard()
-            for scn in scns:
-                sensor_obj.reset_scn(scn, True)
+            if args.scene is None:
+                scns = sensor_obj.get_scnlist_con2ard()
+                for scn in scns:
+                    sensor_obj.reset_scn(scn, True, reset_invalid=args.invalid)
+            else:
+                sensor_obj.reset_scn(args.scene, True, reset_invalid=args.invalid)
             logger.info('Finished process to reset scenes which have not been converted to ARD.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
@@ -82,9 +89,12 @@ if __name__ == "__main__":
         try:
             logger.info('Running process to reset scenes which have been loaded into the datacube.')
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
-            scns = sensor_obj.get_scnlist_datacube(True)
-            for scn in scns:
-                sensor_obj.reset_dc_load(scn)
+            if args.scene is None:
+                scns = sensor_obj.get_scnlist_datacube(True)
+                for scn in scns:
+                    sensor_obj.reset_dc_load(scn)
+            else:
+                sensor_obj.reset_dc_load(args.scene)
             logger.info('Finished process to reset scenes which have been loaded into the datacube.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
@@ -94,13 +104,16 @@ if __name__ == "__main__":
             if args.rmdownloads:
                 logger.info('The downloads will also be removed and reset..')
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
-            scns = sensor_obj.get_scnlist_all()
-            for scn in scns:
-                sensor_obj.reset_scn(scn, args.rmdownloads)
+            if args.scene is None:
+                scns = sensor_obj.get_scnlist_all()
+                for scn in scns:
+                    sensor_obj.reset_scn(scn, reset_download=args.rmdownloads, reset_invalid=args.invalid)
+            else:
+                sensor_obj.reset_scn(args.scene, reset_download=args.rmdownloads, reset_invalid=args.invalid)
             logger.info('Running process to reset all scenes within the database.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
     else:
-        logger.info('No processing option given (i.e., --noard or --nodcload).')
+        logger.info('No processing option given (i.e., --noard, --nodcload or --all).')
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrestimgs.py.')
