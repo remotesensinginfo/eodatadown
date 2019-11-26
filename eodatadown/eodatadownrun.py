@@ -556,3 +556,114 @@ def import_sensor_database(config_file, sensor, in_json_file, replace_path_jsonf
     edd_usage_db.add_entry("Finished: Import {} sensors database table.".format(sensor), end_block=True)
 
 
+def run_scn_analysis(params):
+    """
+    This function runs a full per scene analysis and will check whether the scene has been: downloaded,
+    converted to ARD, quicklook generated and tilecache generated.
+
+    The function takes an array of values as input so it can be used within multiprocessing.Pool.
+
+    :param params: an array with [config_file, scn_sensor, scn_id].
+
+    """
+    config_file = params[0]
+    scn_sensor = params[1]
+    scn_id = params[2]
+    try:
+        sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, scn_sensor)
+        qklook_complete = False
+        tilecache_complete = False
+        if not sensor_obj.has_scn_download(scn_id):
+            sensor_obj.download_scn(scn_id)
+        if sensor_obj.has_scn_download(scn_id):
+            print(sensor_obj.has_scn_con2ard(scn_id))
+            if not sensor_obj.has_scn_con2ard(scn_id):
+                sensor_obj.scn2ard(scn_id)
+            if sensor_obj.has_scn_con2ard(scn_id):
+                if not sensor_obj.has_scn_quicklook(scn_id):
+                    sensor_obj.scn2quicklook(scn_id)
+                if sensor_obj.has_scn_quicklook(scn_id):
+                    qklook_complete = True
+                if not sensor_obj.has_scn_tilecache(scn_id):
+                    sensor_obj.scn2tilecache(scn_id)
+                if sensor_obj.has_scn_tilecache(scn_id):
+                    tilecache_complete = True
+
+                if qklook_complete and tilecache_complete:
+                    logger.info("Processing is complete for {} scene {}.".format(scn_sensor, scn_id))
+                else:
+                    logger.error("Will need to re-run as processing is not yet complete "
+                                 "for {} scene {}.".format(scn_sensor, scn_id))
+    except Exception as e:
+        # Exceptions are caught so processing is not stopped by an error.
+        logger.error("An error has occurred for {} scene {}.\n Exception: {}".format(scn_sensor, scn_id, e))
+
+
+def process_scenes_all_steps(config_file, sensors, ncores=1):
+    """
+    A function which undertakes all the processing steps for all the scenes which haven't yet been undertaken.
+    This is per scene processing rather than per step processing in the functions above.
+
+    Steps include:
+      * Download
+      * ARD Production
+      * Generating Tile Cache
+      * Generating Quicklook images
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: list of sensor string names to be processed.
+    :param ncores: the number of cores to use for the analysis - one core per scene.
+
+    """
+    tasks = get_scenes_need_processing(config_file, sensors)
+    with multiprocessing.Pool(processes=ncores) as pool:
+        pool.map(run_scn_analysis, tasks)
+
+
+def get_scenes_need_processing(config_file, sensors):
+    """
+    A function which finds all the processing steps for all the scenes which haven't yet been undertaken.
+    This is per scene processing rather than per step processing in the functions above.
+
+    Steps include:
+      * Download
+      * ARD Production
+      * Generating Tile Cache
+      * Generating Quicklook images
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: list of sensor string names to be processed.
+    :returns: a list of lists where each scn has [config_file, scn_sensor, scn_id]
+
+    """
+    tasks = []
+    for sensor in sensors:
+        sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, sensor)
+        scn_ids = []
+        scns = sensor_obj.get_scnlist_quicklook()
+        for scn in scns:
+            if scn not in scn_ids:
+                tasks.append([config_file, sensor, scn])
+                scn_ids.append(scn)
+
+        scns = sensor_obj.get_scnlist_tilecache()
+        for scn in scns:
+            if scn not in scn_ids:
+                tasks.append([config_file, sensor, scn])
+                scn_ids.append(scn)
+
+        scns = sensor_obj.get_scnlist_con2ard()
+        for scn in scns:
+            if scn not in scn_ids:
+                tasks.append([config_file, sensor, scn])
+                scn_ids.append(scn)
+
+        scns = sensor_obj.get_scnlist_download()
+        for scn in scns:
+            if scn not in scn_ids:
+                tasks.append([config_file, sensor, scn])
+                scn_ids.append(scn)
+
+    return tasks
+
+
