@@ -178,6 +178,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         self.mask_outputs = False
         self.mask_vec_file = ''
         self.mask_vec_lyr = ''
+        self.std_vis_img_stch = None
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -256,6 +257,15 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                     self.mask_vec_lyr = json_parse_helper.getStrValue(config_data,
                                                                         ["eodatadown", "sensor", "ardparams", "roi",
                                                                          "mask", "vec_layer"])
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "visual"]):
+                if json_parse_helper.doesPathExist(config_data,
+                                                   ["eodatadown", "sensor", "ardparams", "visual", "stretch_file"]):
+                    self.std_vis_img_stch = self.subset_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                                                 ["eodatadown",
+                                                                                                  "sensor", "ardparams",
+                                                                                                  "visual",
+                                                                                                  "stretch_file"])
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
@@ -1017,6 +1027,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             rsgislib.tools.visualisation.createQuicklookImgs(ard_img_file, bands, outputImgs=quicklook_imgs,
                                                              output_img_sizes=[250, 1000],  scale_axis='auto',
                                                              img_stats_msk=None, img_msk_vals=1,
+                                                             stretch_file=self.std_vis_img_stch,
                                                              tmp_dir=tmp_quicklook_path)
 
             if not ("quicklook" in scn_json):
@@ -1141,6 +1152,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             rsgislib.tools.visualisation.createWebTilesVisGTIFFImg(ard_img_file, bands, out_tilecache_dir,
                                                                    out_visual_gtiff, zoomLevels='2-12',
                                                                    img_stats_msk=None, img_msk_vals=1,
+                                                                   stretch_file=self.std_vis_img_stch,
                                                                    tmp_dir=tmp_tilecache_path, webview=True,
                                                                    scale=50)
 
