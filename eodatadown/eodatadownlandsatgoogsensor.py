@@ -1283,8 +1283,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             import rsgislib.tools.visualisation
             rsgislib.tools.visualisation.createQuicklookImgs(ard_img_file, bands, outputImgs=quicklook_imgs,
-                                                             output_img_sizes=[250, 1000], img_stats_msk=None,
-                                                                img_msk_vals=1, tmp_dir=tmp_quicklook_path)
+                                                             output_img_sizes=[250, 1000],  scale_axis='auto',
+                                                             img_stats_msk=None, img_msk_vals=1,
+                                                             tmp_dir=tmp_quicklook_path)
 
             if not ("quicklook" in scn_json):
                 scn_json["quicklook"] = dict()
