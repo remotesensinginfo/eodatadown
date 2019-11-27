@@ -148,6 +148,9 @@ class EODataDownSensor (object):
     def find_unique_scn_dates(self, start_date, end_date, valid=True):pass
 
     @abstractmethod
+    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True): pass
+
+    @abstractmethod
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west): pass
 
     @abstractmethod

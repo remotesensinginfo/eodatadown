@@ -1556,7 +1556,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param start_date: A python datetime object specifying the start date (most recent date)
         :param end_date: A python datetime object specifying the end date (earliest date)
         :param valid: If True only valid observations are considered.
-        :return: List of datetime objects. Might return None.
+        :return: List of datetime.date objects.
         """
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
@@ -1577,6 +1577,37 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).desc())
         ses.close()
         return scn_dates
+
+    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True):
+        """
+        A function to retrieve a list of scenes which have been acquired on a particular date.
+
+        :param date_of_interest: a datetime.date object specifying the date of interest.
+        :param valid: If True only valid observations are considered.
+        :param ard_prod: If True only observations which have been converted to an ARD product are considered.
+        :return: a list of sensor objects
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        if valid and ard_prod:
+            scns = ses.query(EDDLandsatGoogle).filter(
+                    sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date) == date_of_interest,
+                    EDDLandsatGoogle.Invalid == False, EDDLandsatGoogle.ARDProduct == True).all()
+        elif valid:
+            scns = ses.query(EDDLandsatGoogle).filter(
+                    sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date) == date_of_interest,
+                    EDDLandsatGoogle.Invalid == False).all()
+        elif ard_prod:
+            scns = ses.query(EDDLandsatGoogle).filter(
+                    sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date) == date_of_interest,
+                    EDDLandsatGoogle.ARDProduct == True).all()
+        else:
+            scns = ses.query(EDDLandsatGoogle).filter(
+                    sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date) == date_of_interest).all()
+
+        return scns
 
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """

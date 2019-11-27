@@ -889,7 +889,17 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         :param start_date: A python datetime object specifying the start date (most recent date)
         :param end_date: A python datetime object specifying the end date (earliest date)
         :param valid: If True only valid observations are considered.
-        :return: List of datetime objects. Might return None.
+        :return: List of datetime.date objects.
+        """
+        raise EODataDownException("Not implemented.")
+
+    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True):
+        """
+
+        :param date_of_interest: a datetime.date object specifying the date of interest.
+        :param valid: If True only valid observations are considered.
+        :param ard_prod: If True only observations which have been converted to an ARD product are considered.
+        :return: a list of sensor objects
         """
         raise EODataDownException("Not implemented.")
 
