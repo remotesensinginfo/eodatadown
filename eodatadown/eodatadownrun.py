@@ -616,8 +616,9 @@ def process_scenes_all_steps(config_file, sensors, ncores=1):
 
     """
     tasks = get_scenes_need_processing(config_file, sensors)
-    with multiprocessing.Pool(processes=ncores) as pool:
-        pool.map(run_scn_analysis, tasks)
+    if len(tasks) > 0:
+        with multiprocessing.Pool(processes=ncores) as pool:
+            pool.map(run_scn_analysis, tasks)
 
 
 def get_scenes_need_processing(config_file, sensors):

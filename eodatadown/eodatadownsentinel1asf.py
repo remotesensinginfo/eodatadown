@@ -50,8 +50,8 @@ from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownsentinel1 import EODataDownSentinel1ProcessorSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
-from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
+from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy.dialects.postgresql
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -1279,6 +1279,34 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             logger.error("No scenes were found within this date range.")
             raise EODataDownException("No scenes were found within this date range.")
         return scn_records
+
+    def find_unique_scn_dates(self, start_date, end_date, valid=True):
+        """
+        A function which returns a list of unique dates on which acquisitions have occurred.
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+        :param valid: If True only valid observations are considered.
+        :return: List of datetime objects. Might return None.
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        if valid:
+            scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                EDDSentinel1ASF.Acquisition_Date < start_date,
+                EDDSentinel1ASF.Acquisition_Date > end_date,
+                EDDSentinel1ASF.Invalid == False).group_by(
+                sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+        else:
+            scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                EDDSentinel1ASF.Acquisition_Date < start_date,
+                EDDSentinel1ASF.Acquisition_Date > end_date).group_by(
+                sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+        ses.close()
+        return scn_dates
 
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """

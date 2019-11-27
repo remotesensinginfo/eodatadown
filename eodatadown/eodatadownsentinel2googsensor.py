@@ -1400,6 +1400,34 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             raise EODataDownException("No scenes were found within this date range.")
         return scn_records
 
+    def find_unique_scn_dates(self, start_date, end_date, valid=True):
+        """
+        A function which returns a list of unique dates on which acquisitions have occurred.
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+        :param valid: If True only valid observations are considered.
+        :return: List of datetime objects. Might return None.
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        if valid:
+            scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                EDDSentinel2Google.Sensing_Time < start_date,
+                EDDSentinel2Google.Sensing_Time > end_date,
+                EDDSentinel2Google.Invalid == False).group_by(
+                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+        else:
+            scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                EDDSentinel2Google.Sensing_Time < start_date,
+                EDDSentinel2Google.Sensing_Time > end_date).group_by(
+                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+        ses.close()
+        return scn_dates
+
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.

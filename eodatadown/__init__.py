@@ -41,8 +41,8 @@ import logging.config
 import json
 
 EODATADOWN_VERSION_MAJOR = 0
-EODATADOWN_VERSION_MINOR = 42
-EODATADOWN_VERSION_PATCH = 1
+EODATADOWN_VERSION_MINOR = 43
+EODATADOWN_VERSION_PATCH = 0
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
 rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)

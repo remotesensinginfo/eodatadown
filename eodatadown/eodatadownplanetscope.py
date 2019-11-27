@@ -854,6 +854,16 @@ class EODataDownPlanetScopeSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
+    def find_unique_scn_dates(self, start_date, end_date, valid=True):
+        """
+        A function which returns a list of unique dates on which acquisitions have occurred.
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+        :param valid: If True only valid observations are considered.
+        :return: List of datetime objects. Might return None.
+        """
+        raise EODataDownException("Not implemented.")
+
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.
