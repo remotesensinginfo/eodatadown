@@ -352,11 +352,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "visual"]):
                 if json_parse_helper.doesPathExist(config_data,
                                                    ["eodatadown", "sensor", "ardparams", "visual", "stretch_file"]):
-                    self.std_vis_img_stch = self.subset_vec_file = json_parse_helper.getStrValue(config_data,
-                                                                                                 ["eodatadown",
-                                                                                                  "sensor", "ardparams",
-                                                                                                  "visual",
-                                                                                                  "stretch_file"])
+                    self.std_vis_img_stch = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor",
+                                                                                        "ardparams", "visual",
+                                                                                        "stretch_file"])
 
             logger.debug("Found ARD processing params from config file")
 
