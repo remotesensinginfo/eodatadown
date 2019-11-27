@@ -264,6 +264,19 @@ class EODataDownUtils(object):
         logger.debug("Executed tar (gz) data extraction.")
         os.chdir(cwd)
 
+    def uidGenerator(self, size=6):
+        """
+        A function which will generate a 'random' string of the specified length based on the UUID
+        
+        :param size: the length of the returned string.
+        :return: string of length size.
+
+        """
+        import uuid
+        randomStr = str(uuid.uuid4())
+        randomStr = randomStr.replace("-","")
+        return randomStr[0:size]
+
     def isNumber(self, str_val):
         """
         A function which tests whether the input string contains a number of not.

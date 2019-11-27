@@ -1457,6 +1457,62 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         return scns
 
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir):
+        """
+        A function which created stretched and formatted visualisation images by combining all the scenes
+        for a particular date. It does that for each of the unique dates within the date range specified.
+
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+        :param img_size: The output image size in pixels
+        :param out_img_dir: The output image directory
+        :param img_format: the output image format (JPEG, PNG or GTIFF)
+        :param vec_file: A vector file (polyline) which can be overlaid for context.
+        :param vec_lyr: The layer in the vector file.
+        :param tmp_dir: A temp directory for intermediate files.
+        :return: dict with date (YYYYMMDD) as key with a dict of image info, including
+                 an qkimage field for the generated image
+        """
+        out_img_ext = 'png'
+        if img_format.upper() == 'PNG':
+            out_img_ext = 'png'
+        elif img_format.upper() == 'JPEG':
+            out_img_ext = 'jpg'
+        elif img_format.upper() == 'GTIFF':
+            out_img_ext = 'tif'
+        else:
+            raise EODataDownException("The input image format ({}) was recognised".format(img_format))
+        eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
+        scn_dates = self.find_unique_scn_dates(start_date, end_date, valid=True)
+        scn_qklks = dict()
+        for scn_date in scn_dates:
+            print("Processing {}:".format(scn_date[0].strftime('%Y-%m-%d')))
+            scns = self.get_scns_for_date(scn_date[0])
+            scn_files = []
+            for scn in scns:
+                ard_file = eoddutils.findFile(scn.ARDProduct_Path, "*vmsk_sharp_rad_srefdem_stdsref.tif")
+                print("\t{}: {} - {}".format(scn.PID, scn.Product_ID, ard_file))
+                scn_files.append(ard_file)
+
+            # NIR, SWIR, RED
+            bands = '7,10,3'
+
+            scn_date_str = scn_date[0].strftime('%Y%m%d')
+            quicklook_img = os.path.join(out_img_dir, "sen2_qklk_{}.{}}".format(scn_date_str, out_img_ext))
+            import rsgislib.tools.visualisation
+            rsgislib.tools.visualisation.createQuicklookOverviewImgsVecOverlay(scn_files, bands, tmp_dir,
+                                                                               vec_file, vec_lyr,
+                                                                               outputImgs=quicklook_img,
+                                                                               output_img_sizes=img_size,
+                                                                               gdalformat=img_format,
+                                                                               scale_axis='auto',
+                                                                               stretch_file=self.std_vis_img_stch,
+                                                                               overlay_clr=[255, 255, 255])
+            scn_qklks[scn_date_str] = dict()
+            scn_qklks[scn_date_str]['qkimage'] = quicklook_img
+            scn_qklks[scn_date_str]['scn_date'] = scn_date[0]
+        return scn_qklks
+
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.

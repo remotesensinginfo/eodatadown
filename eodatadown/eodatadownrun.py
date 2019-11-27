@@ -33,19 +33,16 @@ EODataDown - run the EODataDown System.
 
 import logging
 import json
+import os
+import os.path
+import shutil
 import multiprocessing
+
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
 import eodatadown.eodatadownsystemmain
 
 logger = logging.getLogger(__name__)
-
-
-# Start: Function for Pool
-def _check_new_data_qfunc(sensor_obj_params):
-    sensor_obj_params[0].check_new_scns(sensor_obj_params[1])
-# End: Function for Pool
-
 
 def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     """
@@ -55,6 +52,11 @@ def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     :param sensors:
     :return:
     """
+    # Start: Function for Pool
+    def _check_new_data_qfunc(sensor_obj_params):
+        sensor_obj_params[0].check_new_scns(sensor_obj_params[1])
+    # End: Function for Pool
+
     logger.info("Running process to find new downloads.")
     # Create the System 'Main' object and parse the configuration file.
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
@@ -664,7 +666,46 @@ def get_scenes_need_processing(config_file, sensors):
             if scn not in scn_ids:
                 tasks.append([config_file, sensor, scn])
                 scn_ids.append(scn)
-
     return tasks
 
 
+def create_date_report(config_file, sensor, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir):
+    """
+    A function to create a date report (i.e., quicklooks of all the acquisitions for a particular date)
+    as a PDF.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: The sensor to process
+    :param pdf_report_file: The output PDF file.
+    :param start_date: A python datetime date object specifying the start date (most recent date)
+    :param end_date: A python datetime date object specifying the end date (earliest date)
+    :param vec_file: A vector file (polyline) which can be overlaid for context.
+    :param vec_lyr: The layer in the vector file.
+    :param tmp_dir: A temp directory for intermediate files.
+
+    """
+    from weasyprint import HTML, CSS
+
+    sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, sensor)
+    eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
+    uid_str = eoddutils.uidGenerator()
+    out_pdf_basename = eoddutils.get_file_basename(pdf_report_file, checkvalid=True)
+    c_tmp_dir = os.path.join(tmp_dir, '{}_{}_{}'.format(out_pdf_basename, sensor, uid_str))
+    if not os.path.exists(c_tmp_dir):
+        os.mkdir(c_tmp_dir)
+    out_img_dir = os.path.join(c_tmp_dir, 'out_imgs')
+    if not os.path.exists(out_img_dir):
+        os.mkdir(out_img_dir)
+
+    # Generate the images for the report.
+    date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 500, out_img_dir, 'PNG', vec_file, vec_lyr, tmp_dir)
+
+    # Process the report template
+
+
+    # Generate the PDF report.
+    report_html = HTML(filename='./report.html')
+    report_css = CSS(filename='./report.css')
+    report_html.write_pdf(pdf_report_file, stylesheets=[report_css])
+
+    shutil.rmtree(c_tmp_dir)

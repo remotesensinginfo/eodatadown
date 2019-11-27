@@ -151,6 +151,10 @@ class EODataDownSensor (object):
     def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True): pass
 
     @abstractmethod
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir):
+        pass
+
+    @abstractmethod
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west): pass
 
     @abstractmethod

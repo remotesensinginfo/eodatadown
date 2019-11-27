@@ -903,6 +903,24 @@ class EODataDownRapideyeSensor (EODataDownSensor):
         """
         raise EODataDownException("Not implemented.")
 
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir):
+        """
+        A function which created stretched and formatted visualisation images by combining all the scenes
+        for a particular date. It does that for each of the unique dates within the date range specified.
+
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+        :param img_size: The output image size in pixels
+        :param out_img_dir: The output image directory
+        :param img_format: the output image format (JPEG, PNG or GTIFF)
+        :param vec_file: A vector file (polyline) which can be overlaid for context.
+        :param vec_lyr: The layer in the vector file.
+        :param tmp_dir: A temp directory for intermediate files.
+        :return: dict with date (YYYYMMDD) as key with a dict of image info, including
+                 an qkimage field for the generated image
+        """
+        raise EODataDownException("Not implemented.")
+
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.
