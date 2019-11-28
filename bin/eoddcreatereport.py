@@ -72,8 +72,8 @@ if __name__ == "__main__":
     t = rsgislib.RSGISTime()
     t.start(True)
 
-    start_date = datetime.date.strptime(args.start, '%Y%m%d')
-    end_date = datetime.date.strptime(args.end, '%Y%m%d')
+    start_date = datetime.datetime.strptime(args.start, '%Y%m%d').date()
+    end_date = datetime.datetime.strptime(args.end, '%Y%m%d').date()
     eodatadown.eodatadownrun.create_date_report(config_file, args.sensor, args.output, start_date, end_date,
                                                 args.vecfile, args.veclyr, args.tmpdir)
 
