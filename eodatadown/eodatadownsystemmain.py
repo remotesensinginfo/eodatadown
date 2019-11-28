@@ -60,6 +60,7 @@ class EODataDownSystemMain(object):
         self.db_info_obj = None
         self.sensorConfigFiles = dict()
         self.sensors = list()
+        self.date_report_img_dir = None
 
     def __str__(self):
         return self.__repr__()
@@ -102,17 +103,24 @@ class EODataDownSystemMain(object):
             db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
             self.db_info_obj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
 
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'reports', 'date_report_img_dir']):
+                self.date_report_img_dir = json_parse_helper.getStrValue(config_data,
+                                                                         ['eodatadown', 'reports',
+                                                                          'date_report_img_dir'])
+
             # Get Sensor Configuration File List
             for sensor in config_data['eodatadown']['sensors']:
-                self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data, ['eodatadown', 'sensors', sensor, 'config'])
+                self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data,
+                                                                               ['eodatadown', 'sensors',
+                                                                                sensor, 'config'])
                 logger.debug("Getting sensor object: '" + sensor + "'")
-                sensor_obj = self.get_sensor_obj(sensor)
+                sensor_obj = self.create_sensor_obj(sensor)
                 logger.debug("Parse sensor config file: '" + sensor + "'")
                 sensor_obj.parse_sensor_config(self.sensorConfigFiles[sensor], first_parse)
                 self.sensors.append(sensor_obj)
                 logger.debug("Parsed sensor config file: '" + sensor + "'")
 
-    def get_sensor_obj(self, sensor):
+    def create_sensor_obj(self, sensor):
         """
         Get an instance of an object for the sensor specified.
         :param sensor:
@@ -162,6 +170,24 @@ class EODataDownSystemMain(object):
         """
         return self.sensors
 
+    def get_sensor_obj(self, sensor):
+        """
+        A function to get a sensor object.
+        :param sensor:
+        :return:
+        """
+        sensor_obj_to_process = None
+        for sensor_obj in self.sensors:
+            if sensor_obj.get_sensor_name() == sensor:
+                sensor_obj_to_process = sensor_obj
+                break
+
+        if sensor_obj_to_process is None:
+            logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+            raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+        return sensor_obj_to_process
+
     def init_dbs(self):
         """
         A function which will setup the system data base for each of the sensors.
@@ -196,3 +222,27 @@ class EODataDownSystemMain(object):
             logger.debug("Initialise Sensor Database: '" + sensor_obj.get_sensor_name() + "'")
             sensor_obj.init_sensor_db()
             logger.debug("Finished initialising the sensor database for '" + sensor_obj.get_sensor_name() + "'")
+
+        if self.date_report_img_dir is not None:
+            from eodatadown.eodatadowndatereports import EODataDownDateReports
+            report_obj = EODataDownDateReports(self.db_info_obj, self.date_report_img_dir)
+            report_obj.init_db()
+
+    def get_date_report_img_dir(self):
+        """
+        A function to retrieve the date report image directory.
+        :return: the directory path specified in the config file - if None then not defined.
+        """
+        return self.date_report_img_dir
+
+    def get_date_report_obj(self):
+        """
+        A function to retrieve an instance of a date report object.
+        :return: instance of EODataDownDateReports object or None if image directory has not been specified.
+        """
+        report_obj = None
+        if self.date_report_img_dir is not None:
+            from eodatadown.eodatadowndatereports import EODataDownDateReports
+            report_obj = EODataDownDateReports(self.db_info_obj, self.date_report_img_dir)
+        return report_obj
+

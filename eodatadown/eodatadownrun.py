@@ -33,14 +33,12 @@ EODataDown - run the EODataDown System.
 
 import logging
 import json
-import os
-import os.path
-import shutil
 import multiprocessing
 
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
 import eodatadown.eodatadownsystemmain
+import eodatadown.eodatadowndatereports
 
 logger = logging.getLogger(__name__)
 
@@ -95,16 +93,7 @@ def get_sensor_obj(config_file, sensor):
     sys_main_obj.parse_config(config_file)
     logger.debug("Parsed the system configuration.")
 
-    sensor_objs = sys_main_obj.get_sensors()
-    sensor_obj_to_process = None
-    for sensor_obj in sensor_objs:
-        if sensor_obj.get_sensor_name() == sensor:
-            sensor_obj_to_process = sensor_obj
-            break
-
-    if sensor_obj_to_process is None:
-        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
-        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+    sensor_obj_to_process = sys_main_obj.get_sensor_obj(sensor)
 
     return sensor_obj_to_process
 
@@ -571,8 +560,12 @@ def run_scn_analysis(params):
     config_file = params[0]
     scn_sensor = params[1]
     scn_id = params[2]
+
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+
     try:
-        sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, scn_sensor)
+        sensor_obj = sys_main_obj.get_sensor_obj(scn_sensor)
         qklook_complete = False
         tilecache_complete = False
         if not sensor_obj.has_scn_download(scn_id):
@@ -639,9 +632,12 @@ def get_scenes_need_processing(config_file, sensors):
     :returns: a list of lists where each scn has [config_file, scn_sensor, scn_id]
 
     """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+
     tasks = []
     for sensor in sensors:
-        sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, sensor)
+        sensor_obj = sys_main_obj.get_sensor_obj(sensor)
         scn_ids = []
         scns = sensor_obj.get_scnlist_quicklook()
         for scn in scns:
@@ -684,28 +680,12 @@ def create_date_report(config_file, sensor, pdf_report_file, start_date, end_dat
     :param tmp_dir: A temp directory for intermediate files.
 
     """
-    from weasyprint import HTML, CSS
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    report_obj = sys_main_obj.get_date_report_obj()
+    if report_obj is None:
+        logger.error("Error occurred and the date report object could not be created.")
 
-    sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, sensor)
-    eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
-    uid_str = eoddutils.uidGenerator()
-    out_pdf_basename = eoddutils.get_file_basename(pdf_report_file, checkvalid=True)
-    c_tmp_dir = os.path.join(tmp_dir, '{}_{}_{}'.format(out_pdf_basename, sensor, uid_str))
-    if not os.path.exists(c_tmp_dir):
-        os.mkdir(c_tmp_dir)
-    out_img_dir = os.path.join(c_tmp_dir, 'out_imgs')
-    if not os.path.exists(out_img_dir):
-        os.mkdir(out_img_dir)
+    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
 
-    # Generate the images for the report.
-    date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 500, out_img_dir, 'PNG', vec_file, vec_lyr, tmp_dir)
-
-    # Process the report template
-
-
-    # Generate the PDF report.
-    report_html = HTML(filename='./report.html')
-    report_css = CSS(filename='./report.css')
-    report_html.write_pdf(pdf_report_file, stylesheets=[report_css])
-
-    shutil.rmtree(c_tmp_dir)
+    report_obj.create_date_report(sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir)

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>{{ page_title }}</title>
+</head>
+<body>
+<h1>{{ page_title }}</h1>
+<h2>{{ second_title}}</h2>
+
+<div id="gridimg">
+
+    {% for scn in scns %}
+    <figure>
+        <img src="{{ scns[scn]['qkimage'] }}" alt="Image for {{ scns[scn]['date_str'] }}" />
+        <figcaption>
+          <p>{{ scns[scn]['date_str'] }}</p>
+        </figcaption>
+    </figure>
+    {% endfor %}
+
+</div>
+
+</body>
+</html>
