@@ -1398,7 +1398,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             raise EODataDownException("No scenes were found within this date range.")
         return scn_records
 
-    def find_unique_scn_dates(self, start_date, end_date, valid=True):
+    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True):
         """
         A function which returns a list of unique dates on which acquisitions have occurred.
         :param start_date: A python datetime object specifying the start date (most recent date)
@@ -1411,18 +1411,33 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         ses = session_sqlalc()
 
         if valid:
-            scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                EDDSentinel2Google.Sensing_Time < start_date,
-                EDDSentinel2Google.Sensing_Time > end_date,
-                EDDSentinel2Google.Invalid == False).group_by(
-                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
-                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+            if order_desc:
+                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                    EDDSentinel2Google.Sensing_Time < start_date,
+                    EDDSentinel2Google.Sensing_Time > end_date,
+                    EDDSentinel2Google.Invalid == False).group_by(
+                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+            else:
+                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                        EDDSentinel2Google.Sensing_Time < start_date,
+                        EDDSentinel2Google.Sensing_Time > end_date,
+                        EDDSentinel2Google.Invalid == False).group_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
         else:
-            scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                EDDSentinel2Google.Sensing_Time < start_date,
-                EDDSentinel2Google.Sensing_Time > end_date).group_by(
-                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
-                sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+            if order_desc:
+                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                    EDDSentinel2Google.Sensing_Time < start_date,
+                    EDDSentinel2Google.Sensing_Time > end_date).group_by(
+                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+            else:
+                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                        EDDSentinel2Google.Sensing_Time < start_date,
+                        EDDSentinel2Google.Sensing_Time > end_date).group_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
         ses.close()
         return scn_dates
 
@@ -1457,7 +1472,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         return scns
 
-    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir):
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir, order_desc=True):
         """
         A function which created stretched and formatted visualisation images by combining all the scenes
         for a particular date. It does that for each of the unique dates within the date range specified.
@@ -1483,7 +1498,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         else:
             raise EODataDownException("The input image format ({}) was recognised".format(img_format))
         eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
-        scn_dates = self.find_unique_scn_dates(start_date, end_date, valid=True)
+        scn_dates = self.find_unique_scn_dates(start_date, end_date, valid=True, order_desc=order_desc)
         scn_qklks = dict()
         for scn_date in scn_dates:
             print("Processing {}:".format(scn_date[0].strftime('%Y-%m-%d')))

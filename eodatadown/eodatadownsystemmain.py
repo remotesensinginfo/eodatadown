@@ -33,6 +33,7 @@ EODataDown - provide the main class where the functionality of EODataDown is acc
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
+from eodatadown.eodatadowndatereports import EODataDownDateReports
 
 import logging
 import json
@@ -60,7 +61,7 @@ class EODataDownSystemMain(object):
         self.db_info_obj = None
         self.sensorConfigFiles = dict()
         self.sensors = list()
-        self.date_report_img_dir = None
+        self.date_report_config_file = None
 
     def __str__(self):
         return self.__repr__()
@@ -103,16 +104,16 @@ class EODataDownSystemMain(object):
             db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
             self.db_info_obj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
 
-            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'reports', 'date_report_img_dir']):
-                self.date_report_img_dir = json_parse_helper.getStrValue(config_data,
-                                                                         ['eodatadown', 'reports',
-                                                                          'date_report_img_dir'])
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'reports', 'date_report_config']):
+                self.date_report_config_file = json_parse_helper.getStrValue(config_data, ['eodatadown', 'reports',
+                                                                                           'date_report_config'])
+                report_obj = EODataDownDateReports(self.db_info_obj)
+                report_obj.parse_sensor_config(self.date_report_config_file, first_parse)
 
             # Get Sensor Configuration File List
             for sensor in config_data['eodatadown']['sensors']:
-                self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data,
-                                                                               ['eodatadown', 'sensors',
-                                                                                sensor, 'config'])
+                self.sensorConfigFiles[sensor] = json_parse_helper.getStrValue(config_data, ['eodatadown', 'sensors',
+                                                                                             sensor, 'config'])
                 logger.debug("Getting sensor object: '" + sensor + "'")
                 sensor_obj = self.create_sensor_obj(sensor)
                 logger.debug("Parse sensor config file: '" + sensor + "'")
@@ -224,8 +225,8 @@ class EODataDownSystemMain(object):
             logger.debug("Finished initialising the sensor database for '" + sensor_obj.get_sensor_name() + "'")
 
         if self.date_report_img_dir is not None:
-            from eodatadown.eodatadowndatereports import EODataDownDateReports
-            report_obj = EODataDownDateReports(self.db_info_obj, self.date_report_img_dir)
+            report_obj = EODataDownDateReports(self.db_info_obj)
+            report_obj.parse_sensor_config(self.date_report_config_file)
             report_obj.init_db()
 
     def get_date_report_img_dir(self):
@@ -242,7 +243,7 @@ class EODataDownSystemMain(object):
         """
         report_obj = None
         if self.date_report_img_dir is not None:
-            from eodatadown.eodatadowndatereports import EODataDownDateReports
-            report_obj = EODataDownDateReports(self.db_info_obj, self.date_report_img_dir)
+            report_obj = EODataDownDateReports(self.db_info_obj)
+            report_obj.parse_sensor_config(self.date_report_config_file)
         return report_obj
 

@@ -75,7 +75,30 @@ class EODataDownDateReports (object):
 
     def __init__(self, db_info_obj, scn_image_dir):
         self.db_info_obj = db_info_obj
-        self.scn_image_dir = scn_image_dir
+        self.scn_image_dir = None
+
+    def parse_sensor_config(self, config_file, first_parse=False):
+        """
+        Parse the JSON configuration file. If first_parse=True then a signature file will be created
+        which will be checked each time the system runs to ensure changes are not back to the
+        configuration file. If the signature does not match the input file then an expection will be
+        thrown. To update the configuration (e.g., extent date range or spatial area) run with first_parse=True.
+        :param config_file: string with the path to the JSON file.
+        :param first_parse: boolean as to whether the file has been previously parsed.
+        """
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        # If it is the first time the config_file is parsed then create the signature file.
+        if first_parse:
+            edd_file_checker.createFileSig(config_file)
+            logger.debug("Created signature file for config file.")
+
+        if not edd_file_checker.checkFileSig(config_file):
+            raise EODataDownException("Input config did not match the file signature.")
+
+        with open(config_file) as f:
+            config_data = json.load(f)
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            self.scn_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report", "scn_image_dir"])
 
     def init_db(self):
         """
@@ -93,7 +116,8 @@ class EODataDownDateReports (object):
         Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
-    def create_date_report(self, sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir):
+    def create_date_report(self, sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir,
+                           order_desc=False, record_db=False):
         """
         A function to create a date report (i.e., quicklooks of all the acquisitions for a particular date)
         as a PDF.
@@ -107,7 +131,6 @@ class EODataDownDateReports (object):
         :param tmp_dir: A temp directory for intermediate files.
 
         """
-        from weasyprint import HTML, CSS
         import jinja2
 
         pdf_report_file = os.path.abspath(pdf_report_file)
@@ -125,7 +148,7 @@ class EODataDownDateReports (object):
 
         # Generate the images for the report.
         date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 250, out_img_dir, 'PNG', vec_file,
-                                                         vec_lyr, tmp_dir)
+                                                         vec_lyr, tmp_dir, order_desc=order_desc)
 
         date_scn_imgs_dict = dict()
         for scn_key in date_scns_dict:
@@ -165,29 +188,27 @@ class EODataDownDateReports (object):
             out_file_obj_css.flush()
             out_file_obj_css.close()
 
-        # Generate the PDF report.
-        print("Reading HTML Doc")
-        report_html = HTML(filename=out_html_file)
-        print("Reading CSS Doc")
-        report_css = CSS(filename=out_css_file)
-        print("Creating PDF Doc")
-        report_html.write_pdf(pdf_report_file, stylesheets=[report_css])
-        print("Finished Creating PDF Doc")
+        cmd = "weasyprint -f pdf -s {} {} {}".format(out_css_file, out_html_file, pdf_report_file)
+        print(cmd)
+        try:
+            subprocess.check_call(cmd, shell=True)
+        except OSError as e:
+            raise Exception('Could not execute command: ' + cmd)
 
-        #shutil.rmtree(c_tmp_dir)
-        """
-        logger.debug("Creating Database Engine and Session.")
-        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session_sqlalc()
-        db_records = list()
-        db_records.append(EDDDateReports(File_Path=pdf_report_file,
-                                         Start_Date=start_date,
-                                         End_Date=end_date,
-                                         Production_Date=datetime.datetime.now(),
-                                         Sensor=sensor_name,
-                                         Scn_Images=date_scn_imgs_dict
-                                         ))
-        ses.add_all(db_records)
-        ses.commit()
-        """
+        shutil.rmtree(c_tmp_dir)
+        if record_db:
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            db_records = list()
+            db_records.append(EDDDateReports(File_Path=pdf_report_file,
+                                             Start_Date=start_date,
+                                             End_Date=end_date,
+                                             Production_Date=datetime.datetime.now(),
+                                             Sensor=sensor_name,
+                                             Scn_Images=date_scn_imgs_dict
+                                             ))
+            ses.add_all(db_records)
+            ses.commit()
+

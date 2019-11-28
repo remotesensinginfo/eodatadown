@@ -145,13 +145,13 @@ class EODataDownSensor (object):
     def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True): pass
 
     @abstractmethod
-    def find_unique_scn_dates(self, start_date, end_date, valid=True):pass
+    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True):pass
 
     @abstractmethod
     def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True): pass
 
     @abstractmethod
-    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir):
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir, order_desc=True):
         pass
 
     @abstractmethod

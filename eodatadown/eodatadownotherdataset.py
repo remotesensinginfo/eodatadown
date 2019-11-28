@@ -641,7 +641,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def find_unique_scn_dates(self, start_date, end_date, valid=True):
+    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True):
         """
         A function which returns a list of unique dates on which acquisitions have occurred.
         :param start_date: A python datetime object specifying the start date (most recent date)
@@ -672,7 +672,7 @@ class EODataDownGenericDatasetSensor (EODataDownSensor):
         """
         raise EODataDownException("Not Implemented")
 
-    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir):
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir, order_desc=True):
         """
         A function which created stretched and formatted visualisation images by combining all the scenes
         for a particular date. It does that for each of the unique dates within the date range specified.
