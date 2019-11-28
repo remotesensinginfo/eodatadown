@@ -73,7 +73,7 @@ class EDDDateReports(Base):
 
 class EODataDownDateReports (object):
 
-    def __init__(self, db_info_obj, scn_image_dir):
+    def __init__(self, db_info_obj):
         self.db_info_obj = db_info_obj
         self.scn_image_dir = None
 

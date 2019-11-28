@@ -54,6 +54,10 @@ if __name__ == "__main__":
                                                                          "For example, country boundaries.")
     parser.add_argument("-l", "--veclyr", type=str, required=True, help="The layer within the vector file.")
     parser.add_argument("-t", "--tmpdir", type=str, required=True, help="A temp directory within which to work.")
+    parser.add_argument("--order_desc", action='store_true', default=False,
+                       help="Specify that the scenes should be in descending order.")
+    parser.add_argument("--record_db", action='store_true', default=False,
+                        help="Specify that the report should be stored in database.")
 
 
     args = parser.parse_args()
@@ -75,7 +79,7 @@ if __name__ == "__main__":
     start_date = datetime.datetime.strptime(args.start, '%Y%m%d').date()
     end_date = datetime.datetime.strptime(args.end, '%Y%m%d').date()
     eodatadown.eodatadownrun.create_date_report(config_file, args.sensor, args.output, start_date, end_date,
-                                                args.vecfile, args.veclyr, args.tmpdir)
+                                                args.vecfile, args.veclyr, args.tmpdir, args.order_desc, args.record_db)
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddcreatereport.py.')
 

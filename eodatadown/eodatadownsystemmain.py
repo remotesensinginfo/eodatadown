@@ -242,7 +242,7 @@ class EODataDownSystemMain(object):
         :return: instance of EODataDownDateReports object or None if image directory has not been specified.
         """
         report_obj = None
-        if self.date_report_img_dir is not None:
+        if self.date_report_config_file is not None:
             report_obj = EODataDownDateReports(self.db_info_obj)
             report_obj.parse_sensor_config(self.date_report_config_file)
         return report_obj

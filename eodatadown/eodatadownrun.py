@@ -665,7 +665,8 @@ def get_scenes_need_processing(config_file, sensors):
     return tasks
 
 
-def create_date_report(config_file, sensor, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir):
+def create_date_report(config_file, sensor, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir,
+                       order_desc=False, record_db=False):
     """
     A function to create a date report (i.e., quicklooks of all the acquisitions for a particular date)
     as a PDF.
@@ -691,4 +692,5 @@ def create_date_report(config_file, sensor, pdf_report_file, start_date, end_dat
     print("Start Date: {}".format(start_date.strftime('%Y-%m-%d')))
     print("End Date: {}".format(end_date.strftime('%Y-%m-%d')))
 
-    report_obj.create_date_report(sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir)
+    report_obj.create_date_report(sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr,
+                                  tmp_dir, order_desc, record_db)
