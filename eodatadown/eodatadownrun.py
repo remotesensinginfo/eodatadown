@@ -688,4 +688,7 @@ def create_date_report(config_file, sensor, pdf_report_file, start_date, end_dat
 
     sensor_obj = sys_main_obj.get_sensor_obj(sensor)
 
+    print("Start Date: {}".format(start_date.strftime('%Y-%m-%d')))
+    print("End Date: {}".format(end_date.strftime('%Y-%m-%d')))
+
     report_obj.create_date_report(sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir)

@@ -1498,7 +1498,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             bands = '7,10,3'
 
             scn_date_str = scn_date[0].strftime('%Y%m%d')
-            quicklook_img = os.path.join(out_img_dir, "sen2_qklk_{}.{}}".format(scn_date_str, out_img_ext))
+            quicklook_img = os.path.join(out_img_dir, "sen2_qklk_{}.{}".format(scn_date_str, out_img_ext))
             import rsgislib.tools.visualisation
             rsgislib.tools.visualisation.createQuicklookOverviewImgsVecOverlay(scn_files, bands, tmp_dir,
                                                                                vec_file, vec_lyr,

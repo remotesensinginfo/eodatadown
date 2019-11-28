@@ -37,7 +37,7 @@ from distutils.core import setup
 import os
 
 setup(name='EODataDown',
-    version='0.47.1',
+    version='0.47.3',
     description='A tool for automating Earth Observation Data Downloading.',
     author='Pete Bunting',
     author_email='pfb@aber.ac.uk',
@@ -47,6 +47,7 @@ setup(name='EODataDown',
              'bin/eoddrunscnmonitoring.py', 'bin/eoddchknewscns.py', 'bin/eoddcreatereport.py'],
     packages=['eodatadown'],
     package_dir={'eodatadown': 'eodatadown'},
+    package_data={'eodatadown': ['templates/*.jinja2']},
     data_files=[(os.path.join('share','eodatadown'),
                 [os.path.join('share','eodatadown', 'loggingconfig.json'),
                  os.path.join('share', 'eodatadown', 'sensor_scn_lut.gpkg')]),

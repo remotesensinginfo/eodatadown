@@ -124,14 +124,14 @@ class EODataDownDateReports (object):
             os.mkdir(out_img_dir)
 
         # Generate the images for the report.
-        date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 500, out_img_dir, 'PNG', vec_file,
+        date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 250, out_img_dir, 'PNG', vec_file,
                                                          vec_lyr, tmp_dir)
 
         date_scn_imgs_dict = dict()
         for scn_key in date_scns_dict:
             date_scn_imgs_dict[scn_key] = dict()
-            date_scn_imgs_dict[scn_key]['qkimage'] = date_scns_dict['qkimage']
-            date_scn_imgs_dict[scn_key]['date_str'] = date_scns_dict['scn_date'].strftime('%Y-%m-%d')
+            date_scn_imgs_dict[scn_key]['qkimage'] = date_scns_dict[scn_key]['qkimage']
+            date_scn_imgs_dict[scn_key]['date_str'] = date_scns_dict[scn_key]['scn_date'].strftime('%Y-%m-%d')
 
         # Process the report template
         css_fields = dict()
@@ -147,16 +147,32 @@ class EODataDownDateReports (object):
         template_loader = jinja2.PackageLoader('eodatadown')
 
         template_env = jinja2.Environment(loader=template_loader)
-        html_template = template_env.get_template('report_scn_html.jinja2')
-        css_template = template_env.get_template('report_scn_css.jinja2')
+        html_template = template_env.get_template('report_scn_date_html.jinja2')
+        css_template = template_env.get_template('report_scn_date_css.jinja2')
 
         report_html_str = html_template.render(html_fields)
         report_css_str = css_template.render(css_fields)
 
+        out_html_file = os.path.join(c_tmp_dir, '{}_html.html'.format(out_pdf_basename))
+        with open(out_html_file, 'w') as out_file_obj_html:
+            out_file_obj_html.write(report_html_str)
+            out_file_obj_html.flush()
+            out_file_obj_html.close()
+
+        out_css_file = os.path.join(c_tmp_dir, '{}_css.css'.format(out_pdf_basename))
+        with open(out_css_file, 'w') as out_file_obj_css:
+            out_file_obj_css.write(report_css_str)
+            out_file_obj_css.flush()
+            out_file_obj_css.close()
+
         # Generate the PDF report.
-        report_html = HTML(report_html_str)
-        report_css = CSS(report_css_str)
+        print("Reading HTML Doc")
+        report_html = HTML(filename=out_html_file)
+        print("Reading CSS Doc")
+        report_css = CSS(filename=out_css_file)
+        print("Creating PDF Doc")
         report_html.write_pdf(pdf_report_file, stylesheets=[report_css])
+        print("Finished Creating PDF Doc")
 
         #shutil.rmtree(c_tmp_dir)
         """
