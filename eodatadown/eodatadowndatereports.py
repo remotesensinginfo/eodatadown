@@ -75,7 +75,7 @@ class EODataDownDateReports (object):
 
     def __init__(self, db_info_obj):
         self.db_info_obj = db_info_obj
-        self.scn_image_dir = None
+        self.scn_rept_image_dir = None
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -98,7 +98,7 @@ class EODataDownDateReports (object):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-            self.scn_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report", "scn_image_dir"])
+            self.scn_rept_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report", "scn_rept_image_dir"])
 
     def init_db(self):
         """
@@ -142,7 +142,7 @@ class EODataDownDateReports (object):
         if not os.path.exists(c_tmp_dir):
             os.mkdir(c_tmp_dir)
 
-        out_img_dir = os.path.join(self.scn_image_dir, '{}_{}'.format(out_pdf_basename, uid_str))
+        out_img_dir = os.path.join(self.scn_rept_image_dir, '{}_{}'.format(out_pdf_basename, uid_str))
         if not os.path.exists(out_img_dir):
             os.mkdir(out_img_dir)
 

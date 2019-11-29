@@ -31,11 +31,38 @@ EODataDown - an abstract sensor class.
 # Version 1.0 - Created.
 
 import logging
+import json
 from abc import ABCMeta, abstractmethod
 
 import eodatadown.eodatadownutils
+from eodatadown.eodatadownutils import EODataDownException
+
+from sqlalchemy.ext.declarative import declarative_base
+import sqlalchemy
+import sqlalchemy.dialects.postgresql
+from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
+
+Base = declarative_base()
+
+class EDDObsDates(Base):
+    __tablename__ = "EDDObsDates"
+    SensorID = sqlalchemy.Column(sqlalchemy.String, nullable=True, primary_key=True)
+    PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=True, primary_key=True)
+    ObsDate = sqlalchemy.Column(sqlalchemy.Date, nullable=True, primary_key=True)
+    OverviewCreated = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    NeedUpdate = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Overviews = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
+
+
+class EDDObsDatesScns(Base):
+    __tablename__ = "EDDObsDatesScns"
+    SensorID = sqlalchemy.Column(sqlalchemy.String, nullable=False, primary_key=True)
+    PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=True, primary_key=True)
+    ObsDate = sqlalchemy.Column(sqlalchemy.Date, nullable=False, primary_key=True)
+    Scene_PID = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, primary_key=True)
 
 
 class EODataDownSensor (object):
@@ -139,20 +166,26 @@ class EODataDownSensor (object):
     def get_scn_record(self, unq_id): pass
 
     @abstractmethod
+    def find_unique_platforms(self): pass
+
+    @abstractmethod
     def query_scn_records_date_count(self, start_date, end_date, valid=True): pass
 
     @abstractmethod
     def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True): pass
 
     @abstractmethod
-    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True):pass
+    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True, platform=None): pass
 
     @abstractmethod
-    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True): pass
+    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True, platform=None): pass
 
     @abstractmethod
-    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir, order_desc=True):
-        pass
+    def get_scn_pids_for_date(self, date_of_interest, valid=True, ard_prod=True, platform=None): pass
+
+    @abstractmethod
+    def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr,
+                             tmp_dir, order_desc=True): pass
 
     @abstractmethod
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west): pass
@@ -209,3 +242,135 @@ class EODataDownSensor (object):
 
     @abstractmethod
     def reset_dc_load(self, unq_id): pass
+
+
+class EODataDownObsDates (object):
+
+    def __init__(self, db_info_obj):
+        """
+        Function to initial the sensor.
+        :param db_info_obj: Instance of a EODataDownDatabaseInfo object
+        """
+        self.db_info_obj = db_info_obj
+        self.overview_proj_epsg = None
+        self.overview_img_base_dir = None
+        self.overview_img_sizes = None
+        self.overview_extent_vec_file = None
+        self.overview_extent_vec_lyr = None
+
+    def parse_sensor_config(self, config_file, first_parse=False):
+        """
+        Parse the JSON configuration file. If first_parse=True then a signature file will be created
+        which will be checked each time the system runs to ensure changes are not back to the
+        configuration file. If the signature does not match the input file then an expection will be
+        thrown. To update the configuration (e.g., extent date range or spatial area) run with first_parse=True.
+        :param config_file: string with the path to the JSON file.
+        :param first_parse: boolean as to whether the file has been previously parsed.
+        """
+        edd_file_checker = eodatadown.eodatadownutils.EDDCheckFileHash()
+        # If it is the first time the config_file is parsed then create the signature file.
+        if first_parse:
+            edd_file_checker.createFileSig(config_file)
+            logger.debug("Created signature file for config file.")
+
+        if not edd_file_checker.checkFileSig(config_file):
+            raise EODataDownException("Input config did not match the file signature.")
+
+        with open(config_file) as f:
+            config_data = json.load(f)
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
+
+            logger.debug("Testing config file is for 'datescns'")
+            if not json_parse_helper.doesPathExist(config_data, ["eodatadown", "datescns"]):
+                raise EODataDownException("Config file should have top level eodatadown > datescns.")
+            logger.debug("Have the correct config file for 'datescns'")
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "datescns", "overviews"]):
+                self.overview_proj_epsg = int(json_parse_helper.getNumericValue(config_data,
+                                                                                ["eodatadown", "datescns", "overviews",
+                                                                                 "epsg"], 0, 1000000000))
+                self.overview_img_base_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "datescns",
+                                                                                         "overviews", "scn_image_dir"])
+
+                tmp_overview_img_sizes = json_parse_helper.getListValue(config_data, ["eodatadown", "datescns",
+                                                                                      "overviews", "overviewsizes"])
+                self.overview_img_sizes = list()
+                for overview_size in tmp_overview_img_sizes:
+                    if eoddutils.isNumber(overview_size):
+                        self.overview_img_sizes.append(int(overview_size))
+                    else:
+                        raise EODataDownException("overviewsizes contained a value which was not a number.")
+
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "datescns", "overviews", "extent"]):
+                    self.overview_extent_vec_file = json_parse_helper.getStrValue(config_data, ["eodatadown",
+                                                                                                "datescns", "overviews",
+                                                                                                "extent", "vec_file"])
+                    self.overview_extent_vec_lyr = json_parse_helper.getStrValue(config_data, ["eodatadown",
+                                                                                               "datescns", "overviews",
+                                                                                               "extent", "vec_lyr"])
+            else:
+                raise EODataDownException("No information on eodatadown > datescns > overviews.")
+
+    def init_sensor_db(self):
+        """
+        A function which initialises the database use the db_info_obj passed to __init__.
+        Be careful as running this function drops the table if it already exists and therefore
+        any data would be lost.
+        """
+        logger.debug("Creating Database Engine.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+
+        logger.debug("Drop system table if within the existing database.")
+        Base.metadata.drop_all(db_engine)
+
+        logger.debug("Creating EDDObsDates & EDDObsDatesScns Tables.")
+        Base.metadata.bind = db_engine
+        Base.metadata.create_all()
+
+    def create_obs_date_records(self, sensor_obj, start_date, end_date):
+        """
+        A function which creates the database records for the observation dates.
+
+        :param sensor_obj: an instance of a EODataDownSensor implementation
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        sensor_name = sensor_obj.get_sensor_name()
+        platforms = sensor_obj.find_unique_platforms()
+
+        for platform in platforms:
+            unq_dates = sensor_obj.find_unique_scn_dates(start_date, end_date, valid=True, order_desc=True,
+                                                         platform=platform)
+            db_obsdata_records = list()
+            db_scnobsdata_records = list()
+            for obs_date in unq_dates:
+                query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor_name,
+                                                          EDDObsDates.PlatformID == platform,
+                                                          EDDObsDates.ObsDate == obs_date).one_or_none()
+                if query_rtn is None:
+                    db_obsdata_records.append(EDDObsDates(SensorID=sensor_name, PlatformID=sensor_name,
+                                                          ObsDate=obs_date))
+
+                    scn_pids = sensor_obj.get_scn_pids_for_date(obs_date, valid=True, ard_prod=True, platform=platform)
+                    for scn_pid in scn_pids:
+                        db_scnobsdata_records.append(EDDObsDatesScns(SensorID=sensor_name,
+                                                                     PlatformID=sensor_name,
+                                                                     ObsDate=obs_date,
+                                                                     Scene_PID=scn_pid))
+            if len(db_obsdata_records) > 0:
+                ses.add_all(db_obsdata_records)
+                if len(db_scnobsdata_records) > 0:
+                    ses.add_all(db_scnobsdata_records)
+                ses.commit()
+        ses.close()
+
+
+
+
+

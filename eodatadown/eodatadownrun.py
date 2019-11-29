@@ -694,3 +694,22 @@ def create_date_report(config_file, sensor, pdf_report_file, start_date, end_dat
 
     report_obj.create_date_report(sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr,
                                   tmp_dir, order_desc, record_db)
+
+
+def build_obs_date_db(config_file, sensor, start_date, end_date):
+    """
+    A function which builds the observation date database table for a given sensor within a given
+    date range. If the observation date is already in the database then it is ignored and not
+    updated.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: The sensor to process
+    :param start_date: A python datetime date object specifying the start date (most recent date)
+    :param end_date: A python datetime date object specifying the end date (earliest date)
+
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+    obsdates_obj.create_obs_date_records(sensor_obj, start_date, end_date)

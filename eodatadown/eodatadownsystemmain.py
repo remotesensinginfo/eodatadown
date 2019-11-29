@@ -34,6 +34,7 @@ from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 from eodatadown.eodatadowndatereports import EODataDownDateReports
+from eodatadown.eodatadownsensor import EODataDownObsDates
 
 import logging
 import json
@@ -62,6 +63,7 @@ class EODataDownSystemMain(object):
         self.sensorConfigFiles = dict()
         self.sensors = list()
         self.date_report_config_file = None
+        self.obsdates_config_file = None
 
     def __str__(self):
         return self.__repr__()
@@ -109,6 +111,11 @@ class EODataDownSystemMain(object):
                                                                                            'date_report_config'])
                 report_obj = EODataDownDateReports(self.db_info_obj)
                 report_obj.parse_sensor_config(self.date_report_config_file, first_parse)
+
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'obsdates']):
+                self.obsdates_config_file = json_parse_helper.getStrValue(config_data, ['eodatadown', 'obsdates'])
+                obsdates_obj = EODataDownObsDates(self.db_info_obj)
+                obsdates_obj.parse_sensor_config(self.obsdates_config_file, first_parse)
 
             # Get Sensor Configuration File List
             for sensor in config_data['eodatadown']['sensors']:
@@ -204,26 +211,37 @@ class EODataDownSystemMain(object):
             sensor_obj.init_sensor_db()
             logger.debug("Finished initialising the sensor database for '" + sensor_obj.get_sensor_name() + "'")
 
-        if self.date_report_img_dir is not None:
+        if self.date_report_config_file is not None:
             report_obj = EODataDownDateReports(self.db_info_obj)
             report_obj.parse_sensor_config(self.date_report_config_file)
             report_obj.init_db()
 
-    def get_date_report_img_dir(self):
-        """
-        A function to retrieve the date report image directory.
-        :return: the directory path specified in the config file - if None then not defined.
-        """
-        return self.date_report_img_dir
+        if self.obsdates_config_file is not None:
+            obsdates_obj = EODataDownObsDates(self.db_info_obj)
+            obsdates_obj.parse_sensor_config(self.obsdates_config_file)
+            obsdates_obj.init_db()
 
     def get_date_report_obj(self):
         """
         A function to retrieve an instance of a date report object.
-        :return: instance of EODataDownDateReports object or None if image directory has not been specified.
+        :return: instance of EODataDownDateReports object or None if configure file has not been specified.
         """
         report_obj = None
         if self.date_report_config_file is not None:
             report_obj = EODataDownDateReports(self.db_info_obj)
             report_obj.parse_sensor_config(self.date_report_config_file)
         return report_obj
+    
+    def get_obsdates_obj(self):
+        """
+        A function to retrieve an instance of a observation dates object.
+        :return: instance of EODataDownObsDates object or None if configure file has not been specified.
+        """
+        report_obj = None
+        if self.date_report_config_file is not None:
+            obsdates_obj = EODataDownObsDates(self.db_info_obj)
+            obsdates_obj.parse_sensor_config(self.obsdates_config_file)
+        return report_obj
+
+
 

@@ -1203,6 +1203,18 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
 
+    def find_unique_platforms(self):
+        """
+        A function which returns a list of unique platforms within the database (e.g., Sentinel1A or Sentinel1B).
+        :return: list of strings.
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        platforms = ses.query(EDDSentinel1ASF.Platform).group_by(EDDSentinel1ASF.Platform)
+        ses.close()
+        return platforms
+
     def query_scn_records_date_count(self, start_date, end_date, valid=True):
         """
         A function which queries the database to find scenes within a specified date range
@@ -1278,79 +1290,150 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             raise EODataDownException("No scenes were found within this date range.")
         return scn_records
 
-    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True):
+    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True, platform=None):
         """
         A function which returns a list of unique dates on which acquisitions have occurred.
         :param start_date: A python datetime object specifying the start date (most recent date)
         :param end_date: A python datetime object specifying the end date (earliest date)
         :param valid: If True only valid observations are considered.
+        :param order_desc: If True then results are in descending order otherwise ascending.
+        :param platform: If None then all scenes, if value provided then it just be for that platform.
         :return: List of datetime.date objects.
         """
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        if valid:
-            if order_desc:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
-                    EDDSentinel1ASF.Acquisition_Date < start_date,
-                    EDDSentinel1ASF.Acquisition_Date > end_date,
-                    EDDSentinel1ASF.Invalid == False).group_by(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
-            else:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+        if platform is None:
+            if valid:
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
                         EDDSentinel1ASF.Acquisition_Date < start_date,
                         EDDSentinel1ASF.Acquisition_Date > end_date,
                         EDDSentinel1ASF.Invalid == False).group_by(
                         sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
-                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).asc())
-        else:
-            if order_desc:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
-                    EDDSentinel1ASF.Acquisition_Date < start_date,
-                    EDDSentinel1ASF.Acquisition_Date > end_date).group_by(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                            EDDSentinel1ASF.Acquisition_Date < start_date,
+                            EDDSentinel1ASF.Acquisition_Date > end_date,
+                            EDDSentinel1ASF.Invalid == False).group_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).asc())
             else:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
                         EDDSentinel1ASF.Acquisition_Date < start_date,
                         EDDSentinel1ASF.Acquisition_Date > end_date).group_by(
                         sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
-                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).asc())
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                            EDDSentinel1ASF.Acquisition_Date < start_date,
+                            EDDSentinel1ASF.Acquisition_Date > end_date).group_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).asc())
+        else:
+            if valid:
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                            EDDSentinel1ASF.Acquisition_Date < start_date,
+                            EDDSentinel1ASF.Acquisition_Date > end_date,
+                            EDDSentinel1ASF.Invalid == False,
+                            EDDSentinel1ASF.Platform == platform).group_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                            EDDSentinel1ASF.Acquisition_Date < start_date,
+                            EDDSentinel1ASF.Acquisition_Date > end_date,
+                            EDDSentinel1ASF.Invalid == False,
+                            EDDSentinel1ASF.Platform == platform).group_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).asc())
+            else:
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                            EDDSentinel1ASF.Acquisition_Date < start_date,
+                            EDDSentinel1ASF.Acquisition_Date > end_date,
+                            EDDSentinel1ASF.Platform == platform).group_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).filter(
+                            EDDSentinel1ASF.Acquisition_Date < start_date,
+                            EDDSentinel1ASF.Acquisition_Date > end_date,
+                            EDDSentinel1ASF.Platform == platform).group_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date).asc())
         ses.close()
         return scn_dates
 
-    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True):
+    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True, platform=None):
         """
         A function to retrieve a list of scenes which have been acquired on a particular date.
 
         :param date_of_interest: a datetime.date object specifying the date of interest.
         :param valid: If True only valid observations are considered.
         :param ard_prod: If True only observations which have been converted to an ARD product are considered.
+        :param platform: If None then all scenes, if value provided then it just be for that platform.
         :return: a list of sensor objects
         """
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        if valid and ard_prod:
-            scns = ses.query(EDDSentinel1ASF).filter(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
-                    EDDSentinel1ASF.Invalid == False, EDDSentinel1ASF.ARDProduct == True).all()
-        elif valid:
-            scns = ses.query(EDDSentinel1ASF).filter(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
-                    EDDSentinel1ASF.Invalid == False).all()
-        elif ard_prod:
-            scns = ses.query(EDDSentinel1ASF).filter(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
-                    EDDSentinel1ASF.ARDProduct == True).all()
+        if platform is None:
+            if valid and ard_prod:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.Invalid == False, EDDSentinel1ASF.ARDProduct == True).all()
+            elif valid:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.Invalid == False).all()
+            elif ard_prod:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.ARDProduct == True).all()
+            else:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest).all()
         else:
-            scns = ses.query(EDDSentinel1ASF).filter(
-                    sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest).all()
-
+            if valid and ard_prod:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.Invalid == False, EDDSentinel1ASF.ARDProduct == True,
+                        EDDSentinel1ASF.Platform == platform).all()
+            elif valid:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.Invalid == False, EDDSentinel1ASF.Platform == platform).all()
+            elif ard_prod:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.ARDProduct == True, EDDSentinel1ASF.Platform == platform).all()
+            else:
+                scns = ses.query(EDDSentinel1ASF).filter(
+                        sqlalchemy.cast(EDDSentinel1ASF.Acquisition_Date, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel1ASF.Platform == platform).all()
         return scns
+
+    def get_scn_pids_for_date(self, date_of_interest, valid=True, ard_prod=True, platform=None):
+        """
+        A function to retrieve a list of scene PIDs which have been acquired on a particular date.
+
+        :param date_of_interest: a datetime.date object specifying the date of interest.
+        :param valid: If True only valid observations are considered.
+        :param ard_prod: If True only observations which have been converted to an ARD product are considered.
+        :param platform: If None then all scenes, if value provided then it just be for that platform.
+        :return: a list of PIDs (ints)
+        """
+        scns = self.get_scns_for_date(date_of_interest, valid, ard_prod, platform)
+        scn_pids = list()
+        for scn in scns:
+            scn_pids.append(scn.PID)
+        return scn_pids
 
     def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir, order_desc=True):
         """
@@ -1533,7 +1616,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         with open(input_json_file) as json_file_obj:
             sensor_rows = json.load(json_file_obj)
             for pid in sensor_rows:
-                db_records.append(EDDSentinel1ASF(Scene_ID=sensor_rows[pid]['Scene_ID'],
+                db_records.append(EDDSentinel1ASF(PID=sensor_rows[pid]['PID'],
+                                                  Scene_ID=sensor_rows[pid]['Scene_ID'],
                                                   Product_Name=sensor_rows[pid]['Product_Name'],
                                                   Product_File_ID=sensor_rows[pid]['Product_File_ID'],
                                                   ABS_Orbit=sensor_rows[pid]['ABS_Orbit'],

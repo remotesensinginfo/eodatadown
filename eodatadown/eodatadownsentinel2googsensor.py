@@ -64,6 +64,7 @@ class EDDSentinel2Google(Base):
     PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
     Granule_ID = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Product_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    Platform_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Datatake_Identifier = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Mgrs_Tile = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Sensing_Time = sqlalchemy.Column(sqlalchemy.Date, nullable=True)
@@ -475,9 +476,15 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         if len(query_rtn) == 0:
                             logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
                             sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
+                            platform = 'Sentinel2'
+                            if 'GS2A' in row.datatake_identifier:
+                                platform = 'Sentinel2A'
+                            elif 'GS2B' in row.datatake_identifier:
+                                platform = 'Sentinel2B'
                             db_records.append(
                                 EDDSentinel2Google(Granule_ID=row.granule_id, Product_ID=row.product_id,
-                                                   Datatake_Identifier=row.datatake_identifier, Mgrs_Tile=row.mgrs_tile,
+                                                   Platform_ID=platform, Datatake_Identifier=row.datatake_identifier,
+                                                   Mgrs_Tile=row.mgrs_tile,
                                                    Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
                                                                                            "%Y-%m-%dT%H:%M:%S.%f"),
                                                    Geometric_Quality_Flag=row.geometric_quality_flag,
@@ -1323,6 +1330,18 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
 
+    def find_unique_platforms(self):
+        """
+        A function which returns a list of unique platforms within the database (e.g., Sentinel2A or Sentinel2B).
+        :return: list of strings.
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        platforms = ses.query(EDDSentinel2Google.Platform_ID).group_by(EDDSentinel2Google.Platform_ID)
+        ses.close()
+        return platforms
+
     def query_scn_records_date_count(self, start_date, end_date, valid=True):
         """
         A function which queries the database to find scenes within a specified date range
@@ -1398,79 +1417,150 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             raise EODataDownException("No scenes were found within this date range.")
         return scn_records
 
-    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True):
+    def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True, platform=None):
         """
         A function which returns a list of unique dates on which acquisitions have occurred.
         :param start_date: A python datetime object specifying the start date (most recent date)
         :param end_date: A python datetime object specifying the end date (earliest date)
         :param valid: If True only valid observations are considered.
+        :param order_desc: If True then results are in descending order otherwise ascending.
+        :param platform: If None then all scenes, if value provided then it just be for that platform.
         :return: List of datetime.date objects.
         """
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        if valid:
-            if order_desc:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                    EDDSentinel2Google.Sensing_Time < start_date,
-                    EDDSentinel2Google.Sensing_Time > end_date,
-                    EDDSentinel2Google.Invalid == False).group_by(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
-            else:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+        if platform is None:
+            if valid:
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
                         EDDSentinel2Google.Sensing_Time < start_date,
                         EDDSentinel2Google.Sensing_Time > end_date,
                         EDDSentinel2Google.Invalid == False).group_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
-                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
-        else:
-            if order_desc:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                    EDDSentinel2Google.Sensing_Time < start_date,
-                    EDDSentinel2Google.Sensing_Time > end_date).group_by(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                            EDDSentinel2Google.Sensing_Time < start_date,
+                            EDDSentinel2Google.Sensing_Time > end_date,
+                            EDDSentinel2Google.Invalid == False).group_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
             else:
-                scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
                         EDDSentinel2Google.Sensing_Time < start_date,
                         EDDSentinel2Google.Sensing_Time > end_date).group_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
-                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                            EDDSentinel2Google.Sensing_Time < start_date,
+                            EDDSentinel2Google.Sensing_Time > end_date).group_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
+        else:
+            if valid:
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                        EDDSentinel2Google.Sensing_Time < start_date,
+                        EDDSentinel2Google.Sensing_Time > end_date,
+                        EDDSentinel2Google.Invalid == False,
+                        EDDSentinel2Google.Platform_ID == platform).group_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                            EDDSentinel2Google.Sensing_Time < start_date,
+                            EDDSentinel2Google.Sensing_Time > end_date,
+                            EDDSentinel2Google.Invalid == False,
+                            EDDSentinel2Google.Platform_ID == platform).group_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
+            else:
+                if order_desc:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                        EDDSentinel2Google.Sensing_Time < start_date,
+                        EDDSentinel2Google.Sensing_Time > end_date,
+                        EDDSentinel2Google.Platform_ID == platform).group_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
+                else:
+                    scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
+                            EDDSentinel2Google.Sensing_Time < start_date,
+                            EDDSentinel2Google.Sensing_Time > end_date,
+                            EDDSentinel2Google.Platform_ID == platform).group_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
+                            sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
         ses.close()
         return scn_dates
 
-    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True):
+    def get_scns_for_date(self, date_of_interest, valid=True, ard_prod=True, platform=None):
         """
         A function to retrieve a list of scenes which have been acquired on a particular date.
 
         :param date_of_interest: a datetime.date object specifying the date of interest.
         :param valid: If True only valid observations are considered.
         :param ard_prod: If True only observations which have been converted to an ARD product are considered.
+        :param platform: If None then all scenes, if value provided then it just be for that platform.
         :return: a list of sensor objects
         """
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        if valid and ard_prod:
-            scns = ses.query(EDDSentinel2Google).filter(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
-                    EDDSentinel2Google.Invalid == False, EDDSentinel2Google.ARDProduct == True).all()
-        elif valid:
-            scns = ses.query(EDDSentinel2Google).filter(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
-                    EDDSentinel2Google.Invalid == False).all()
-        elif ard_prod:
-            scns = ses.query(EDDSentinel2Google).filter(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
-                    EDDSentinel2Google.ARDProduct == True).all()
+        if platform is None:
+            if valid and ard_prod:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.Invalid == False, EDDSentinel2Google.ARDProduct == True).all()
+            elif valid:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.Invalid == False).all()
+            elif ard_prod:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.ARDProduct == True).all()
+            else:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest).all()
         else:
-            scns = ses.query(EDDSentinel2Google).filter(
-                    sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest).all()
-
+            if valid and ard_prod:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.Invalid == False, EDDSentinel2Google.ARDProduct == True,
+                        EDDSentinel2Google.Platform_ID == platform).all()
+            elif valid:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.Invalid == False, EDDSentinel2Google.Platform_ID == platform).all()
+            elif ard_prod:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.ARDProduct == True, EDDSentinel2Google.Platform_ID == platform).all()
+            else:
+                scns = ses.query(EDDSentinel2Google).filter(
+                        sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date) == date_of_interest,
+                        EDDSentinel2Google.Platform_ID == platform).all()
         return scns
+
+    def get_scn_pids_for_date(self, date_of_interest, valid=True, ard_prod=True, platform=None):
+        """
+        A function to retrieve a list of scene PIDs which have been acquired on a particular date.
+
+        :param date_of_interest: a datetime.date object specifying the date of interest.
+        :param valid: If True only valid observations are considered.
+        :param ard_prod: If True only observations which have been converted to an ARD product are considered.
+        :param platform: If None then all scenes, if value provided then it just be for that platform.
+        :return: a list of PIDs (ints)
+        """
+        scns = self.get_scns_for_date(date_of_interest, valid, ard_prod, platform)
+        scn_pids = list()
+        for scn in scns:
+            scn_pids.append(scn.PID)
+        return scn_pids
 
     def create_scn_date_imgs(self, start_date, end_date, img_size, out_img_dir, img_format, vec_file, vec_lyr, tmp_dir, order_desc=True):
         """
@@ -1591,6 +1681,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             db_scn_dict[scn.PID]['PID'] = scn.PID
             db_scn_dict[scn.PID]['Granule_ID'] = scn.Granule_ID
             db_scn_dict[scn.PID]['Product_ID'] = scn.Product_ID
+            db_scn_dict[scn.PID]['Platform_ID'] = scn.Platform_ID
             db_scn_dict[scn.PID]['Datatake_Identifier'] = scn.Datatake_Identifier
             db_scn_dict[scn.PID]['Mgrs_Tile'] = scn.Mgrs_Tile
             db_scn_dict[scn.PID]['Sensing_Time'] = eodd_utils.getDateTimeAsString(scn.Sensing_Time)
@@ -1638,8 +1729,19 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         with open(input_json_file) as json_file_obj:
             sensor_rows = json.load(json_file_obj)
             for pid in sensor_rows:
-                db_records.append(EDDSentinel2Google(Granule_ID=sensor_rows[pid]['Granule_ID'],
+                if 'Platform_ID' not in sensor_rows[pid]:
+                    platform = 'Sentinel2'
+                    if 'GS2A' in sensor_rows[pid]['Datatake_Identifier']:
+                        platform = 'Sentinel2A'
+                    elif 'GS2B' in sensor_rows[pid]['Datatake_Identifier']:
+                        platform = 'Sentinel2B'
+                else:
+                    platform=sensor_rows[pid]['Platform_ID']
+
+                db_records.append(EDDSentinel2Google(PID=sensor_rows[pid]['PID'],
+                                                     Granule_ID=sensor_rows[pid]['Granule_ID'],
                                                      Product_ID=sensor_rows[pid]['Product_ID'],
+                                                     Platform_ID=platform,
                                                      Datatake_Identifier=sensor_rows[pid]['Datatake_Identifier'],
                                                      Mgrs_Tile=sensor_rows[pid]['Mgrs_Tile'],
                                                      Sensing_Time=eodd_utils.getDateFromISOString(sensor_rows[pid]['Sensing_Time']),
