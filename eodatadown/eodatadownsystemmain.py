@@ -136,30 +136,10 @@ class EODataDownSystemMain(object):
             logger.debug("Found sensor Sentinel2GOOG")
             from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor
             sensor_obj = EODataDownSentinel2GoogSensor(self.db_info_obj)
-        elif sensor == "Sentinel1ESA":
-            logger.debug("Found sensor Sentinel1ESA")
-            from eodatadown.eodatadownsentinel1esa import EODataDownSentinel1ESAProcessorSensor
-            sensor_obj = EODataDownSentinel1ESAProcessorSensor(self.db_info_obj)
         elif sensor == "Sentinel1ASF":
             logger.debug("Found sensor Sentinel1ASF")
             from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
             sensor_obj = EODataDownSentinel1ASFProcessorSensor(self.db_info_obj)
-        elif sensor == "RapideyePlanet":
-            logger.debug("Found sensor RapideyePlanet")
-            from eodatadown.eodatadownrapideye import EODataDownRapideyeSensor
-            sensor_obj = EODataDownRapideyeSensor(self.db_info_obj)
-        elif sensor == "PlanetScope":
-            logger.debug("Found sensor PlanetScope")
-            from eodatadown.eodatadownplanetscope import EODataDownPlanetScopeSensor
-            sensor_obj = EODataDownPlanetScopeSensor(self.db_info_obj)
-        elif sensor == "JAXASARTiles":
-            logger.debug("Found sensor JAXASARTiles")
-            from eodatadown.eodatadownjaxasartiles import EODataDownJAXASARTileSensor
-            sensor_obj = EODataDownJAXASARTileSensor(self.db_info_obj)
-        elif sensor == "GenericDataset":
-            logger.debug("Found sensor GenericDataset")
-            from eodatadown.eodatadownotherdataset import EODataDownGenericDatasetSensor
-            sensor_obj = EODataDownGenericDatasetSensor(self.db_info_obj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensor_obj
