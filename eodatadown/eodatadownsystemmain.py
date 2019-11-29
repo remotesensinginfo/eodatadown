@@ -237,11 +237,11 @@ class EODataDownSystemMain(object):
         A function to retrieve an instance of a observation dates object.
         :return: instance of EODataDownObsDates object or None if configure file has not been specified.
         """
-        report_obj = None
+        obsdates_obj = None
         if self.date_report_config_file is not None:
             obsdates_obj = EODataDownObsDates(self.db_info_obj)
             obsdates_obj.parse_sensor_config(self.obsdates_config_file)
-        return report_obj
+        return obsdates_obj
 
 
 

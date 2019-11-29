@@ -1572,7 +1572,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        if platform:
+        if platform is None:
             if valid:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(

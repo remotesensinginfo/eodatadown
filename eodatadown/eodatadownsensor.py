@@ -48,9 +48,9 @@ Base = declarative_base()
 
 class EDDObsDates(Base):
     __tablename__ = "EDDObsDates"
-    SensorID = sqlalchemy.Column(sqlalchemy.String, nullable=True, primary_key=True)
-    PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=True, primary_key=True)
-    ObsDate = sqlalchemy.Column(sqlalchemy.Date, nullable=True, primary_key=True)
+    SensorID = sqlalchemy.Column(sqlalchemy.String, nullable=False, primary_key=True)
+    PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=False, primary_key=True)
+    ObsDate = sqlalchemy.Column(sqlalchemy.Date, nullable=False, primary_key=True)
     OverviewCreated = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     NeedUpdate = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
@@ -60,9 +60,9 @@ class EDDObsDates(Base):
 class EDDObsDatesScns(Base):
     __tablename__ = "EDDObsDatesScns"
     SensorID = sqlalchemy.Column(sqlalchemy.String, nullable=False, primary_key=True)
-    PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=True, primary_key=True)
+    PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=False, primary_key=True)
     ObsDate = sqlalchemy.Column(sqlalchemy.Date, nullable=False, primary_key=True)
-    Scene_PID = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, primary_key=True)
+    Scene_PID = sqlalchemy.Column(sqlalchemy.Integer, nullable=False, primary_key=True)
 
 
 class EODataDownSensor (object):
@@ -312,7 +312,7 @@ class EODataDownObsDates (object):
             else:
                 raise EODataDownException("No information on eodatadown > obsdates > overviews.")
 
-    def init_sensor_db(self):
+    def init_db(self):
         """
         A function which initialises the database use the db_info_obj passed to __init__.
         Be careful as running this function drops the table if it already exists and therefore
@@ -345,22 +345,25 @@ class EODataDownObsDates (object):
         platforms = sensor_obj.find_unique_platforms()
 
         for platform in platforms:
+            platform = platform[0]
             unq_dates = sensor_obj.find_unique_scn_dates(start_date, end_date, valid=True, order_desc=True,
                                                          platform=platform)
             db_obsdata_records = list()
             db_scnobsdata_records = list()
             for obs_date in unq_dates:
+                obs_date = obs_date[0]
                 query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor_name,
                                                           EDDObsDates.PlatformID == platform,
                                                           EDDObsDates.ObsDate == obs_date).one_or_none()
                 if query_rtn is None:
-                    db_obsdata_records.append(EDDObsDates(SensorID=sensor_name, PlatformID=sensor_name,
+                    db_obsdata_records.append(EDDObsDates(SensorID=sensor_name, PlatformID=platform,
                                                           ObsDate=obs_date))
 
-                    scn_pids = sensor_obj.get_scn_pids_for_date(obs_date, valid=True, ard_prod=True, platform=platform)
+                    scn_pids = sensor_obj.get_scn_pids_for_date(obs_date, valid=True, ard_prod=False,
+                                                                platform=platform)
                     for scn_pid in scn_pids:
                         db_scnobsdata_records.append(EDDObsDatesScns(SensorID=sensor_name,
-                                                                     PlatformID=sensor_name,
+                                                                     PlatformID=platform,
                                                                      ObsDate=obs_date,
                                                                      Scene_PID=scn_pid))
             if len(db_obsdata_records) > 0:

@@ -76,7 +76,7 @@ if __name__ == "__main__":
         start_date = datetime.datetime.strptime(args.start, '%Y%m%d').date()
 
     if args.end is None:
-        start_date = datetime.date(year=1980, month=1, day=1)
+        end_date = datetime.date(year=1980, month=1, day=1)
     else:
         end_date = datetime.datetime.strptime(args.end, '%Y%m%d').date()
 
