@@ -281,19 +281,19 @@ class EODataDownObsDates (object):
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
 
-            logger.debug("Testing config file is for 'datescns'")
-            if not json_parse_helper.doesPathExist(config_data, ["eodatadown", "datescns"]):
-                raise EODataDownException("Config file should have top level eodatadown > datescns.")
-            logger.debug("Have the correct config file for 'datescns'")
+            logger.debug("Testing config file is for 'obsdates'")
+            if not json_parse_helper.doesPathExist(config_data, ["eodatadown", "obsdates"]):
+                raise EODataDownException("Config file should have top level eodatadown > obsdates.")
+            logger.debug("Have the correct config file for 'obsdates'")
 
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "datescns", "overviews"]):
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "obsdates", "overviews"]):
                 self.overview_proj_epsg = int(json_parse_helper.getNumericValue(config_data,
-                                                                                ["eodatadown", "datescns", "overviews",
+                                                                                ["eodatadown", "obsdates", "overviews",
                                                                                  "epsg"], 0, 1000000000))
-                self.overview_img_base_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "datescns",
+                self.overview_img_base_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "obsdates",
                                                                                          "overviews", "scn_image_dir"])
 
-                tmp_overview_img_sizes = json_parse_helper.getListValue(config_data, ["eodatadown", "datescns",
+                tmp_overview_img_sizes = json_parse_helper.getListValue(config_data, ["eodatadown", "obsdates",
                                                                                       "overviews", "overviewsizes"])
                 self.overview_img_sizes = list()
                 for overview_size in tmp_overview_img_sizes:
@@ -302,15 +302,15 @@ class EODataDownObsDates (object):
                     else:
                         raise EODataDownException("overviewsizes contained a value which was not a number.")
 
-                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "datescns", "overviews", "extent"]):
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "obsdates", "overviews", "extent"]):
                     self.overview_extent_vec_file = json_parse_helper.getStrValue(config_data, ["eodatadown",
-                                                                                                "datescns", "overviews",
+                                                                                                "obsdates", "overviews",
                                                                                                 "extent", "vec_file"])
                     self.overview_extent_vec_lyr = json_parse_helper.getStrValue(config_data, ["eodatadown",
-                                                                                               "datescns", "overviews",
+                                                                                               "obsdates", "overviews",
                                                                                                "extent", "vec_lyr"])
             else:
-                raise EODataDownException("No information on eodatadown > datescns > overviews.")
+                raise EODataDownException("No information on eodatadown > obsdates > overviews.")
 
     def init_sensor_db(self):
         """
