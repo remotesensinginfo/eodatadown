@@ -713,3 +713,30 @@ def build_obs_date_db(config_file, sensor, start_date, end_date):
     obsdates_obj = sys_main_obj.get_obsdates_obj()
     sensor_obj = sys_main_obj.get_sensor_obj(sensor)
     obsdates_obj.create_obs_date_records(sensor_obj, start_date, end_date)
+
+
+def create_obs_date_visuals(config_file, n_cores):
+    """
+    A function which creates all the observations visualisation images.
+
+    :param config_file: The EODataDown configuration file path.
+    :param n_cores: The number of cores to be used for processing.
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    obsdates_obj.create_obsdate_visual(sys_main_obj, n_cores)
+
+
+def update_obs_date_visuals(config_file, n_cores):
+    """
+    A function which updates any of the observations visualisation images which need updating.
+
+    :param config_file: The EODataDown configuration file path.
+    :param n_cores: The number of cores to be used for processing.
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    obsdates_obj.update_obsdate_visual(sys_main_obj, n_cores)
+

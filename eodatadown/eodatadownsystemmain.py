@@ -64,6 +64,7 @@ class EODataDownSystemMain(object):
         self.sensors = list()
         self.date_report_config_file = None
         self.obsdates_config_file = None
+        self.parsed_config = False
 
     def __str__(self):
         return self.__repr__()
@@ -74,6 +75,14 @@ class EODataDownSystemMain(object):
         data = {'database':db_info, 'details':sys_info, 'sensors':self.sensorConfigFiles}
         str_data = json.dumps(data, indent=4, sort_keys=True)
         return str_data
+
+    def has_parsed_config(self):
+        """
+        A function which returns a boolean as to whether the config file has been parsed
+        or not.
+        :return: boolean; True the config file has been parsed.
+        """
+        return self.parsed_config
 
     def get_usage_db_obj(self):
         logger.debug("Creating Usage database object.")
@@ -127,6 +136,8 @@ class EODataDownSystemMain(object):
                 sensor_obj.parse_sensor_config(self.sensorConfigFiles[sensor], first_parse)
                 self.sensors.append(sensor_obj)
                 logger.debug("Parsed sensor config file: '" + sensor + "'")
+
+            self.parsed_config = True
 
     def create_sensor_obj(self, sensor):
         """

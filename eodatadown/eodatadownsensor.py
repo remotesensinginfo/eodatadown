@@ -373,7 +373,46 @@ class EODataDownObsDates (object):
                 ses.commit()
         ses.close()
 
+    def create_obsdate_visual(self, sys_main_obj, n_cores):
+        """
 
+        :param sys_main_obj: a EODataDownSystemMain instance.
+        :param n_cores: the number of cores to use for the processing.
 
+        """
+        if not sys_main_obj.has_parsed_config():
+            raise EODataDownException("The EODataDownSystemMain instance has parsed a "
+                                      "config file so it not ready to use.")
+
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
+        for obs in query_rtn:
+            print(obs)
+
+        ses.close()
+
+    def update_obsdate_visual(self, sys_main_obj, n_cores):
+        """
+
+        :param sys_main_obj: a EODataDownSystemMain instance.
+        :param n_cores: the number of cores to use for the processing.
+
+        """
+        if not sys_main_obj.has_parsed_config():
+            raise EODataDownException("The EODataDownSystemMain instance has parsed a "
+                                      "config file so it not ready to use.")
+
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.NeedUpdate == False).all()
+        for obs in query_rtn:
+            print(obs)
+
+        ses.close()
 
 
