@@ -298,6 +298,9 @@ class EODataDownObsDates (object):
                 self.overview_img_base_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "obsdates",
                                                                                          "overviews", "scn_image_dir"])
 
+                self.overview_tmp_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "obsdates",
+                                                                                         "overviews", "tmp_dir"])
+
                 tmp_overview_img_sizes = json_parse_helper.getListValue(config_data, ["eodatadown", "obsdates",
                                                                                       "overviews", "overviewsizes"])
                 self.overview_img_sizes = list()
@@ -378,11 +381,10 @@ class EODataDownObsDates (object):
                 ses.commit()
         ses.close()
 
-    def create_obsdate_visual(self, sys_main_obj, n_cores, tmp_dir):
+    def create_obsdate_visual(self, sys_main_obj):
         """
 
         :param sys_main_obj: a EODataDownSystemMain instance.
-        :param n_cores: the number of cores to use for the processing.
 
         """
         if not sys_main_obj.has_parsed_config():
@@ -421,7 +423,7 @@ class EODataDownObsDates (object):
             # Pass all to sensor function...
             success = sensor_obj.create_multi_scn_visual(scns_lst, out_img_files, self.overview_img_sizes,
                                                          self.overview_extent_vec_file, self.overview_extent_vec_lyr,
-                                                         'GTIFF', tmp_dir)
+                                                         'GTIFF', self.overview_tmp_dir)
             if success:
                 obs.OverviewCreated = True
                 obs.Overviews = out_imgs_dict
@@ -431,11 +433,10 @@ class EODataDownObsDates (object):
             ses.commit()
         ses.close()
 
-    def update_obsdate_visual(self, sys_main_obj, n_cores):
+    def update_obsdate_visual(self, sys_main_obj):
         """
 
         :param sys_main_obj: a EODataDownSystemMain instance.
-        :param n_cores: the number of cores to use for the processing.
 
         """
         if not sys_main_obj.has_parsed_config():

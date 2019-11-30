@@ -49,8 +49,6 @@ if __name__ == "__main__":
                         help='''Specify the sensor for which this process should be executed''')
     parser.add_argument("--start", type=str, required=False, help="The start date (recent), with format YYYYMMDD.")
     parser.add_argument("--end", type=str, required=False, help="The start date (earliest), with format YYYYMMDD.")
-    parser.add_argument("-n", "--ncores", type=int, default=0,
-                        help="Specify the number of processing cores to use (or use EDD_NCORES).")
     parser.add_argument("--builddb", action='store_true', default=False,
                         help="Build the date/platform/sensor observations database.")
     parser.add_argument("--createvis", action='store_true', default=False,
@@ -71,14 +69,6 @@ if __name__ == "__main__":
         logger.info("The config file does not exist: '" + config_file + "'")
         raise Exception("Config file does not exist")
 
-    ncores_val = 1
-    if args.ncores > 0:
-        ncores_val = args.ncores
-    else:
-        ncores_env_val = os.getenv('EDD_NCORES', None)
-        if ncores_env_val is not None:
-            ncores_val = int(ncores_env_val)
-
     t = rsgislib.RSGISTime()
     t.start(True)
 
@@ -95,7 +85,7 @@ if __name__ == "__main__":
     if args.builddb:
         eodatadown.eodatadownrun.build_obs_date_db(config_file, args.sensor, start_date, end_date)
     elif args.createvis:
-        eodatadown.eodatadownrun.create_obs_date_visuals(config_file, ncores_val)
+        eodatadown.eodatadownrun.create_obs_date_visuals(config_file)
     else:
         print("You need to provide an option to be executed; --builddb --createvis.")
 
