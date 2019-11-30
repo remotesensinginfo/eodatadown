@@ -85,7 +85,7 @@ if __name__ == "__main__":
     if args.builddb:
         eodatadown.eodatadownrun.build_obs_date_db(config_file, args.sensor, start_date, end_date)
     elif args.createvis:
-        eodatadown.eodatadownrun.create_obs_date_visuals(config_file)
+        eodatadown.eodatadownrun.create_obs_date_visuals(config_file, args.sensor)
     else:
         print("You need to provide an option to be executed; --builddb --createvis.")
 

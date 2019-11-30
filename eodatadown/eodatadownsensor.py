@@ -381,7 +381,7 @@ class EODataDownObsDates (object):
                 ses.commit()
         ses.close()
 
-    def create_obsdate_visual(self, sys_main_obj):
+    def create_obsdate_visual(self, sys_main_obj, sensor):
         """
 
         :param sys_main_obj: a EODataDownSystemMain instance.
@@ -395,7 +395,11 @@ class EODataDownObsDates (object):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
+        if sensor is not None:
+            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor,
+                                                        EDDObsDates.OverviewCreated == False).all()
+        else:
+            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
         gen_visuals_lst = list()
         for obs in obsdate_qry:
             print("{} - {} - {}".format(obs.SensorID, obs.PlatformID, obs.ObsDate.strftime('%Y-%m-%d')))
