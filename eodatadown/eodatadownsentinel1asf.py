@@ -1491,6 +1491,41 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             scn_qklks[scn_date_str]['scn_date'] = scn_date[0]
         return scn_qklks
 
+    def create_multi_scn_visual(self, scn_pids, out_imgs, out_img_sizes, out_extent_vec, out_extent_lyr,
+                                gdal_format, tmp_dir):
+        """
+
+        :param scn_pids: A list of scene PIDs (scenes without an ARD image are ignored silently)
+        :param out_imgs: A list of output image files
+        :param out_img_sizes: A list of output image sizes.
+        :param out_extent_vec: A vector file defining the output image extent (can be None)
+        :param out_extent_lyr: A vector layer name for the layer defining the output image extent (can be None)
+        :param gdal_format: The GDAL file format of the output images (e.g., GTIFF)
+        :param tmp_dir: A directory for temporary files to be written to.
+
+        """
+        eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
+        # Get the ARD images.
+        ard_images = []
+        for pid in scn_pids:
+            scn = self.get_scn_record(pid)
+            ard_file = eoddutils.findFileNone(scn.ARDProduct_Path, "*dB*.tif")
+            if ard_file is not None:
+                ard_images.append(ard_file)
+
+        if len(ard_images) > 0:
+            # VV, VH, VV/VH
+            bands = '1,2,3'
+
+            import rsgislib.tools.visualisation
+            rsgislib.tools.visualisation.createVisualOverviewImgsVecExtent(ard_images, bands, tmp_dir,
+                                                                           out_extent_vec, out_extent_lyr,
+                                                                           out_imgs, out_img_sizes, gdal_format,
+                                                                           'auto', self.std_vis_img_stch)
+            return True
+        # else there weren't any ard_images...
+        return False
+
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.
