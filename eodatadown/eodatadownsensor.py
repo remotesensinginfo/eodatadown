@@ -32,6 +32,7 @@ EODataDown - an abstract sensor class.
 
 import logging
 import json
+import multiprocessing
 from abc import ABCMeta, abstractmethod
 
 import eodatadown.eodatadownutils
@@ -63,6 +64,29 @@ class EDDObsDatesScns(Base):
     PlatformID = sqlalchemy.Column(sqlalchemy.String, nullable=False, primary_key=True)
     ObsDate = sqlalchemy.Column(sqlalchemy.Date, nullable=False, primary_key=True)
     Scene_PID = sqlalchemy.Column(sqlalchemy.Integer, nullable=False, primary_key=True)
+
+
+def _create_dateobs_overimgs(params):
+    """
+    A function to create the observation overview image(s).
+
+    :param params: so the function can be used in a multiprocessor context the parameters need to be taken as
+                   a list.
+
+    """
+    sensor_obj = params[0]
+    pids = params[1]
+    db_info_obj = params[2]
+    overview_proj_epsg = params[3]
+    overview_img_base_dir = params[4]
+    overview_img_sizes = params[5]
+    overview_extent_vec_file = params[6]
+    overview_extent_vec_lyr = params[7]
+    sensor_id = params[8]
+    platform_id = params[9]
+    obs_date = params[10]
+    print(sensor_obj.get_sensor_name())
+    print(pids)
 
 
 class EODataDownSensor (object):
@@ -388,9 +412,27 @@ class EODataDownObsDates (object):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
-        for obs in query_rtn:
-            print(obs)
+        obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
+        gen_visuals_lst = list()
+        for obs in obsdate_qry:
+            print("{} - {} - {}".format(obs.SensorID, obs.PlatformID, obs.ObsDate.strftime('%Y-%m-%d')))
+            obsdate_scns_qry = ses.query(EDDObsDates).filter(EDDObsDatesScns.SensorID == obs.SensorID,
+                                                             EDDObsDatesScns.PlatformID == obs.PlatformID,
+                                                             EDDObsDatesScns.ObsDate == obs.ObsDate).all()
+            scns_lst = list()
+            for scn in obsdate_scns_qry:
+                scns_lst.append(scn.Scene_PID)
+            print("\t {}".format(scns_lst))
+            sensor_obj = sys_main_obj.get_sensor_obj(obs.SensorID)
+            gen_visuals_lst.append([sensor_obj, scns_lst, self.db_info_obj, self.overview_proj_epsg,
+                                    self.overview_img_base_dir, self.overview_img_sizes,
+                                    self.overview_extent_vec_file, self.overview_extent_vec_lyr,
+                                    EDDObsDatesScns.SensorID, EDDObsDatesScns.PlatformID,
+                                    EDDObsDatesScns.ObsDate])
+
+        if len(gen_visuals_lst) > 0:
+            with multiprocessing.Pool(processes=n_cores) as pool:
+                pool.map(_create_dateobs_overimgs, gen_visuals_lst)
 
         ses.close()
 
@@ -409,9 +451,26 @@ class EODataDownObsDates (object):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.NeedUpdate == False).all()
-        for obs in query_rtn:
+        obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.NeedUpdate == False).all()
+        gen_visuals_lst = list()
+        for obs in obsdate_qry:
             print(obs)
+            obsdate_scns_qry = ses.query(EDDObsDates).filter(EDDObsDatesScns.SensorID == obs.SensorID,
+                                                             EDDObsDatesScns.PlatformID == obs.PlatformID,
+                                                             EDDObsDatesScns.ObsDate == obs.ObsDate).all()
+            scns_lst = list()
+            for scn in obsdate_scns_qry:
+                scns_lst.append(scn.Scene_PID)
+            sensor_obj = sys_main_obj.get_sensor_obj(obs.SensorID)
+            gen_visuals_lst.append([sensor_obj, scns_lst, self.db_info_obj, self.overview_proj_epsg,
+                                    self.overview_img_base_dir, self.overview_img_sizes,
+                                    self.overview_extent_vec_file, self.overview_extent_vec_lyr,
+                                    EDDObsDatesScns.SensorID, EDDObsDatesScns.PlatformID,
+                                    EDDObsDatesScns.ObsDate])
+
+        if len(gen_visuals_lst) > 0:
+            with multiprocessing.Pool(processes=n_cores) as pool:
+                pool.map(_create_dateobs_overimgs, gen_visuals_lst)
 
         ses.close()
 

@@ -42,7 +42,7 @@ import json
 
 EODATADOWN_VERSION_MAJOR = 0
 EODATADOWN_VERSION_MINOR = 49
-EODATADOWN_VERSION_PATCH = 3
+EODATADOWN_VERSION_PATCH = 5
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
 rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)
