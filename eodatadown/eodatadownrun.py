@@ -42,19 +42,19 @@ import eodatadown.eodatadowndatereports
 
 logger = logging.getLogger(__name__)
 
+# Start: Function for Pool
+def _check_new_data_qfunc(sensor_obj_params):
+    sensor_obj_params[0].check_new_scns(sensor_obj_params[1])
+# End: Function for Pool
+
 def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     """
     A function to run the process of finding new data to download.
     :param config_file:
     :param n_cores:
     :param sensors:
-    :return:
-    """
-    # Start: Function for Pool
-    def _check_new_data_qfunc(sensor_obj_params):
-        sensor_obj_params[0].check_new_scns(sensor_obj_params[1])
-    # End: Function for Pool
 
+    """
     logger.info("Running process to find new downloads.")
     # Create the System 'Main' object and parse the configuration file.
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
