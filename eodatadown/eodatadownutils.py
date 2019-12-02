@@ -153,6 +153,21 @@ class EODataDownUtils(object):
             raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, dirPath, len(files)))
         return files[0]
 
+    def findFileNone(self, dirPath, fileSearch, recursive=False):
+        """
+        Search for a single file with a path using glob. Therefore, the file
+        path returned is a true path. Within the fileSearch provide the file
+        name with '*' as wildcard(s).
+        :param dirPath:
+        :param fileSearch:
+        :return: the found file or None rather than raising exception.
+        """
+        try:
+            file = self.findFile(dirPath, fileSearch, recursive)
+        except:
+            file = None
+        return file
+
     def findFileMultiPaths(self, dirPaths, fileSearch):
         """
         Search for a single file with a path using glob. Therefore, the file

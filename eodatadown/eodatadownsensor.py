@@ -32,6 +32,8 @@ EODataDown - an abstract sensor class.
 
 import logging
 import json
+import os
+import os.path
 from abc import ABCMeta, abstractmethod
 
 import eodatadown.eodatadownutils
@@ -55,7 +57,6 @@ class EDDObsDates(Base):
     NeedUpdate = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     Overviews = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
-
 
 class EDDObsDatesScns(Base):
     __tablename__ = "EDDObsDatesScns"
@@ -188,6 +189,10 @@ class EODataDownSensor (object):
                              tmp_dir, order_desc=True): pass
 
     @abstractmethod
+    def create_multi_scn_visual(self, scn_pids, out_imgs, out_img_sizes, out_extent_vec, out_extent_lyr,
+                               gdal_format, tmp_dir):pass
+
+    @abstractmethod
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west): pass
 
     @abstractmethod
@@ -293,6 +298,9 @@ class EODataDownObsDates (object):
                 self.overview_img_base_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "obsdates",
                                                                                          "overviews", "scn_image_dir"])
 
+                self.overview_tmp_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "obsdates",
+                                                                                         "overviews", "tmp_dir"])
+
                 tmp_overview_img_sizes = json_parse_helper.getListValue(config_data, ["eodatadown", "obsdates",
                                                                                       "overviews", "overviewsizes"])
                 self.overview_img_sizes = list()
@@ -373,11 +381,10 @@ class EODataDownObsDates (object):
                 ses.commit()
         ses.close()
 
-    def create_obsdate_visual(self, sys_main_obj, n_cores):
+    def create_obsdate_visual(self, sys_main_obj, sensor):
         """
 
         :param sys_main_obj: a EODataDownSystemMain instance.
-        :param n_cores: the number of cores to use for the processing.
 
         """
         if not sys_main_obj.has_parsed_config():
@@ -388,17 +395,52 @@ class EODataDownObsDates (object):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
-        for obs in query_rtn:
-            print(obs)
+        if sensor is not None:
+            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor,
+                                                        EDDObsDates.OverviewCreated == False).all()
+        else:
+            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
+        gen_visuals_lst = list()
+        for obs in obsdate_qry:
+            print("{} - {} - {}".format(obs.SensorID, obs.PlatformID, obs.ObsDate.strftime('%Y-%m-%d')))
+            obsdate_scns_qry = ses.query(EDDObsDatesScns).filter(EDDObsDatesScns.SensorID == obs.SensorID,
+                                                                 EDDObsDatesScns.PlatformID == obs.PlatformID,
+                                                                 EDDObsDatesScns.ObsDate == obs.ObsDate).all()
+            scns_lst = list()
+            for scn in obsdate_scns_qry:
+                scns_lst.append(scn.Scene_PID)
+            print("\t {}".format(scns_lst))
+            sensor_obj = sys_main_obj.get_sensor_obj(obs.SensorID)
 
+            obsdate_basename = "{}_{}_{}".format(obs.ObsDate.strftime('%Y%m%d'), obs.SensorID, obs.PlatformID)
+            obsdate_dir = os.path.join(self.overview_img_base_dir, obsdate_basename)
+            if not os.path.exists(obsdate_dir):
+                os.mkdir(obsdate_dir)
+
+            out_imgs_dict = dict()
+            out_img_files = list()
+            for out_img_size in self.overview_img_sizes:
+                out_img = os.path.join(obsdate_dir, "{}_{}px.tif".format(obsdate_basename, out_img_size))
+                out_img_files.append(out_img)
+                out_imgs_dict[out_img_size] = out_img
+
+            # Pass all to sensor function...
+            success = sensor_obj.create_multi_scn_visual(scns_lst, out_img_files, self.overview_img_sizes,
+                                                         self.overview_extent_vec_file, self.overview_extent_vec_lyr,
+                                                         'GTIFF', self.overview_tmp_dir)
+            if success:
+                obs.OverviewCreated = True
+                obs.Overviews = out_imgs_dict
+            else:
+                obs.OverviewCreated = False
+                obs.Invalid = True
+            ses.commit()
         ses.close()
 
-    def update_obsdate_visual(self, sys_main_obj, n_cores):
+    def update_obsdate_visual(self, sys_main_obj):
         """
 
         :param sys_main_obj: a EODataDownSystemMain instance.
-        :param n_cores: the number of cores to use for the processing.
 
         """
         if not sys_main_obj.has_parsed_config():
@@ -409,9 +451,26 @@ class EODataDownObsDates (object):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        query_rtn = ses.query(EDDObsDates).filter(EDDObsDates.NeedUpdate == False).all()
-        for obs in query_rtn:
+        obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.NeedUpdate == False).all()
+        gen_visuals_lst = list()
+        for obs in obsdate_qry:
             print(obs)
+            obsdate_scns_qry = ses.query(EDDObsDatesScns).filter(EDDObsDatesScns.SensorID == obs.SensorID,
+                                                                 EDDObsDatesScns.PlatformID == obs.PlatformID,
+                                                                 EDDObsDatesScns.ObsDate == obs.ObsDate).all()
+            scns_lst = list()
+            for scn in obsdate_scns_qry:
+                scns_lst.append(scn.Scene_PID)
+            sensor_obj = sys_main_obj.get_sensor_obj(obs.SensorID)
+            gen_visuals_lst.append([sensor_obj, scns_lst, self.db_info_obj, self.overview_proj_epsg,
+                                    self.overview_img_base_dir, self.overview_img_sizes,
+                                    self.overview_extent_vec_file, self.overview_extent_vec_lyr,
+                                    EDDObsDatesScns.SensorID, EDDObsDatesScns.PlatformID,
+                                    EDDObsDatesScns.ObsDate])
+
+        if len(gen_visuals_lst) > 0:
+            with multiprocessing.Pool(processes=n_cores) as pool:
+                pool.map(_create_dateobs_overimgs, gen_visuals_lst)
 
         ses.close()
 

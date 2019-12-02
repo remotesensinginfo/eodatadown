@@ -51,6 +51,8 @@ if __name__ == "__main__":
     parser.add_argument("--end", type=str, required=False, help="The start date (earliest), with format YYYYMMDD.")
     parser.add_argument("--builddb", action='store_true', default=False,
                         help="Build the date/platform/sensor observations database.")
+    parser.add_argument("--createvis", action='store_true', default=False,
+                        help="Create the visualisation images.")
 
 
 
@@ -82,8 +84,10 @@ if __name__ == "__main__":
 
     if args.builddb:
         eodatadown.eodatadownrun.build_obs_date_db(config_file, args.sensor, start_date, end_date)
+    elif args.createvis:
+        eodatadown.eodatadownrun.create_obs_date_visuals(config_file, args.sensor)
     else:
-        print("You need to provide an option to be executed.")
+        print("You need to provide an option to be executed; --builddb --createvis.")
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddcreatereport.py.')
 
