@@ -67,6 +67,7 @@ class EDDDateReports(Base):
     End_Date = sqlalchemy.Column(sqlalchemy.Date, nullable=False)
     Production_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Sensor = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Platform = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Scn_Images = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
     ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
 
@@ -76,6 +77,8 @@ class EODataDownDateReports (object):
     def __init__(self, db_info_obj):
         self.db_info_obj = db_info_obj
         self.scn_rept_image_dir = None
+        self.scn_overlay_vec_file = None
+        self.scn_overlay_vec_lyr = None
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -100,6 +103,11 @@ class EODataDownDateReports (object):
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             self.scn_rept_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
                                                                                   "scn_rept_image_dir"])
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'report', 'vec_overlay_file']):
+                self.scn_overlay_vec_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
+                                                                                        "vec_overlay_file"])
+                self.scn_overlay_vec_lyr = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
+                                                                                       "vec_overlay_lyr"])
 
     def init_db(self):
         """
@@ -117,25 +125,32 @@ class EODataDownDateReports (object):
         Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
-    def create_date_report(self, sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir,
+    def create_date_report(self, obs_date_obj, pdf_report_file, sensor_id, platform_id, start_date, end_date, tmp_dir,
                            order_desc=False, record_db=False):
         """
         A function to create a date report (i.e., quicklooks of all the acquisitions for a particular date)
         as a PDF.
 
-        :param sensor_obj: An instance of a EODataDownSensor object
+        :param obs_date_obj: An instance of a EODataDownSensor object
         :param pdf_report_file: The output PDF file.
+        :param sensor_id: The sensor for which the report is to be generated for; Optional, if None then all sensors
+                          will be outputted.
+        :param platform_id: The platform for which the report will be generated for; Optional, if None then all
+                            platforms for the sensor will be generated.
         :param start_date: A python datetime date object specifying the start date (most recent date)
         :param end_date: A python datetime date object specifying the end date (earliest date)
-        :param vec_file: A vector file (polyline) which can be overlaid for context.
-        :param vec_lyr: The layer in the vector file.
         :param tmp_dir: A temp directory for intermediate files.
+        :param order_desc: If True the report is in descending order otherwise ascending.
+        :param record_db: If True the report is recorded within the reports database.
 
         """
         import jinja2
 
         pdf_report_file = os.path.abspath(pdf_report_file)
-        sensor_name = sensor_obj.get_sensor_name()
+
+        scns = obs_date_obj.get_obs_scns(start_date, end_date, sensor=sensor_id, platform=platform_id, valid=True)
+
+        """
         eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
         uid_str = eoddutils.uidGenerator()
         out_pdf_basename = eoddutils.get_file_basename(pdf_report_file, checkvalid=True)
@@ -212,4 +227,4 @@ class EODataDownDateReports (object):
                                              ))
             ses.add_all(db_records)
             ses.commit()
-
+        """

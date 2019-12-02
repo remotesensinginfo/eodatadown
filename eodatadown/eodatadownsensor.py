@@ -475,3 +475,53 @@ class EODataDownObsDates (object):
             ses.commit()
         ses.close()
 
+    def get_obs_scns(self, start_date, end_date, sensor=None, platform=None, valid=True):
+        """
+        A function to get a list of scene objections for a given date range.
+
+        :param start_date: A python datetime object specifying the start date (most recent date)
+        :param end_date: A python datetime object specifying the end date (earliest date)
+        :param sensor: Optionally specify the sensor of interest.
+        :param platform: Optionally specify the platform of the sensor of interest.
+        :param valid: If True then only valid scenes with overview images will be returned. Otherwise, all scenes will
+                      be returned.
+        :return: A list of EDDObsDates will be returned.
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        if valid:
+            if sensor is not None:
+                if platform is not None:
+                    obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.ObsDate < start_date,
+                                                                EDDObsDates.ObsDate > end_date,
+                                                                EDDObsDates.SensorID == sensor,
+                                                                EDDObsDates.PlatformID == platform,
+                                                                EDDObsDates.OverviewCreated == True).all()
+                else:
+                    obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.ObsDate < start_date,
+                                                                EDDObsDates.ObsDate > end_date,
+                                                                EDDObsDates.SensorID == sensor,
+                                                                EDDObsDates.OverviewCreated == True).all()
+            else:
+                obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.ObsDate < start_date,
+                                                            EDDObsDates.ObsDate > end_date,
+                                                            EDDObsDates.OverviewCreated == True).all()
+        else:
+            if sensor is not None:
+                if platform is not None:
+                    obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.ObsDate < start_date,
+                                                                EDDObsDates.ObsDate > end_date,
+                                                                EDDObsDates.SensorID == sensor,
+                                                                EDDObsDates.PlatformID == platform).all()
+                else:
+                    obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.ObsDate < start_date,
+                                                                EDDObsDates.ObsDate > end_date,
+                                                                EDDObsDates.SensorID == sensor).all()
+            else:
+                obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.ObsDate < start_date,
+                                                            EDDObsDates.ObsDate > end_date).all()
+        return obsdate_qry
+
+
