@@ -98,7 +98,8 @@ class EODataDownDateReports (object):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-            self.scn_rept_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report", "scn_rept_image_dir"])
+            self.scn_rept_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
+                                                                                  "scn_rept_image_dir"])
 
     def init_db(self):
         """

@@ -74,7 +74,7 @@ if __name__ == "__main__":
     obs_date_lst = eodatadown.eodatadownrun.get_obs_dates_need_processing(config_file, args.sensor)
     cmds = list()
     for obs in obs_date_lst:
-        cmd = "{} eoddobsdatetools.py -c {} -s {} -p {} -d {}".format(prefix_cmd, config_file, obs[0],
+        cmd = "{} eoddobsdatetools.py -c {} -s {} -p {} -d {} --createvis ".format(prefix_cmd, config_file, obs[0],
                                                                       obs[1], obs[2].strftime('%Y%m%d'))
         cmds.append(cmd)
 
