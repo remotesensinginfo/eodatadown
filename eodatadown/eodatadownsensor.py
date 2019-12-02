@@ -383,8 +383,49 @@ class EODataDownObsDates (object):
 
     def create_obsdate_visual(self, sys_main_obj, sensor):
         """
+        A single threaded function to create the overview images for all the scenes which return it.
 
         :param sys_main_obj: a EODataDownSystemMain instance.
+        :param sensor: Optionally a sensor can be specified, in which case the result will just be for that sensor.
+
+        """
+        if not sys_main_obj.has_parsed_config():
+            raise EODataDownException("The EODataDownSystemMain instance has parsed a "
+                                      "config file so it not ready to use.")
+        gen_visuals_lst = self.get_lst_obsdates_need_processing(sensor)
+        for obs in gen_visuals_lst:
+            self.process_obsdata(sys_main_obj, obs[0], obs[1], obs[2])
+
+    def get_lst_obsdates_need_processing(self, sensor=None):
+        """
+        A function which get the list of scenes which need processing to produce the overview images.
+
+        :param sensor: Optionally a sensor can be specified, in which case the result will just be for that sensor.
+        :return: list of lists - each list has [SensorID, PlatformID, ObsDate] 
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        if sensor is not None:
+            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor,
+                                                        EDDObsDates.OverviewCreated == False).all()
+        else:
+            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
+        obsdate_reslts = list()
+        for obs in obsdate_qry:
+            obsdate_reslts.append([obs.SensorID, obs.PlatformID, obs.ObsDate])
+        ses.close()
+        return obsdate_reslts
+
+    def process_obsdata(self, sys_main_obj, sensor_id, platform_id, obs_date):
+        """
+        A function to process a single scene - i.e., produce the over image.
+
+        :param sys_main_obj: a EODataDownSystemMain instance.
+        :param sensor_id: specify the sensor
+        :param platform_id: specify the platform (i.e., Sentinel-1A, Sentinel-2B, or Landsat-4)
+        :param obs_date: specify the date of interest, as a datetime.date object.
 
         """
         if not sys_main_obj.has_parsed_config():
@@ -395,24 +436,21 @@ class EODataDownObsDates (object):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
-        if sensor is not None:
-            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor,
-                                                        EDDObsDates.OverviewCreated == False).all()
-        else:
-            obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.OverviewCreated == False).all()
-        gen_visuals_lst = list()
-        for obs in obsdate_qry:
-            print("{} - {} - {}".format(obs.SensorID, obs.PlatformID, obs.ObsDate.strftime('%Y-%m-%d')))
-            obsdate_scns_qry = ses.query(EDDObsDatesScns).filter(EDDObsDatesScns.SensorID == obs.SensorID,
-                                                                 EDDObsDatesScns.PlatformID == obs.PlatformID,
-                                                                 EDDObsDatesScns.ObsDate == obs.ObsDate).all()
+        obs_qry = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor_id,
+                                            EDDObsDates.PlatformID == platform_id,
+                                            EDDObsDates.ObsDate == obs_date).one_or_none()
+        if obs_qry is not None:
+            obsdate_scns_qry = ses.query(EDDObsDatesScns).filter(EDDObsDatesScns.SensorID == obs_qry.SensorID,
+                                                                 EDDObsDatesScns.PlatformID == obs_qry.PlatformID,
+                                                                 EDDObsDatesScns.ObsDate == obs_qry.ObsDate).all()
             scns_lst = list()
             for scn in obsdate_scns_qry:
                 scns_lst.append(scn.Scene_PID)
             print("\t {}".format(scns_lst))
-            sensor_obj = sys_main_obj.get_sensor_obj(obs.SensorID)
+            sensor_obj = sys_main_obj.get_sensor_obj(obs_qry.SensorID)
 
-            obsdate_basename = "{}_{}_{}".format(obs.ObsDate.strftime('%Y%m%d'), obs.SensorID, obs.PlatformID)
+            obsdate_basename = "{}_{}_{}".format(obs_qry.ObsDate.strftime('%Y%m%d'),
+                                                 obs_qry.SensorID, obs_qry.PlatformID)
             obsdate_dir = os.path.join(self.overview_img_base_dir, obsdate_basename)
             if not os.path.exists(obsdate_dir):
                 os.mkdir(obsdate_dir)
@@ -429,49 +467,11 @@ class EODataDownObsDates (object):
                                                          self.overview_extent_vec_file, self.overview_extent_vec_lyr,
                                                          'GTIFF', self.overview_tmp_dir)
             if success:
-                obs.OverviewCreated = True
-                obs.Overviews = out_imgs_dict
+                obs_qry.OverviewCreated = True
+                obs_qry.Overviews = out_imgs_dict
             else:
-                obs.OverviewCreated = False
-                obs.Invalid = True
+                obs_qry.OverviewCreated = False
+                obs_qry.Invalid = True
             ses.commit()
         ses.close()
-
-    def update_obsdate_visual(self, sys_main_obj):
-        """
-
-        :param sys_main_obj: a EODataDownSystemMain instance.
-
-        """
-        if not sys_main_obj.has_parsed_config():
-            raise EODataDownException("The EODataDownSystemMain instance has parsed a "
-                                      "config file so it not ready to use.")
-
-        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session_sqlalc()
-
-        obsdate_qry = ses.query(EDDObsDates).filter(EDDObsDates.NeedUpdate == False).all()
-        gen_visuals_lst = list()
-        for obs in obsdate_qry:
-            print(obs)
-            obsdate_scns_qry = ses.query(EDDObsDatesScns).filter(EDDObsDatesScns.SensorID == obs.SensorID,
-                                                                 EDDObsDatesScns.PlatformID == obs.PlatformID,
-                                                                 EDDObsDatesScns.ObsDate == obs.ObsDate).all()
-            scns_lst = list()
-            for scn in obsdate_scns_qry:
-                scns_lst.append(scn.Scene_PID)
-            sensor_obj = sys_main_obj.get_sensor_obj(obs.SensorID)
-            gen_visuals_lst.append([sensor_obj, scns_lst, self.db_info_obj, self.overview_proj_epsg,
-                                    self.overview_img_base_dir, self.overview_img_sizes,
-                                    self.overview_extent_vec_file, self.overview_extent_vec_lyr,
-                                    EDDObsDatesScns.SensorID, EDDObsDatesScns.PlatformID,
-                                    EDDObsDatesScns.ObsDate])
-
-        if len(gen_visuals_lst) > 0:
-            with multiprocessing.Pool(processes=n_cores) as pool:
-                pool.map(_create_dateobs_overimgs, gen_visuals_lst)
-
-        ses.close()
-
 

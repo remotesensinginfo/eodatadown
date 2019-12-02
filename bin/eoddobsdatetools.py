@@ -47,6 +47,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config", type=str, default="", help="Path to the JSON config file.")
     parser.add_argument("-s", "--sensor", type=str, required=True, choices=EODATADOWN_SENSORS_LIST,
                         help='''Specify the sensor for which this process should be executed''')
+    parser.add_argument("-p", "--platform", required=False, help="Specify the platform to be processed.")
+    parser.add_argument("-d", "--date", required=False, help="Specify of the date of the observation to be processed.")
     parser.add_argument("--start", type=str, required=False, help="The start date (recent), with format YYYYMMDD.")
     parser.add_argument("--end", type=str, required=False, help="The start date (earliest), with format YYYYMMDD.")
     parser.add_argument("--builddb", action='store_true', default=False,
@@ -85,7 +87,14 @@ if __name__ == "__main__":
     if args.builddb:
         eodatadown.eodatadownrun.build_obs_date_db(config_file, args.sensor, start_date, end_date)
     elif args.createvis:
-        eodatadown.eodatadownrun.create_obs_date_visuals(config_file, args.sensor)
+        if (args.sensor is not None) and (args.platform is not None) and (args.date is not None):
+            obs_date = datetime.datetime.strptime(args.date, '%Y%m%d').date()
+            eodatadown.eodatadownrun.create_obs_date_visuals(config_file, args.sensor, args.platform, obs_date)
+        elif (args.platform is not None) or (args.date is not None):
+            raise Exception("You have specified a sensor with either platform or date - either specify "
+                            "all three for a unique observation or just sensor.")
+        else:
+            eodatadown.eodatadownrun.create_obs_date_visuals(config_file, args.sensor)
     else:
         print("You need to provide an option to be executed; --builddb --createvis.")
 

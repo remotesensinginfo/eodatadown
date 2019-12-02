@@ -715,7 +715,7 @@ def build_obs_date_db(config_file, sensor, start_date, end_date):
     obsdates_obj.create_obs_date_records(sensor_obj, start_date, end_date)
 
 
-def create_obs_date_visuals(config_file, sensor, start_date, end_date):
+def create_obs_date_visuals(config_file, sensor):
     """
     A function which creates all the observations visualisation images.
 
@@ -727,14 +727,35 @@ def create_obs_date_visuals(config_file, sensor, start_date, end_date):
     obsdates_obj.create_obsdate_visual(sys_main_obj, sensor)
 
 
-def update_obs_date_visuals(config_file):
+def create_obs_date_visuals(config_file, sensor, platform, obs_date):
     """
-    A function which updates any of the observations visualisation images which need updating.
+    A function to create the visual overviews for a particular observation date.
 
     :param config_file: The EODataDown configuration file path.
+    :param sensor: The sensor for the observation of interest.
+    :param platform: The platform for the observation of interest.
+    :param obs_date: The date of the observation of interest.
+
     """
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
     sys_main_obj.parse_config(config_file)
     obsdates_obj = sys_main_obj.get_obsdates_obj()
-    obsdates_obj.update_obsdate_visual(sys_main_obj)
+    obsdates_obj.process_obsdata(sys_main_obj, sensor, platform, obs_date)
+
+def get_obs_dates_need_processing(config_file, sensor):
+    """
+    A function to get a list of the observation dates which are in need of processing.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: Optionally a sensor can be specified, in which case the result will just be for that sensor.
+    :return: list of lists - each list has [SensorID, PlatformID, ObsDate]
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    obs_dates_list = obsdates_obj.get_lst_obsdates_need_processing(sensor)
+    return obs_dates_list
+
+
+    
 
