@@ -463,9 +463,9 @@ class EODataDownUtils(object):
         basename = os.path.splitext(os.path.basename(filepath))[0]
         if checkvalid:
             basename = basename.replace(' ', '_')
-            for punch in string.punctuation:
-                if (punch != '_') and (punch != '-'):
-                    basename = basename.replace(punch, '')
+            for punct in string.punctuation:
+                if (punct != '_') and (punct != '-'):
+                    basename = basename.replace(punct, '')
         if n_comps > 0:
             basename_split = basename.split('_')
             if len(basename_split) < n_comps:
@@ -479,6 +479,21 @@ class EODataDownUtils(object):
                     out_basename = out_basename + '_' + basename_split[i]
             basename = out_basename
         return basename
+
+    def remove_punctuation(self, input_str):
+        """
+        A function which removes punctuation from an input string. '_' and '-' are converted to spaces and the
+        rest will just be removed.
+
+        :param input_str: input string which might have punctuation.
+        :return: string with punctuation removed.
+        """
+        import string
+        out_str = input_str.replace('_', ' ')
+        out_str = out_str.replace('-', ' ')
+        for punct in string.punctuation:
+            if (punct != '_') and (punct != '-'):
+                out_str = out_str.replace(punct, '')
 
 
 class EODataDownDatabaseInfo(object):

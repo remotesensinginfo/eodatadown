@@ -79,7 +79,7 @@ class EODataDownDateReports (object):
         self.scn_overlay_vec_file = None
         self.scn_overlay_vec_lyr = None
         self.scn_tmp_dir = None
-        self.overview_size = 250
+        self.overview_size = "250"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -105,8 +105,8 @@ class EODataDownDateReports (object):
             self.scn_rept_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
                                                                                   "scn_rept_image_dir"])
             if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'report', 'overview_size']):
-                self.overview_size = json_parse_helper.getNumericValue(config_data, ["eodatadown", "report",
-                                                                                     "overview_size"])
+                self.overview_size = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
+                                                                                 "overview_size"])
             self.scn_tmp_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report", "tmp_dir"])
             if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'report', 'vec_overlay_file']):
                 self.scn_overlay_vec_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
@@ -177,7 +177,7 @@ class EODataDownDateReports (object):
                 base_img_name = eoddutils.get_file_basename(scn_overview_img)
                 scn_imgs_dict[scn_key]['qklk_overlay'] = os.path.join(out_img_dir, "{}.jpg".format(base_img_name))
                 scn_imgs_dict[scn_key]['date_str'] = scn.ObsDate.strftime('%Y-%m-%d')
-                scn_imgs_dict[scn_key]['platform'] = scn.PlatformID
+                scn_imgs_dict[scn_key]['platform'] = eoddutils.remove_punctuation(scn.PlatformID)
                 if scn.SensorID == "LandsatGOOG":
                     scn_imgs_dict[scn_key]['sensor'] = 'Landsat'
                 elif scn.SensorID == "Sentinel2GOOG":
