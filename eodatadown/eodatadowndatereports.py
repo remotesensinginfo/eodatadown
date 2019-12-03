@@ -174,8 +174,11 @@ class EODataDownDateReports (object):
                 scn_key = "{}_{}_{}".format(scn.ObsDate.strftime('%Y%m%d'), scn.SensorID, scn.PlatformID)
                 scn_imgs_dict[scn_key] = dict()
                 scn_imgs_dict[scn_key]['qklk_overview'] = scn_overview_img
-                base_img_name = eoddutils.get_file_basename(scn_overview_img)
-                scn_imgs_dict[scn_key]['qklk_overlay'] = os.path.join(out_img_dir, "{}.jpg".format(base_img_name))
+                if self.scn_overlay_vec_file is not None:
+                    base_img_name = eoddutils.get_file_basename(scn_overview_img)
+                    scn_imgs_dict[scn_key]['qklk_overlay'] = os.path.join(out_img_dir, "{}.jpg".format(base_img_name))
+                else:
+                    scn_imgs_dict[scn_key]['qklk_image'] = scn_overview_img
                 scn_imgs_dict[scn_key]['date_str'] = scn.ObsDate.strftime('%Y-%m-%d')
                 scn_imgs_dict[scn_key]['platform'] = eoddutils.remove_punctuation(scn.PlatformID)
                 if scn.SensorID == "LandsatGOOG":

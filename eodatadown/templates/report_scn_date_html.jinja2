@@ -11,10 +11,11 @@
 
     {% for scn in scns %}
     <figure>
-        <img src="{{ scns[scn]['qklk_overview'] }}" alt="Image for {{ scns[scn]['date_str'] }}" />
+        <img src="{{ scns[scn]['qklk_image'] }}" alt="Image for {{ scns[scn]['date_str'] }}" />
         <figcaption>
-            <p>{{ scns[scn]['platform'] }}</p>
             <p>{{ scns[scn]['date_str'] }}</p>
+            <p>{{ scns[scn]['sensor'] }}</p>
+            <p>{{ scns[scn]['platform'] }}</p>
         </figcaption>
     </figure>
     {% endfor %}
