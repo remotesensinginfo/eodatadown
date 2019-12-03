@@ -50,9 +50,6 @@ if __name__ == "__main__":
     parser.add_argument("--start", type=str, required=True, help="The start date (recent), with format YYYYMMDD.")
     parser.add_argument("--end", type=str, required=True, help="The start date (earliest), with format YYYYMMDD.")
     parser.add_argument("-o", "--output", type=str, required=True, help="The output PDF report file.")
-    parser.add_argument("-v", "--vecfile", type=str, required=True, help="A vector file to be overlain, for context."
-                                                                         "For example, country boundaries.")
-    parser.add_argument("-l", "--veclyr", type=str, required=True, help="The layer within the vector file.")
     parser.add_argument("-t", "--tmpdir", type=str, required=True, help="A temp directory within which to work.")
     parser.add_argument("--order_desc", action='store_true', default=False,
                        help="Specify that the scenes should be in descending order.")

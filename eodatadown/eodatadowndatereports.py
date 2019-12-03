@@ -79,6 +79,8 @@ class EODataDownDateReports (object):
         self.scn_rept_image_dir = None
         self.scn_overlay_vec_file = None
         self.scn_overlay_vec_lyr = None
+        self.scn_tmp_dir = None
+        self.overview_size = 250
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -103,6 +105,10 @@ class EODataDownDateReports (object):
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             self.scn_rept_image_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
                                                                                   "scn_rept_image_dir"])
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'report', 'overview_size']):
+                self.overview_size = json_parse_helper.getNumericValue(config_data, ["eodatadown", "report",
+                                                                                     "overview_size"])
+            self.scn_tmp_dir = json_parse_helper.getStrValue(config_data, ["eodatadown", "report", "tmp_dir"])
             if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'report', 'vec_overlay_file']):
                 self.scn_overlay_vec_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
                                                                                         "vec_overlay_file"])
@@ -125,7 +131,7 @@ class EODataDownDateReports (object):
         Base.metadata.bind = db_engine
         Base.metadata.create_all()
 
-    def create_date_report(self, obs_date_obj, pdf_report_file, sensor_id, platform_id, start_date, end_date, tmp_dir,
+    def create_date_report(self, obs_date_obj, pdf_report_file, sensor_id, platform_id, start_date, end_date,
                            order_desc=False, record_db=False):
         """
         A function to create a date report (i.e., quicklooks of all the acquisitions for a particular date)
@@ -147,21 +153,45 @@ class EODataDownDateReports (object):
         import jinja2
 
         pdf_report_file = os.path.abspath(pdf_report_file)
-
         scns = obs_date_obj.get_obs_scns(start_date, end_date, sensor=sensor_id, platform=platform_id, valid=True)
 
-        """
         eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
         uid_str = eoddutils.uidGenerator()
         out_pdf_basename = eoddutils.get_file_basename(pdf_report_file, checkvalid=True)
-        c_tmp_dir = os.path.join(tmp_dir, '{}_{}_{}'.format(out_pdf_basename, sensor_name, uid_str))
+        c_tmp_dir = os.path.join(self.scn_tmp_dir, '{}_{}_{}_{}'.format(out_pdf_basename, sensor_id,
+                                                                        platform_id, uid_str))
         if not os.path.exists(c_tmp_dir):
             os.mkdir(c_tmp_dir)
 
-        out_img_dir = os.path.join(self.scn_rept_image_dir, '{}_{}'.format(out_pdf_basename, uid_str))
+        out_img_dir = os.path.join(self.scn_rept_image_dir, '{}_{}'.format(out_pdf_basename, sensor_id,
+                                                                           platform_id, uid_str))
         if not os.path.exists(out_img_dir):
             os.mkdir(out_img_dir)
 
+        scn_imgs_dict = dict()
+        for scn in scns:
+            if scn.OverviewCreated:
+                scn_overview_img = scn.Overviews[self.overview_size]
+                scn_key = "{}_{}_{}".format(scn.ObsDate.strftime('%Y%m%d'), scn.SensorID, scn.PlatformID)
+                scn_imgs_dict[scn_key] = dict()
+                scn_imgs_dict[scn_key]['qklk_overview'] = scn_overview_img
+                base_img_name = eoddutils.get_file_basename(scn_overview_img)
+                scn_imgs_dict[scn_key]['qklk_overlay'] = os.path.join(out_img_dir, "{}.jpg".format(base_img_name))
+                scn_imgs_dict[scn_key]['date_str'] = scn.ObsDate.strftime('%Y-%m-%d')
+                scn_imgs_dict[scn_key]['platform'] = scn.PlatformID
+                if scn.SensorID == "LandsatGOOG":
+                    scn_imgs_dict[scn_key]['sensor'] = 'Landsat'
+                elif scn.SensorID == "Sentinel2GOOG":
+                    scn_imgs_dict[scn_key]['sensor'] = 'Sentinel-2'
+                elif scn.SensorID == "Sentinel1ASF":
+                    scn_imgs_dict[scn_key]['sensor'] = 'Sentinel-1'
+                else:
+                    raise Exception("Sensor ('{}') unknown...".format(scn.SensorID))
+
+
+
+
+        """
         # Generate the images for the report.
         date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 250, out_img_dir, 'PNG', vec_file,
                                                          vec_lyr, tmp_dir, order_desc=order_desc)
