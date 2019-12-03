@@ -45,7 +45,6 @@ from osgeo import gdal
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
-from eodatadown.eodatadownsensor import EODataDownSensor
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -145,7 +144,6 @@ class EODataDownDateReports (object):
                             platforms for the sensor will be generated.
         :param start_date: A python datetime date object specifying the start date (most recent date)
         :param end_date: A python datetime date object specifying the end date (earliest date)
-        :param tmp_dir: A temp directory for intermediate files.
         :param order_desc: If True the report is in descending order otherwise ascending.
         :param record_db: If True the report is recorded within the reports database.
 
@@ -153,7 +151,8 @@ class EODataDownDateReports (object):
         import jinja2
 
         pdf_report_file = os.path.abspath(pdf_report_file)
-        scns = obs_date_obj.get_obs_scns(start_date, end_date, sensor=sensor_id, platform=platform_id, valid=True)
+        scns = obs_date_obj.get_obs_scns(start_date, end_date, sensor=sensor_id, platform=platform_id, valid=True,
+                                         order_desc=order_desc)
 
         eoddutils = eodatadown.eodatadownutils.EODataDownUtils()
         uid_str = eoddutils.uidGenerator()
@@ -188,20 +187,6 @@ class EODataDownDateReports (object):
                 else:
                     raise Exception("Sensor ('{}') unknown...".format(scn.SensorID))
 
-
-
-
-        """
-        # Generate the images for the report.
-        date_scns_dict = sensor_obj.create_scn_date_imgs(start_date, end_date, 250, out_img_dir, 'PNG', vec_file,
-                                                         vec_lyr, tmp_dir, order_desc=order_desc)
-
-        date_scn_imgs_dict = dict()
-        for scn_key in date_scns_dict:
-            date_scn_imgs_dict[scn_key] = dict()
-            date_scn_imgs_dict[scn_key]['qkimage'] = date_scns_dict[scn_key]['qkimage']
-            date_scn_imgs_dict[scn_key]['date_str'] = date_scns_dict[scn_key]['scn_date'].strftime('%Y-%m-%d')
-
         # Process the report template
         css_fields = dict()
         css_fields['header_title'] = 'EODataDown Date Report'
@@ -211,7 +196,7 @@ class EODataDownDateReports (object):
         html_fields=dict()
         html_fields['page_title'] = "Sensor for Period"
         html_fields['second_title'] = "Report from EODataDown"
-        html_fields['scns'] = date_scn_imgs_dict
+        html_fields['scns'] = scn_imgs_dict
 
         template_loader = jinja2.PackageLoader('eodatadown')
 
@@ -242,6 +227,7 @@ class EODataDownDateReports (object):
             raise Exception('Could not execute command: ' + cmd)
 
         shutil.rmtree(c_tmp_dir)
+        """
         if record_db:
             logger.debug("Creating Database Engine and Session.")
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)

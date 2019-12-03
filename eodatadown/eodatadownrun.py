@@ -665,20 +665,20 @@ def get_scenes_need_processing(config_file, sensors):
     return tasks
 
 
-def create_date_report(config_file, sensor, pdf_report_file, start_date, end_date, vec_file, vec_lyr, tmp_dir,
-                       order_desc=False, record_db=False):
+def create_date_report(config_file, pdf_report_file, start_date, end_date, sensor, platform, order_desc=False,
+                       record_db=False):
     """
     A function to create a date report (i.e., quicklooks of all the acquisitions for a particular date)
     as a PDF.
 
     :param config_file: The EODataDown configuration file path.
-    :param sensor: The sensor to process
     :param pdf_report_file: The output PDF file.
     :param start_date: A python datetime date object specifying the start date (most recent date)
     :param end_date: A python datetime date object specifying the end date (earliest date)
-    :param vec_file: A vector file (polyline) which can be overlaid for context.
-    :param vec_lyr: The layer in the vector file.
-    :param tmp_dir: A temp directory for intermediate files.
+    :param sensor: The sensor to process (if None then all)
+    :param platform: The platform to process (if None then all)
+    :param order_desc: If True the report will be in descending order.
+    :param record_db: If True a record will be written to the database for the report.
 
     """
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
@@ -687,13 +687,12 @@ def create_date_report(config_file, sensor, pdf_report_file, start_date, end_dat
     if report_obj is None:
         logger.error("Error occurred and the date report object could not be created.")
 
-    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    if obsdates_obj is None:
+        logger.error("Error occurred and the observation date object could not be created.")
 
-    print("Start Date: {}".format(start_date.strftime('%Y-%m-%d')))
-    print("End Date: {}".format(end_date.strftime('%Y-%m-%d')))
-
-    report_obj.create_date_report(sensor_obj, pdf_report_file, start_date, end_date, vec_file, vec_lyr,
-                                  tmp_dir, order_desc, record_db)
+    report_obj.create_date_report(obsdates_obj, pdf_report_file, sensor, platform, start_date, end_date,
+                                  order_desc, record_db)
 
 
 def build_obs_date_db(config_file, sensor, start_date, end_date):
@@ -757,5 +756,5 @@ def get_obs_dates_need_processing(config_file, sensor):
     return obs_dates_list
 
 
-    
+
 
