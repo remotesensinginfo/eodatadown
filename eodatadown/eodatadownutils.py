@@ -494,6 +494,7 @@ class EODataDownUtils(object):
         for punct in string.punctuation:
             if (punct != '_') and (punct != '-'):
                 out_str = out_str.replace(punct, '')
+        return out_str
 
 
 class EODataDownDatabaseInfo(object):
