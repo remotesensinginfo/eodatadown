@@ -149,6 +149,7 @@ class EODataDownDateReports (object):
 
         """
         import jinja2
+        import rsgislib.tools.visualisation
 
         pdf_report_file = os.path.abspath(pdf_report_file)
         scns = obs_date_obj.get_obs_scns(start_date, end_date, sensor=sensor_id, platform=platform_id, valid=True,
@@ -176,7 +177,13 @@ class EODataDownDateReports (object):
                 scn_imgs_dict[scn_key]['qklk_overview'] = scn_overview_img
                 if self.scn_overlay_vec_file is not None:
                     base_img_name = eoddutils.get_file_basename(scn_overview_img)
-                    scn_imgs_dict[scn_key]['qklk_overlay'] = os.path.join(out_img_dir, "{}.jpg".format(base_img_name))
+                    scn_imgs_dict[scn_key]['qklk_overlay'] = os.path.join(out_img_dir, "{}.png".format(base_img_name))
+                    rsgislib.tools.visualisation.overlay_vec_on_img(scn_overview_img,
+                                                                    scn_imgs_dict[scn_key]['qklk_overlay'],
+                                                                    self.scn_overlay_vec_file,
+                                                                    self.scn_overlay_vec_lyr, c_tmp_dir,
+                                                                    gdalformat='PNG', overlay_clr=None)
+                    scn_imgs_dict[scn_key]['qklk_image'] = scn_imgs_dict[scn_key]['qklk_overlay']
                 else:
                     scn_imgs_dict[scn_key]['qklk_image'] = scn_overview_img
                 scn_imgs_dict[scn_key]['date_str'] = scn.ObsDate.strftime('%Y-%m-%d')
