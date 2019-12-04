@@ -611,9 +611,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         if query_results.result():
             db_records = list()
             for row in query_results.result():
-                query_rtn = ses.query(EDDLandsatGoogle).filter(
-                    EDDLandsatGoogle.Scene_ID == row.scene_id).one_or_none()
-                if query_rtn is None:
+                query_rtn = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == row.scene_id).all()
+                if len(query_rtn) == 0:
                     logger.debug("SceneID: " + row.scene_id + "\tProduct_ID: " + row.product_id)
                     sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                     db_records.append(

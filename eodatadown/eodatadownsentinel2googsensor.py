@@ -496,8 +496,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 query_rtn = ses.query(EDDSentinel2Google).filter(
                     EDDSentinel2Google.Granule_ID == row.granule_id,
                     EDDSentinel2Google.Generation_Time == datetime.datetime.strptime(generation_time_tmp,
-                                                                                     "%Y-%m-%dT%H:%M:%S.%f")).all_or_none()
-                if query_rtn is None:
+                                                                                     "%Y-%m-%dT%H:%M:%S.%f")).all()
+                if len(query_rtn) == 0:
                     logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
                     sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                     platform = 'Sentinel2'

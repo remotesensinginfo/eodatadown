@@ -412,8 +412,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 product_file_ids = dict()
                 for scn_json in rsp_json:
                     product_file_id_val = json_parse_helper.getStrValue(scn_json, ["product_file_id"])
-                    query_rtn = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Product_File_ID == product_file_id_val).one_or_none()
-                    if (query_rtn is None) and (not(product_file_id_val in product_file_ids)):
+                    query_rtn = ses.query(EDDSentinel1ASF).filter(
+                            EDDSentinel1ASF.Product_File_ID == product_file_id_val).all()
+                    if (len(query_rtn) == 0) and (not(product_file_id_val in product_file_ids)):
                         product_file_ids[product_file_id_val] = True
                         scene_id_val = json_parse_helper.getStrValue(scn_json, ["sceneId"])
                         product_name_val = json_parse_helper.getStrValue(scn_json, ["productName"])
