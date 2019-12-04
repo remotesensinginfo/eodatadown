@@ -287,6 +287,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         self.mask_vec_file = ''
         self.mask_vec_lyr = ''
         self.std_vis_img_stch = None
+        self.monthsOfInterest = None
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -403,7 +404,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                             ["eodatadown", "sensor", "download", "startdate"],
                                                             "%Y-%m-%d")
 
-            self.monthsOfInterest = [None]
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "months"]):
                 self.monthsOfInterest = json_parse_helper.getListValue(config_data,
                                                                        ["eodatadown", "sensor", "download", "months"])
@@ -573,23 +573,24 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         month_filter = ''
         first = True
-        for curr_month in self.monthsOfInterest:
-            sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATE('%Y-%m-%d', date_acquired)) = {})".format(curr_month)
-            if first:
-                month_filter = sgn_month_filter
-                first = False
-            else:
-                month_filter = "{} OR {}".format(month_filter, sgn_month_filter)
-        if month_filter != '':
-            logger.info("Finding scenes for with month filter {}".format(month_filter))
-            month_filter = "({})".format(month_filter)
+        if self.monthsOfInterest is not None:
+            for curr_month in self.monthsOfInterest:
+                sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATE('%Y-%m-%d', date_acquired)) = {})".format(curr_month)
+                if first:
+                    month_filter = sgn_month_filter
+                    first = False
+                else:
+                    month_filter = "{} OR {}".format(month_filter, sgn_month_filter)
+            if month_filter != '':
+                logger.info("Finding scenes for with month filter {}".format(month_filter))
+                month_filter = "({})".format(month_filter)
 
         goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + \
                       goog_filter_spacecraft + " AND " + goog_filter_sensor + " AND " + \
                       goog_filter_collection
 
         # If using month filter
-        if month_filter != '':
+        if self.monthsOfInterest is not None:
             goog_filter = "{} AND {}".format(goog_filter, month_filter)
 
         # Create final query

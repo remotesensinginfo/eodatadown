@@ -276,6 +276,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         self.mask_vec_file = ''
         self.mask_vec_lyr = ''
         self.std_vis_img_stch = None
+        self.monthsOfInterest = None
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -379,7 +380,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             self.startDate = json_parse_helper.getDateValue(config_data,
                                                             ["eodatadown", "sensor", "download", "startdate"],
                                                             "%Y-%m-%d")
-            self.monthsOfInterest = [None]
+
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "months"]):
                 self.monthsOfInterest = json_parse_helper.getListValue(config_data,
                                                                        ["eodatadown", "sensor", "download", "months"])
@@ -447,16 +448,17 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         month_filter = ''
         first = True
-        for curr_month in self.monthsOfInterest:
-            sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {})".format(curr_month)
-            if first:
-                month_filter = sgn_month_filter
-                first = False
-            else:
-                month_filter = "{} OR {}".format(month_filter, sgn_month_filter)
-        if month_filter != '':
-            logger.info("Finding scenes for with month filter {}".format(month_filter))
-            month_filter = "({})".format(month_filter)
+        if self.monthsOfInterest is not None:
+            for curr_month in self.monthsOfInterest:
+                sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {})".format(curr_month)
+                if first:
+                    month_filter = sgn_month_filter
+                    first = False
+                else:
+                    month_filter = "{} OR {}".format(month_filter, sgn_month_filter)
+            if month_filter != '':
+                logger.info("Finding scenes for with month filter {}".format(month_filter))
+                month_filter = "({})".format(month_filter)
 
         granule_filter = ''
         first = True
@@ -470,7 +472,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         granule_filter = "({})".format(granule_filter)
 
         goog_filter = "{} AND {}".format(goog_filter_date, goog_filter_cloud)
-        if month_filter != '':
+        if self.monthsOfInterest is not None:
             goog_filter = "{} AND {}".format(goog_filter, month_filter)
 
         goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " \
