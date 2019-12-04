@@ -212,14 +212,13 @@ class EODataDownDateReports (object):
                 sensors_str = "{}, {}".format(sensors_str, sen_str)
             sensors_str = "{} and {}".format(sensors_str, sensors_set[-1])
 
-        rpt_start_end_dates = '{} -- {}'.format(start_date.strftime('%Y/%m/%d'),
-                                                end_date.strftime('%Y/%m/%d'))
+        rpt_start_end_dates = '{} - {}'.format(end_date.strftime('%Y/%m/%d'), start_date.strftime('%Y/%m/%d'))
 
         # Process the report template
         css_fields = dict()
         css_fields['header_title'] = 'EODataDown Report: {} ({})'.format(sensors_str, rpt_start_end_dates)
         css_fields['info_footer'] = 'See https://eodatadown.remotesensing.info for background.'
-        css_fields['copyright_footer'] = '&copy; Copyright Aberystwyth University {}'.format(
+        css_fields['copyright_footer'] = 'Copyright Aberystwyth University {}'.format(
                                                                                        datetime.datetime.now().year)
 
         html_fields=dict()
