@@ -29,13 +29,12 @@ EODataDown - Setup/Update the system.
 # History:
 # Version 1.0 - Created.
 
+import eodatadown.eodatadownrun
 import argparse
 import logging
 import os
 import os.path
 import rsgislib
-
-import eodatadown.eodatadownrun
 
 from eodatadown import EODATADOWN_SENSORS_LIST
 
@@ -61,7 +60,7 @@ if __name__ == "__main__":
     if (config_file == '') and (main_config_value is not None):
         config_file = main_config_value
 
-    print("'" + config_file + "'")
+    print("'{}'".format(config_file))
 
     if not os.path.exists(config_file):
         logger.info("The config file does not exist: '" + config_file + "'")
@@ -86,7 +85,7 @@ if __name__ == "__main__":
     t.start(True)
 
     if not args.nonewscns:
-        eodatadown.eodatadownrun.find_new_downloads(config_file, ncores_val, args.sensors, check_from_start=False)
+        eodatadown.eodatadownrun.find_new_downloads(config_file, args.sensors, False)
     eodatadown.eodatadownrun.process_scenes_all_steps(config_file, args.sensors, ncores=ncores_val)
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrunmonitoring.py.')

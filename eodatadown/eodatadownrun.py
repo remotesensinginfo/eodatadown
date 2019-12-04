@@ -38,21 +38,15 @@ import multiprocessing
 from eodatadown.eodatadownutils import EODataDownException
 import eodatadown.eodatadownutils
 import eodatadown.eodatadownsystemmain
-import eodatadown.eodatadowndatereports
 
 logger = logging.getLogger(__name__)
 
-# Start: Function for Pool
-def _check_new_data_qfunc(sensor_obj_params):
-    sensor_obj_params[0].check_new_scns(sensor_obj_params[1])
-# End: Function for Pool
-
-def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
+def find_new_downloads(config_file, sensors, check_from_start=False):
     """
     A function to run the process of finding new data to download.
-    :param config_file:
-    :param n_cores:
-    :param sensors:
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: list of sensor names.
+    :param check_from_start:
 
     """
     logger.info("Running process to find new downloads.")
@@ -64,29 +58,19 @@ def find_new_downloads(config_file, n_cores, sensors, check_from_start=False):
     edd_usage_db = sys_main_obj.get_usage_db_obj()
     edd_usage_db.add_entry("Started: Finding Available Downloads.", start_block=True)
 
-    sensor_objs = sys_main_obj.get_sensors()
-    sensor_objs_to_process = list()
-    for sensor_obj in sensor_objs:
-        process_sensor = False
-        if sensors is None:
-            process_sensor = True
-        if sensors is not None:
-            if sensor_obj.get_sensor_name() in sensors:
-                process_sensor = True
-        if process_sensor:
-            sensor_objs_to_process.append([sensor_obj, check_from_start])
+    for sensor in sensors:
+        sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+        sensor_obj.check_new_scns(check_from_start)
 
-    with multiprocessing.Pool(processes=n_cores) as pool:
-        pool.map(_check_new_data_qfunc, sensor_objs_to_process)
     edd_usage_db.add_entry("Finished: Finding Available Downloads.", end_block=True)
 
 
 def get_sensor_obj(config_file, sensor):
     """
     A function to get a sensor object.
-    :param config_file:
-    :param sensor:
-    :return:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor
+    :return: instance of a EODataDownSensor
     """
     # Create the System 'Main' object and parse the configuration file.
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
@@ -102,9 +86,9 @@ def perform_downloads(config_file, n_cores, sensors):
     """
     A function which runs the process of performing the downloads of available scenes
     which have not yet been downloaded.
-    :param config_file:
+    :param config_file: The EODataDown configuration file path.
     :param n_cores:
-    :param sensors:
+    :param sensors: List of sensor names.
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
@@ -139,8 +123,8 @@ def perform_downloads(config_file, n_cores, sensors):
 def perform_scene_download(config_file, sensor, scene_id):
     """
     A function which performs the download for the specified scene.
-    :param config_file:
-    :param sensor:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor.
     :param scene_id:
     :return:
     """
@@ -175,9 +159,9 @@ def perform_scene_download(config_file, sensor, scene_id):
 def process_data_ard(config_file, n_cores, sensors):
     """
     A function which runs the process of converting the downloaded scenes to an ARD product.
-    :param config_file:
+    :param config_file: The EODataDown configuration file path.
     :param n_cores:
-    :param sensors:
+    :param sensors: List of sensor names.
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
@@ -212,8 +196,8 @@ def process_data_ard(config_file, n_cores, sensors):
 def process_scene_ard(config_file, sensor, scene_id):
     """
     A function which runs the process of converting the specified scene to an ARD product.
-    :param config_file:
-    :param sensor:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor
     :param scene_id:
     :return:
     """
@@ -248,8 +232,8 @@ def process_scene_ard(config_file, sensor, scene_id):
 def datacube_load_data(config_file, sensors):
     """
 
-    :param config_file:
-    :param sensors:
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: List of sensor names.
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
@@ -284,8 +268,8 @@ def datacube_load_data(config_file, sensors):
 def datacube_load_scene(config_file, sensor, scene_id):
     """
     A function which runs the process of converting the specified scene to an ARD product.
-    :param config_file:
-    :param sensor:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: List of sensor names.
     :param scene_id:
     :return:
     """
@@ -320,8 +304,8 @@ def datacube_load_scene(config_file, sensor, scene_id):
 def gen_quicklook_images(config_file, sensors):
     """
 
-    :param config_file:
-    :param sensors:
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: list of sensor names.
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
@@ -356,8 +340,8 @@ def gen_quicklook_images(config_file, sensors):
 def gen_quicklook_scene(config_file, sensor, scene_id):
     """
     A function which runs the process of generating quicklook image for an input scene.
-    :param config_file:
-    :param sensor:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor
     :param scene_id:
     :return:
     """
@@ -392,8 +376,8 @@ def gen_quicklook_scene(config_file, sensor, scene_id):
 def gen_tilecache_images(config_file, sensors):
     """
 
-    :param config_file:
-    :param sensors:
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: List of sensor names.
     :return:
     """
     # Create the System 'Main' object and parse the configuration file.
@@ -428,8 +412,8 @@ def gen_tilecache_images(config_file, sensors):
 def gen_scene_tilecache(config_file, sensor, scene_id):
     """
     A function which runs the process of generating a tilecache for an input scene.
-    :param config_file:
-    :param sensor:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor
     :param scene_id:
     :return:
     """
@@ -465,8 +449,8 @@ def export_image_footprints_vector(config_file, sensor, table, vector_file, vect
     """
 
     :param table:
-    :param config_file:
-    :param sensor:
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor to be exported.
     :param vector_file:
     :param vector_lyr:
     :param vector_driver:

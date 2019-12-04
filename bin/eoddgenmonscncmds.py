@@ -70,7 +70,7 @@ if __name__ == "__main__":
     t.start(True)
 
     if not args.nonewscns:
-        eodatadown.eodatadownrun.find_new_downloads(config_file, 1, args.sensors, check_from_start=False)
+        eodatadown.eodatadownrun.find_new_downloads(config_file, args.sensors, check_from_start=False)
 
     scn_tasks = eodatadown.eodatadownrun.get_scenes_need_processing(config_file, args.sensors)
     cmds_lst = list()

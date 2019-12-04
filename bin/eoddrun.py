@@ -95,8 +95,7 @@ if __name__ == "__main__":
             single_scn_sensor = args.sensors[0]
 
     if ncores == 0:
-        logger.info("The number of cores has not been specified. Either use -n or the variable EDD_NCORES.")
-        raise Exception("The number of cores to use has not been specified.")
+        ncores = 1
 
     if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc):
         logger.info("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
@@ -111,7 +110,7 @@ if __name__ == "__main__":
                 raise Exception('It is not possible to find new downloads for a given scene ID - this does not make sense.')
             else:
                 logger.info('Running process to find new downloads.')
-                eodatadown.eodatadownrun.find_new_downloads(config_file, ncores, args.sensors, args.checkstart)
+                eodatadown.eodatadownrun.find_new_downloads(config_file, args.sensors, args.checkstart)
                 logger.info('Finished process to find new downloads.')
         except Exception as e:
             logger.error('Failed to complete the process of finding new downloads.', exc_info=True)

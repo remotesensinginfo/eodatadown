@@ -29,13 +29,12 @@ EODataDown - Setup/Update the system.
 # History:
 # Version 1.0 - Created.
 
+import eodatadown.eodatadownrun
 import argparse
 import logging
 import os
 import os.path
 import rsgislib
-
-import eodatadown.eodatadownrun
 
 from eodatadown import EODATADOWN_SENSORS_LIST
 
@@ -46,8 +45,6 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config", type=str, default="", help="Path to the JSON config file.")
     parser.add_argument("-s", "--sensors", type=str, nargs='+', required=True, choices=EODATADOWN_SENSORS_LIST,
                         help='''Specify the sensor for which this process should be executed''')
-    parser.add_argument("-n", "--ncores", type=int, default=0,
-                        help="Specify the number of processing cores to use (or use EDD_NCORES).")
     parser.add_argument("--chkstart", action='store_true', default=False,
                         help="Specify that the system should check from the start date rather than just updates.")
 
@@ -64,18 +61,10 @@ if __name__ == "__main__":
         logger.info("The config file does not exist: '" + config_file + "'")
         raise Exception("Config file does not exist")
 
-    ncores_val = 1
-    if args.ncores > 0:
-        ncores_val = args.ncores
-    else:
-        ncores_env_val = os.getenv('EDD_NCORES', None)
-        if ncores_env_val is not None:
-            ncores_val = int(ncores_env_val)
-
     t = rsgislib.RSGISTime()
     t.start(True)
 
-    eodatadown.eodatadownrun.find_new_downloads(config_file, ncores_val, args.sensors, check_from_start=args.chkstart)
+    eodatadown.eodatadownrun.find_new_downloads(config_file, args.sensors, check_from_start=args.chkstart)
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddchknewscns.py.')
 

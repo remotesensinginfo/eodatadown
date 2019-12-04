@@ -445,64 +445,81 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '" + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
         goog_filter_cloud = "CAST(cloud_cover AS NUMERIC) < " + str(self.cloudCoverThres)
 
-        new_scns_avail = False
+        month_filter = ''
+        first = True
+        for curr_month in self.monthsOfInterest:
+            sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {})".format(curr_month)
+            if first:
+                month_filter = sgn_month_filter
+                first = False
+            else:
+                month_filter = "{} OR {}".format(month_filter, sgn_month_filter)
+        if month_filter != '':
+            logger.info("Finding scenes for with month filter {}".format(month_filter))
+            month_filter = "({})".format(month_filter)
+
+        granule_filter = ''
+        first = True
         for granule_str in self.s2Granules:
-            logger.info("Finding scenes for granule: " + granule_str)
-            for curr_month in self.monthsOfInterest:
-                if curr_month is not None:
-                    logger.info("Finding scenes for granule: {} in month {}".format(granule_str, curr_month))
-                    goog_filter_month = "EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {}".format(curr_month)
-                    goog_filter = goog_filter_date + " AND " + goog_filter_cloud + " AND " + goog_filter_month
-                else:
-                    goog_filter = goog_filter_date + " AND " + goog_filter_cloud
+            sgn_granule_filter = '(mgrs_tile = "{}")'.format(granule_str)
+            if first:
+                granule_filter = sgn_granule_filter
+                first = False
+            else:
+                granule_filter = "{} OR {}".format(granule_filter, sgn_granule_filter)
+        granule_filter = "({})".format(granule_filter)
 
-                client = bigquery.Client()
-                granule_filter = "mgrs_tile = \"" + granule_str + "\""
-                goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " \
-                             + goog_filter + " AND " + granule_filter
-                logger.debug("Query: '" + goog_query + "'")
-                query_results = client.query(goog_query)
-                logger.debug("Performed google query")
+        goog_filter = "{} AND {}".format(goog_filter_date, goog_filter_cloud)
+        if month_filter != '':
+            goog_filter = "{} AND {}".format(goog_filter, month_filter)
 
-                logger.debug("Process google query result and add to local database (Granule: " + granule_str + ")")
-                if query_results.result():
-                    db_records = list()
-                    for row in query_results.result():
-                        generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
-                        query_rtn = ses.query(EDDSentinel2Google).filter(
-                            EDDSentinel2Google.Granule_ID == row.granule_id,
-                            EDDSentinel2Google.Generation_Time == datetime.datetime.strptime(generation_time_tmp,
-                                                                                             "%Y-%m-%dT%H:%M:%S.%f")).all()
-                        if len(query_rtn) == 0:
-                            logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
-                            sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
-                            platform = 'Sentinel2'
-                            if 'GS2A' in row.datatake_identifier:
-                                platform = 'Sentinel2A'
-                            elif 'GS2B' in row.datatake_identifier:
-                                platform = 'Sentinel2B'
-                            db_records.append(
-                                EDDSentinel2Google(Granule_ID=row.granule_id, Product_ID=row.product_id,
-                                                   Platform_ID=platform, Datatake_Identifier=row.datatake_identifier,
-                                                   Mgrs_Tile=row.mgrs_tile,
-                                                   Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
-                                                                                           "%Y-%m-%dT%H:%M:%S.%f"),
-                                                   Geometric_Quality_Flag=row.geometric_quality_flag,
-                                                   Generation_Time=datetime.datetime.strptime(generation_time_tmp,
-                                                                                              "%Y-%m-%dT%H:%M:%S.%f"),
-                                                   Cloud_Cover=float(row.cloud_cover), North_Lat=row.north_lat,
-                                                   South_Lat=row.south_lat,
-                                                   East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
-                                                   Remote_URL=row.base_url, Query_Date=datetime.datetime.now(),
-                                                   Download_Start_Date=None, Download_End_Date=None, Downloaded=False,
-                                                   Download_Path="", ARDProduct_Start_Date=None, ARDProduct_End_Date=None,
-                                                   ARDProduct=False, ARDProduct_Path=""))
-                    if len(db_records) > 0:
-                        ses.add_all(db_records)
-                        ses.commit()
-                        new_scns_avail = True
-                logger.debug("Processed google query result and added to local database (Granule: " + granule_str + ")")
-                client = None
+        goog_query = "SELECT " + goog_fields + " FROM " + goog_db_str + " WHERE " \
+                     + goog_filter + " AND " + granule_filter
+        logger.debug("Query: '" + goog_query + "'")
+        client = bigquery.Client()
+        query_results = client.query(goog_query)
+        logger.debug("Performed google query")
+
+        new_scns_avail = False
+        logger.debug("Process google query result and add to local database.")
+        if query_results.result():
+            db_records = list()
+            for row in query_results.result():
+                generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
+                query_rtn = ses.query(EDDSentinel2Google).filter(
+                    EDDSentinel2Google.Granule_ID == row.granule_id,
+                    EDDSentinel2Google.Generation_Time == datetime.datetime.strptime(generation_time_tmp,
+                                                                                     "%Y-%m-%dT%H:%M:%S.%f")).all()
+                if len(query_rtn) == 0:
+                    logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
+                    sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
+                    platform = 'Sentinel2'
+                    if 'GS2A' in row.datatake_identifier:
+                        platform = 'Sentinel2A'
+                    elif 'GS2B' in row.datatake_identifier:
+                        platform = 'Sentinel2B'
+                    db_records.append(
+                        EDDSentinel2Google(Granule_ID=row.granule_id, Product_ID=row.product_id,
+                                           Platform_ID=platform, Datatake_Identifier=row.datatake_identifier,
+                                           Mgrs_Tile=row.mgrs_tile,
+                                           Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
+                                                                                   "%Y-%m-%dT%H:%M:%S.%f"),
+                                           Geometric_Quality_Flag=row.geometric_quality_flag,
+                                           Generation_Time=datetime.datetime.strptime(generation_time_tmp,
+                                                                                      "%Y-%m-%dT%H:%M:%S.%f"),
+                                           Cloud_Cover=float(row.cloud_cover), North_Lat=row.north_lat,
+                                           South_Lat=row.south_lat,
+                                           East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,
+                                           Remote_URL=row.base_url, Query_Date=datetime.datetime.now(),
+                                           Download_Start_Date=None, Download_End_Date=None, Downloaded=False,
+                                           Download_Path="", ARDProduct_Start_Date=None, ARDProduct_End_Date=None,
+                                           ARDProduct=False, ARDProduct_Path=""))
+            if len(db_records) > 0:
+                ses.add_all(db_records)
+                ses.commit()
+                new_scns_avail = True
+        logger.debug("Processed google query result and added to local database.")
+        client = None
 
         ses.close()
         logger.debug("Closed Database session")
