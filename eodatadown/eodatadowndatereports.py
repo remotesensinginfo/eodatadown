@@ -169,6 +169,7 @@ class EODataDownDateReports (object):
             os.mkdir(out_img_dir)
 
         scn_imgs_dict = dict()
+        sensors_lst = list()
         for scn in scns:
             if scn.OverviewCreated:
                 scn_overview_img = scn.Overviews[self.overview_size]
@@ -196,16 +197,34 @@ class EODataDownDateReports (object):
                     scn_imgs_dict[scn_key]['sensor'] = 'Sentinel-1'
                 else:
                     raise Exception("Sensor ('{}') unknown...".format(scn.SensorID))
+                sensors_lst.append(scn_imgs_dict[scn_key]['sensor'])
+
+        sensors_set = list(set(sensors_lst))
+        sensors_str = ''
+        if len(sensors_set) == 1:
+            sensors_str = sensors_set[0]
+        elif len(sensors_set) == 2:
+            sensors_str = "{} and {}".format(sensors_set[0], sensors_set[1])
+        else:
+            sensors_str = sensors_set[0]
+            n_idx = len(sensors_set)-1
+            for sen_str in sensors_set[1:n_idx-1]:
+                sensors_str = "{}, {}".format(sensors_str, sen_str)
+            sensors_str = "{} and {}".format(sensors_str, sensors_set[-1])
+
+        rpt_start_end_dates = '{} -- {}'.format(start_date.strftime('%Y/%m/%d'),
+                                                end_date.strftime('%Y/%m/%d'))
 
         # Process the report template
         css_fields = dict()
-        css_fields['header_title'] = 'EODataDown Date Report'
+        css_fields['header_title'] = 'EODataDown Report: {} ({})'.format(sensors_str, rpt_start_end_dates)
         css_fields['info_footer'] = 'See https://eodatadown.remotesensing.info for background.'
-        css_fields['copyright_footer'] = 'Copyright Aberystwyth University'
+        css_fields['copyright_footer'] = '&copy; Copyright Aberystwyth University {}'.format(
+                                                                                       datetime.datetime.now().year)
 
         html_fields=dict()
-        html_fields['page_title'] = "Sensor for Period"
-        html_fields['second_title'] = "Report from EODataDown"
+        html_fields['page_title'] = sensors_str
+        html_fields['second_title'] = "A report from EODataDown for the period {}.".format(rpt_start_end_dates)
         html_fields['scns'] = scn_imgs_dict
 
         template_loader = jinja2.PackageLoader('eodatadown')
