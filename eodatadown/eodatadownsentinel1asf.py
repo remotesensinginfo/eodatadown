@@ -385,7 +385,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         logger.info("Query with start at date: " + str(query_date))
 
         # Get the next PID value to ensure increment
-        c_max_pid = query_date = ses.query(func.max(EDDSentinel1ASF.PID).label("max_pid")).one().max_pid
+        c_max_pid = ses.query(func.max(EDDSentinel1ASF.PID).label("max_pid")).one().max_pid
         n_max_pid = c_max_pid + 1
 
         str_start_datetime = query_date.isoformat()+"UTC"
