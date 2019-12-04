@@ -52,6 +52,7 @@ from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
 import sqlalchemy.dialects.postgresql
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.sql.expression import func
 
 logger = logging.getLogger(__name__)
 
@@ -438,6 +439,10 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 EDDSentinel2Google.Sensing_Time.desc()).first().Sensing_Time
         logger.info("Query with start at date: " + str(query_date))
 
+        # Get the next PID value to ensure increment
+        c_max_pid = query_date = ses.query(func.max(EDDSentinel2Google.PID).label("max_pid")).one().max_pid
+        n_max_pid = c_max_pid + 1
+
         logger.debug("Perform google query...")
         goog_fields = "granule_id,product_id,datatake_identifier,mgrs_tile,sensing_time,geometric_quality_flag," \
                       "generation_time,north_lat,south_lat,west_lon,east_lon,base_url,total_size,cloud_cover"
@@ -483,16 +488,16 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         logger.debug("Performed google query")
 
         new_scns_avail = False
+        db_records = list()
         logger.debug("Process google query result and add to local database.")
         if query_results.result():
-            db_records = list()
             for row in query_results.result():
                 generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
                 query_rtn = ses.query(EDDSentinel2Google).filter(
                     EDDSentinel2Google.Granule_ID == row.granule_id,
                     EDDSentinel2Google.Generation_Time == datetime.datetime.strptime(generation_time_tmp,
-                                                                                     "%Y-%m-%dT%H:%M:%S.%f")).all()
-                if len(query_rtn) == 0:
+                                                                                     "%Y-%m-%dT%H:%M:%S.%f")).all_or_none()
+                if query_rtn is None:
                     logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
                     sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                     platform = 'Sentinel2'
@@ -501,7 +506,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                     elif 'GS2B' in row.datatake_identifier:
                         platform = 'Sentinel2B'
                     db_records.append(
-                        EDDSentinel2Google(Granule_ID=row.granule_id, Product_ID=row.product_id,
+                        EDDSentinel2Google(PID=n_max_pid, Granule_ID=row.granule_id, Product_ID=row.product_id,
                                            Platform_ID=platform, Datatake_Identifier=row.datatake_identifier,
                                            Mgrs_Tile=row.mgrs_tile,
                                            Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
@@ -516,13 +521,13 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                            Download_Start_Date=None, Download_End_Date=None, Downloaded=False,
                                            Download_Path="", ARDProduct_Start_Date=None, ARDProduct_End_Date=None,
                                            ARDProduct=False, ARDProduct_Path=""))
-            if len(db_records) > 0:
-                ses.add_all(db_records)
-                ses.commit()
-                new_scns_avail = True
+                    n_max_pid = n_max_pid + 1
+        if len(db_records) > 0:
+            ses.add_all(db_records)
+            ses.commit()
+            new_scns_avail = True
         logger.debug("Processed google query result and added to local database.")
         client = None
-
         ses.close()
         logger.debug("Closed Database session")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)

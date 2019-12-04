@@ -54,6 +54,7 @@ import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy.dialects.postgresql
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.sql.expression import func
 
 logger = logging.getLogger(__name__)
 
@@ -383,6 +384,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             query_date = ses.query(EDDSentinel1ASF).order_by(EDDSentinel1ASF.BeginPosition.desc()).first().BeginPosition
         logger.info("Query with start at date: " + str(query_date))
 
+        # Get the next PID value to ensure increment
+        c_max_pid = query_date = ses.query(func.max(EDDSentinel1ASF.PID).label("max_pid")).one().max_pid
+        n_max_pid = c_max_pid + 1
+
         str_start_datetime = query_date.isoformat()+"UTC"
         str_now_datetime = datetime.datetime.utcnow().isoformat()+"UTC"
         query_str_date = "start="+str_start_datetime+"\&end="+str_now_datetime
@@ -450,7 +455,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                             download_file_size_mb_val = None
 
 
-                        db_records.append(EDDSentinel1ASF(Scene_ID=scene_id_val,
+                        db_records.append(EDDSentinel1ASF(PID=n_max_pid, Scene_ID=scene_id_val,
                                                           Product_Name=product_name_val, Product_File_ID=product_file_id_val,
                                                           ABS_Orbit=absolute_orbit_val, Rel_Orbit=relative_orbit_val,
                                                           Doppler=doppler_val, Flight_Direction=flight_direction_val,
@@ -465,6 +470,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                           East_Lon=edd_footprint_bbox.getEastLon(), West_Lon=edd_footprint_bbox.getWestLon(),
                                                           Remote_URL=download_url_val, Remote_FileName=file_name_val,
                                                           Total_Size=download_file_size_mb_val, Query_Date=query_datetime))
+                        n_max_pid = n_max_pid + 1
 
                 if len(db_records) > 0:
                     logger.debug("Writing records to the database.")

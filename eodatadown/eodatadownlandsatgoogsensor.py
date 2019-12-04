@@ -57,6 +57,7 @@ import sqlalchemy
 import sqlalchemy.types
 import sqlalchemy.dialects.postgresql
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.sql.expression import func
 
 logger = logging.getLogger(__name__)
 
@@ -520,6 +521,10 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 EDDLandsatGoogle.Date_Acquired.desc()).first().Date_Acquired
         logger.info("Query with start at date: " + str(query_date))
 
+        # Get the next PID value to ensure increment
+        c_max_pid = query_date = ses.query(func.max(EDDLandsatGoogle.PID).label("max_pid")).one().max_pid
+        n_max_pid = c_max_pid + 1
+
         logger.debug("Perform google query...")
         goog_fields = "scene_id,product_id,spacecraft_id,sensor_id,date_acquired,sensing_time,collection_number," \
                       "collection_category,data_type,wrs_path,wrs_row,cloud_cover,north_lat,south_lat,west_lon," \
@@ -612,7 +617,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     logger.debug("SceneID: " + row.scene_id + "\tProduct_ID: " + row.product_id)
                     sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                     db_records.append(
-                        EDDLandsatGoogle(Scene_ID=row.scene_id, Product_ID=row.product_id,
+                        EDDLandsatGoogle(PID=n_max_pid, Scene_ID=row.scene_id, Product_ID=row.product_id,
                                          Spacecraft_ID=row.spacecraft_id,
                                          Sensor_ID=row.sensor_id,
                                          Date_Acquired=datetime.datetime.strptime(row.date_acquired,
@@ -631,6 +636,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                          Archived=False, ARDProduct_Start_Date=None,
                                          ARDProduct_End_Date=None, ARDProduct=False, ARDProduct_Path="",
                                          DCLoaded_Start_Date=None, DCLoaded_End_Date=None, DCLoaded=False))
+                    n_max_pid = n_max_pid + 1
             if len(db_records) > 0:
                 ses.add_all(db_records)
                 ses.commit()
