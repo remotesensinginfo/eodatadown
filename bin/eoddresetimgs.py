@@ -47,7 +47,7 @@ if __name__ == "__main__":
                         help='''Specify the sensor for which this process should be executed''')
     parser.add_argument("--scene", type=int, help="Specify an individual scene by the PID to reset.")
     parser.add_argument("--noard", action='store_true', default=False,
-                        help="Resets (deletes download) an images for which an ARD product hasn't been calculated.")
+                        help="Resets an images for which an ARD product hasn't been calculated.")
     parser.add_argument("--nodcload", action='store_true', default=False,
                         help="Resets flag for images loaded in a datacube - sets all to False.")
     parser.add_argument("--all", action='store_true', default=False,
@@ -76,18 +76,23 @@ if __name__ == "__main__":
         try:
             logger.info('Running process to reset scenes which have not been converted to ARD.')
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
+            if args.rmdownloads:
+                logger.info('The downloads will also be removed and reset...')
             if args.scene is None:
-                scns = sensor_obj.get_scnlist_con2ard()
+                scns = sensor_obj.get_scnlist_all()
                 for scn in scns:
-                    sensor_obj.reset_scn(scn, True, reset_invalid=args.invalid)
+                    if not sensor_obj.has_scn_con2ard(scn):
+                        sensor_obj.reset_scn(scn, args.rmdownloads, reset_invalid=args.invalid)
             else:
-                sensor_obj.reset_scn(args.scene, True, reset_invalid=args.invalid)
+                sensor_obj.reset_scn(args.scene, args.rmdownloads, reset_invalid=args.invalid)
             logger.info('Finished process to reset scenes which have not been converted to ARD.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
     elif args.nodcload:
         try:
             logger.info('Running process to reset scenes which have been loaded into the datacube.')
+            if args.rmdownloads:
+                logger.info('Download cannot be removed when removing an ARD product from a datacube...')
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
             if args.scene is None:
                 scns = sensor_obj.get_scnlist_datacube(True)
@@ -102,7 +107,7 @@ if __name__ == "__main__":
         try:
             logger.info('Running process to reset all scenes within the database so any ARD products are deleted.')
             if args.rmdownloads:
-                logger.info('The downloads will also be removed and reset..')
+                logger.info('The downloads will also be removed and reset...')
             sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
             if args.scene is None:
                 scns = sensor_obj.get_scnlist_all()

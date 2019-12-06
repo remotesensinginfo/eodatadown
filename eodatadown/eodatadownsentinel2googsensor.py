@@ -1868,7 +1868,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
 
         if scn_record.DCLoaded:
-            # How to remove from datacube?
+            # TODO: How to remove from datacube?
             scn_record.DCLoaded_Start_Date = None
             scn_record.DCLoaded_End_Date = None
             scn_record.DCLoaded = False
