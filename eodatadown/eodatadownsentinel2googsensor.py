@@ -1366,7 +1366,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         ses.close()
         return platforms
 
-    def query_scn_records_date_count(self, start_date, end_date, valid=True):
+    def query_scn_records_date_count(self, start_date, end_date, valid=True, cloud_thres=None):
         """
         A function which queries the database to find scenes within a specified date range
         and returns the number of records available.
@@ -1374,6 +1374,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         :param start_date: A python datetime object specifying the start date
         :param end_date: A python datetime object specifying the end date
         :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
         :return: count of records available
         """
         logger.debug("Creating Database Engine and Session.")
@@ -1381,18 +1382,30 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scene.")
-        if valid:
-            n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
-                                                          EDDSentinel2Google.Sensing_Time > end_date,
-                                                          EDDSentinel2Google.Invalid == False,
-                                                          EDDSentinel2Google.ARDProduct == True).count()
+        if cloud_thres is not None:
+            if valid:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date,
+                                                              EDDSentinel2Google.Invalid == False,
+                                                              EDDSentinel2Google.ARDProduct == True,
+                                                              EDDSentinel2Google.Cloud_Cover <= cloud_thres).count()
+            else:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date,
+                                                              EDDSentinel2Google.Cloud_Cover <= cloud_thres).count()
         else:
-            n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
-                                                          EDDSentinel2Google.Sensing_Time > end_date).count()
+            if valid:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date,
+                                                              EDDSentinel2Google.Invalid == False,
+                                                              EDDSentinel2Google.ARDProduct == True).count()
+            else:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date).count()
         ses.close()
         return n_rows
 
-    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True):
+    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True, cloud_thres=None):
         """
         A function which queries the database to find scenes within a specified date range.
         The order of the records is descending (i.e., from current to historical)
@@ -1402,6 +1415,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         :param start_rec: A parameter specifying the start record, for example for pagination.
         :param n_recs: A parameter specifying the number of records to be returned.
         :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
         :return: list of database records
         """
         logger.debug("Creating Database Engine and Session.")
@@ -1409,28 +1423,233 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scene.")
-        if valid:
-            if n_recs > 0:
-                query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
-                                                                    EDDSentinel2Google.Sensing_Time > end_date,
-                                                                    EDDSentinel2Google.Invalid == False,
-                                                                    EDDSentinel2Google.ARDProduct == True).order_by(
-                    EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)]
+        if cloud_thres is not None:
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
             else:
-                query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
-                                                                    EDDSentinel2Google.Sensing_Time > end_date,
-                                                                    EDDSentinel2Google.Invalid == False,
-                                                                    EDDSentinel2Google.ARDProduct == True).order_by(
-                    EDDSentinel2Google.Sensing_Time.desc()).all()
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
         else:
-            if n_recs > 0:
-                query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
-                                                                    EDDSentinel2Google.Sensing_Time > end_date).order_by(
-                    EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)]
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
             else:
-                query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time < start_date,
-                                                                    EDDSentinel2Google.Sensing_Time > end_date).order_by(
-                    EDDSentinel2Google.Sensing_Time.desc()).all()
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
+        ses.close()
+        scn_records = list()
+        if (query_result is not None) and (len(query_result) > 0):
+            for rec in query_result:
+                scn_records.append(rec)
+        else:
+            logger.error("No scenes were found within this date range.")
+            raise EODataDownException("No scenes were found within this date range.")
+        return scn_records
+
+    def query_scn_records_date_bbox_count(self, start_date, end_date, bbox, valid=True, cloud_thres=None):
+        """
+        A function which queries the database to find scenes within a specified date range
+        and returns the number of records available.
+
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :param bbox: Bounding box, with which scenes will intersect [West_Lon, East_Lon, South_Lat, North_Lat]
+        :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
+        :return: count of records available
+        """
+        west_lon_idx = 0
+        east_lon_idx = 1
+        south_lat_idx = 2
+        north_lat_idx = 3
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        if cloud_thres is not None:
+            if valid:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date,
+                                                              EDDSentinel2Google.Invalid == False,
+                                                              EDDSentinel2Google.ARDProduct == True,
+                                                              EDDSentinel2Google.Cloud_Cover <= cloud_thres).filter(
+                                                              (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                              (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                              (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                              (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).count()
+            else:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date,
+                                                              EDDSentinel2Google.Cloud_Cover <= cloud_thres).filter(
+                                                              (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                              (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                              (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                              (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).count()
+        else:
+            if valid:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date,
+                                                              EDDSentinel2Google.Invalid == False,
+                                                              EDDSentinel2Google.ARDProduct == True).filter(
+                                                              (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                              (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                              (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                              (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).count()
+            else:
+                n_rows = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                              EDDSentinel2Google.Sensing_Time >= end_date).filter(
+                                                              (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                              (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                              (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                              (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).count()
+        ses.close()
+        return n_rows
+
+    def query_scn_records_date_bbox(self, start_date, end_date, bbox, start_rec=0, n_recs=0, valid=True, cloud_thres=None):
+        """
+        A function which queries the database to find scenes within a specified date range.
+        The order of the records is descending (i.e., from current to historical)
+
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :param bbox: Bounding box, with which scenes will intersect [West_Lon, East_Lon, South_Lat, North_Lat]
+        :param start_rec: A parameter specifying the start record, for example for pagination.
+        :param n_recs: A parameter specifying the number of records to be returned.
+        :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
+        :return: list of database records
+        """
+        west_lon_idx = 0
+        east_lon_idx = 1
+        south_lat_idx = 2
+        north_lat_idx = 3
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        if cloud_thres is not None:
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
+            else:
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Cloud_Cover <= cloud_thres).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
+        else:
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec+n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date,
+                                                                        EDDSentinel2Google.Invalid == False,
+                                                                        EDDSentinel2Google.ARDProduct == True).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
+            else:
+                if n_recs > 0:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Sensing_Time <= start_date,
+                                                                        EDDSentinel2Google.Sensing_Time >= end_date).filter(
+                                                                        (bbox[east_lon_idx] > EDDSentinel2Google.West_Lon),
+                                                                        (EDDSentinel2Google.East_Lon > bbox[west_lon_idx]),
+                                                                        (bbox[north_lat_idx] > EDDSentinel2Google.South_Lat),
+                                                                        (EDDSentinel2Google.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDSentinel2Google.Sensing_Time.desc()).all()
         ses.close()
         scn_records = list()
         if (query_result is not None) and (len(query_result) > 0):
@@ -1459,45 +1678,45 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             if valid:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                        EDDSentinel2Google.Sensing_Time < start_date,
-                        EDDSentinel2Google.Sensing_Time > end_date,
+                        EDDSentinel2Google.Sensing_Time <= start_date,
+                        EDDSentinel2Google.Sensing_Time >= end_date,
                         EDDSentinel2Google.Invalid == False).group_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                            EDDSentinel2Google.Sensing_Time < start_date,
-                            EDDSentinel2Google.Sensing_Time > end_date,
+                            EDDSentinel2Google.Sensing_Time <= start_date,
+                            EDDSentinel2Google.Sensing_Time >= end_date,
                             EDDSentinel2Google.Invalid == False).group_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
             else:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                        EDDSentinel2Google.Sensing_Time < start_date,
-                        EDDSentinel2Google.Sensing_Time > end_date).group_by(
+                        EDDSentinel2Google.Sensing_Time <= start_date,
+                        EDDSentinel2Google.Sensing_Time >= end_date).group_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                            EDDSentinel2Google.Sensing_Time < start_date,
-                            EDDSentinel2Google.Sensing_Time > end_date).group_by(
+                            EDDSentinel2Google.Sensing_Time <= start_date,
+                            EDDSentinel2Google.Sensing_Time >= end_date).group_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())
         else:
             if valid:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                        EDDSentinel2Google.Sensing_Time < start_date,
-                        EDDSentinel2Google.Sensing_Time > end_date,
+                        EDDSentinel2Google.Sensing_Time <= start_date,
+                        EDDSentinel2Google.Sensing_Time >= end_date,
                         EDDSentinel2Google.Invalid == False,
                         EDDSentinel2Google.Platform_ID == platform).group_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                            EDDSentinel2Google.Sensing_Time < start_date,
-                            EDDSentinel2Google.Sensing_Time > end_date,
+                            EDDSentinel2Google.Sensing_Time <= start_date,
+                            EDDSentinel2Google.Sensing_Time >= end_date,
                             EDDSentinel2Google.Invalid == False,
                             EDDSentinel2Google.Platform_ID == platform).group_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
@@ -1505,15 +1724,15 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             else:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                        EDDSentinel2Google.Sensing_Time < start_date,
-                        EDDSentinel2Google.Sensing_Time > end_date,
+                        EDDSentinel2Google.Sensing_Time <= start_date,
+                        EDDSentinel2Google.Sensing_Time >= end_date,
                         EDDSentinel2Google.Platform_ID == platform).group_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).filter(
-                            EDDSentinel2Google.Sensing_Time < start_date,
-                            EDDSentinel2Google.Sensing_Time > end_date,
+                            EDDSentinel2Google.Sensing_Time <= start_date,
+                            EDDSentinel2Google.Sensing_Time >= end_date,
                             EDDSentinel2Google.Platform_ID == platform).group_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date)).order_by(
                             sqlalchemy.cast(EDDSentinel2Google.Sensing_Time, sqlalchemy.Date).asc())

@@ -1508,7 +1508,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses.close()
         return platforms
 
-    def query_scn_records_date_count(self, start_date, end_date, valid=True):
+    def query_scn_records_date_count(self, start_date, end_date, valid=True, cloud_thres=None):
         """
         A function which queries the database to find scenes within a specified date range
         and returns the number of records available.
@@ -1516,6 +1516,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param start_date: A python datetime object specifying the start date
         :param end_date: A python datetime object specifying the end date
         :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
         :return: count of records available
         """
         logger.debug("Creating Database Engine and Session.")
@@ -1523,18 +1524,30 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scene.")
-        if valid:
-            n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
-                                                       EDDLandsatGoogle.Date_Acquired > end_date,
-                                                       EDDLandsatGoogle.Invalid == False,
-                                                       EDDLandsatGoogle.ARDProduct == True).count()
+        if cloud_thres is not None:
+            if valid:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                            EDDLandsatGoogle.Invalid == False,
+                                                            EDDLandsatGoogle.ARDProduct == True,
+                                                            EDDLandsatGoogle.Cloud_Cover <= cloud_thres).count()
+            else:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                            EDDLandsatGoogle.Cloud_Cover <= cloud_thres).count()
         else:
-            n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
-                                                       EDDLandsatGoogle.Date_Acquired > end_date).count()
+            if valid:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                            EDDLandsatGoogle.Invalid == False,
+                                                            EDDLandsatGoogle.ARDProduct == True).count()
+            else:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date).count()
         ses.close()
         return n_rows
 
-    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True):
+    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True, cloud_thres=None):
         """
         A function which queries the database to find scenes within a specified date range.
         The order of the records is descending (i.e., from current to historical)
@@ -1544,6 +1557,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         :param start_rec: A parameter specifying the start record, for example for pagination.
         :param n_recs: A parameter specifying the number of records to be returned.
         :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
         :return: list of database records
         """
         logger.debug("Creating Database Engine and Session.")
@@ -1551,28 +1565,56 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scene.")
-        if valid:
-            if n_recs > 0:
-                query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
-                                                                 EDDLandsatGoogle.Date_Acquired > end_date,
-                                                                 EDDLandsatGoogle.Invalid == False,
-                                                                 EDDLandsatGoogle.ARDProduct == True).order_by(
-                    EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+        if cloud_thres is not None:
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
             else:
-                query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
-                                                                 EDDLandsatGoogle.Date_Acquired > end_date,
-                                                                 EDDLandsatGoogle.Invalid == False,
-                                                                 EDDLandsatGoogle.ARDProduct == True).order_by(
-                    EDDLandsatGoogle.Date_Acquired.desc()).all()
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
         else:
-            if n_recs > 0:
-                query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
-                                                                 EDDLandsatGoogle.Date_Acquired > end_date).order_by(
-                    EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
             else:
-                query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired < start_date,
-                                                                 EDDLandsatGoogle.Date_Acquired > end_date).order_by(
-                    EDDLandsatGoogle.Date_Acquired.desc()).all()
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
         ses.close()
         scn_records = list()
         if (query_result is not None) and (len(query_result) > 0):
@@ -1582,6 +1624,184 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.error("No scenes were found within this date range.")
             raise EODataDownException("No scenes were found within this date range.")
         return scn_records
+
+    def query_scn_records_date_bbox_count(self, start_date, end_date, bbox, valid=True, cloud_thres=None):
+        """
+        A function which queries the database to find scenes within a specified date range
+        and returns the number of records available.
+
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :param bbox: Bounding box, with which scenes will intersect [West_Lon, East_Lon, South_Lat, North_Lat]
+        :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
+        :return: count of records available
+        """
+        west_lon_idx = 0
+        east_lon_idx = 1
+        south_lat_idx = 2
+        north_lat_idx = 3
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        if cloud_thres is not None:
+            if valid:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                            EDDLandsatGoogle.Invalid == False,
+                                                            EDDLandsatGoogle.ARDProduct == True,
+                                                            EDDLandsatGoogle.Cloud_Cover <= cloud_thres).filter(
+                                                            (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                            (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                            (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                            (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).count()
+            else:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                            EDDLandsatGoogle.Cloud_Cover <= cloud_thres).filter(
+                                                            (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                            (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                            (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                            (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).count()
+        else:
+            if valid:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                            EDDLandsatGoogle.Invalid == False,
+                                                            EDDLandsatGoogle.ARDProduct == True).filter(
+                                                            (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                            (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                            (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                            (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).count()
+            else:
+                n_rows = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                            EDDLandsatGoogle.Date_Acquired >= end_date).filter(
+                                                            (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                            (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                            (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                            (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).count()
+        ses.close()
+        return n_rows
+
+    def query_scn_records_date_bbox(self, start_date, end_date, bbox, start_rec=0, n_recs=0, valid=True, cloud_thres=None):
+        """
+        A function which queries the database to find scenes within a specified date range.
+        The order of the records is descending (i.e., from current to historical)
+
+        :param start_date: A python datetime object specifying the start date
+        :param end_date: A python datetime object specifying the end date
+        :param bbox: Bounding box, with which scenes will intersect [West_Lon, East_Lon, South_Lat, North_Lat]
+        :param start_rec: A parameter specifying the start record, for example for pagination.
+        :param n_recs: A parameter specifying the number of records to be returned.
+        :param valid: If True only valid scene records will be returned (i.e., has been processed to an ARD product)
+        :param cloud_thres: threshold for cloud cover. If None, then ignored.
+        :return: list of database records
+        """
+        west_lon_idx = 0
+        east_lon_idx = 1
+        south_lat_idx = 2
+        north_lat_idx = 3
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        if cloud_thres is not None:
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
+            else:
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Cloud_Cover <= cloud_thres).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
+        else:
+            if valid:
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date,
+                                                                      EDDLandsatGoogle.Invalid == False,
+                                                                      EDDLandsatGoogle.ARDProduct == True).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
+            else:
+                if n_recs > 0:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc())[start_rec:(start_rec + n_recs)]
+                else:
+                    query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Date_Acquired <= start_date,
+                                                                      EDDLandsatGoogle.Date_Acquired >= end_date).filter(
+                                                                      (bbox[east_lon_idx] > EDDLandsatGoogle.West_Lon),
+                                                                      (EDDLandsatGoogle.East_Lon > bbox[west_lon_idx]),
+                                                                      (bbox[north_lat_idx] > EDDLandsatGoogle.South_Lat),
+                                                                      (EDDLandsatGoogle.North_Lat > bbox[south_lat_idx])).order_by(
+                        EDDLandsatGoogle.Date_Acquired.desc()).all()
+        ses.close()
+        scn_records = list()
+        if (query_result is not None) and (len(query_result) > 0):
+            for rec in query_result:
+                scn_records.append(rec)
+        else:
+            logger.error("No scenes were found within this date range.")
+            raise EODataDownException("No scenes were found within this date range.")
+        return scn_records
+
 
     def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True, platform=None):
         """
@@ -1599,45 +1819,45 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             if valid:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                        EDDLandsatGoogle.Date_Acquired < start_date,
-                        EDDLandsatGoogle.Date_Acquired > end_date,
+                        EDDLandsatGoogle.Date_Acquired <= start_date,
+                        EDDLandsatGoogle.Date_Acquired >= end_date,
                         EDDLandsatGoogle.Invalid == False).group_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                            EDDLandsatGoogle.Date_Acquired < start_date,
-                            EDDLandsatGoogle.Date_Acquired > end_date,
+                            EDDLandsatGoogle.Date_Acquired <= start_date,
+                            EDDLandsatGoogle.Date_Acquired >= end_date,
                             EDDLandsatGoogle.Invalid == False).group_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).asc())
             else:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                        EDDLandsatGoogle.Date_Acquired < start_date,
-                        EDDLandsatGoogle.Date_Acquired > end_date).group_by(
+                        EDDLandsatGoogle.Date_Acquired <= start_date,
+                        EDDLandsatGoogle.Date_Acquired >= end_date).group_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                            EDDLandsatGoogle.Date_Acquired < start_date,
-                            EDDLandsatGoogle.Date_Acquired > end_date).group_by(
+                            EDDLandsatGoogle.Date_Acquired <= start_date,
+                            EDDLandsatGoogle.Date_Acquired >= end_date).group_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).asc())
         else:
             if valid:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                        EDDLandsatGoogle.Date_Acquired < start_date,
-                        EDDLandsatGoogle.Date_Acquired > end_date,
+                        EDDLandsatGoogle.Date_Acquired <= start_date,
+                        EDDLandsatGoogle.Date_Acquired >= end_date,
                         EDDLandsatGoogle.Invalid == False,
                         EDDLandsatGoogle.Spacecraft_ID == platform).group_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                            EDDLandsatGoogle.Date_Acquired < start_date,
-                            EDDLandsatGoogle.Date_Acquired > end_date,
+                            EDDLandsatGoogle.Date_Acquired <= start_date,
+                            EDDLandsatGoogle.Date_Acquired >= end_date,
                             EDDLandsatGoogle.Invalid == False,
                             EDDLandsatGoogle.Spacecraft_ID == platform).group_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
@@ -1645,15 +1865,15 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             else:
                 if order_desc:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                        EDDLandsatGoogle.Date_Acquired < start_date,
-                        EDDLandsatGoogle.Date_Acquired > end_date,
+                        EDDLandsatGoogle.Date_Acquired <= start_date,
+                        EDDLandsatGoogle.Date_Acquired >= end_date,
                         EDDLandsatGoogle.Spacecraft_ID == platform).group_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                         sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).desc())
                 else:
                     scn_dates = ses.query(sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).filter(
-                            EDDLandsatGoogle.Date_Acquired < start_date,
-                            EDDLandsatGoogle.Date_Acquired > end_date,
+                            EDDLandsatGoogle.Date_Acquired <= start_date,
+                            EDDLandsatGoogle.Date_Acquired >= end_date,
                             EDDLandsatGoogle.Spacecraft_ID == platform).group_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date)).order_by(
                             sqlalchemy.cast(EDDLandsatGoogle.Date_Acquired, sqlalchemy.Date).asc())

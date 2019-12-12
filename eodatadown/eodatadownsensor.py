@@ -170,10 +170,16 @@ class EODataDownSensor (object):
     def find_unique_platforms(self): pass
 
     @abstractmethod
-    def query_scn_records_date_count(self, start_date, end_date, valid=True): pass
+    def query_scn_records_date_count(self, start_date, end_date, valid=True, cloud_thres=None): pass
 
     @abstractmethod
-    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True): pass
+    def query_scn_records_date(self, start_date, end_date, start_rec=0, n_recs=0, valid=True, cloud_thres=None): pass
+
+    @abstractmethod
+    def query_scn_records_date_bbox_count(self, start_date, end_date, bbox, valid=True, cloud_thres=None): pass
+
+    @abstractmethod
+    def query_scn_records_date_bbox(self, start_date, end_date, bbox, start_rec=0, n_recs=0, valid=True, cloud_thres=None): pass
 
     @abstractmethod
     def find_unique_scn_dates(self, start_date, end_date, valid=True, order_desc=True, platform=None): pass
