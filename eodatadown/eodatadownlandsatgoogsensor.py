@@ -1986,7 +1986,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                    DCLoaded_End_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['DCLoaded_End_Date']),
                                                    DCLoaded=sensor_rows[pid]['DCLoaded'],
                                                    Invalid=sensor_rows[pid]['Invalid'],
-                                                   ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(sensor_rows[pid]['ExtendedInfo']),
+                                                   ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(sensor_rows[pid]['ExtendedInfo'], replace_path_dict),
                                                    RegCheck=sensor_rows[pid]['RegCheck']))
         if len(db_records) > 0:
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
