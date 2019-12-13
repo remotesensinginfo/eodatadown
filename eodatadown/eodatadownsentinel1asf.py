@@ -1639,11 +1639,19 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             # VV, VH, VV/VH
             bands = '1,2,3'
 
+            export_stretch_file = False
+            strch_file = self.std_vis_img_stch
+            if self.std_vis_img_stch is None:
+                export_stretch_file = True
+                strch_file_basename = eoddutils.get_file_basename(out_imgs[0], n_comps=3)
+                strch_file_path = os.path.split(out_imgs[0])[0]
+                strch_file = os.path.join(strch_file_path, "{}_srtch_stats.txt".format(strch_file_basename))
+
             import rsgislib.tools.visualisation
             rsgislib.tools.visualisation.createVisualOverviewImgsVecExtent(ard_images, bands, tmp_dir,
                                                                            out_extent_vec, out_extent_lyr,
                                                                            out_imgs, out_img_sizes, gdal_format,
-                                                                           'auto', self.std_vis_img_stch)
+                                                                           'auto', strch_file, export_stretch_file)
             return True
         # else there weren't any ard_images...
         return False
