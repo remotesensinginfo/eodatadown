@@ -43,13 +43,15 @@ logger = logging.getLogger('eoddimportdb.py')
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, default="", help="Path to the JSON config file.")
-    parser.add_argument("-s", "--sensor", type=str, required=True, choices=EODATADOWN_SENSORS_LIST,
+    parser.add_argument("-s", "--sensor", type=str, required=False, choices=EODATADOWN_SENSORS_LIST,
                         help='''Specify the sensor you wish to export''')
     parser.add_argument("-i", "--input", type=str, required=True,
                         help="Specify the JSON file which should be appended to sensors database.")
     parser.add_argument("-p", "--paths", type=str, required=False,
                         help="""Specify a JSON file will key pairs for file paths which should be updated
                                 (keys are the path to replace and value is the replacement value).""")
+    parser.add_argument("--obsdate", action='store_true', default=False,
+                        help="Exports the observation date database.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -65,7 +67,10 @@ if __name__ == "__main__":
     t = rsgislib.RSGISTime()
     t.start(True)
 
-    eodatadown.eodatadownrun.import_sensor_database(config_file, args.sensor, args.input, args.paths)
+    if args.obsdate:
+        eodatadown.eodatadownrun.import_obsdate_database(config_file, args.input, args.paths)
+    else:
+        eodatadown.eodatadownrun.import_sensor_database(config_file, args.sensor, args.input, args.paths)
 
     t.end(reportDiff=True, preceedStr='EODataDown import completed ', postStr=' - eoddimportdb.py.')
 

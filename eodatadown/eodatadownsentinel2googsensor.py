@@ -2062,6 +2062,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             ses = session_sqlalc()
             ses.add_all(db_records)
             ses.commit()
+            ses.close()
 
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         """

@@ -531,6 +531,59 @@ def import_sensor_database(config_file, sensor, in_json_file, replace_path_jsonf
     edd_usage_db.add_entry("Finished: Import {} sensors database table.".format(sensor), end_block=True)
 
 
+def export_obsdate_database(config_file, out_json_file):
+    """
+    A function to export the observation dates database tables to a JSON file.
+
+    :param config_file: The EODataDown configuration file path.
+    :param out_json_file: the file path of the output JSON file.
+
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Export obsdate database table.", start_block=True)
+
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    if obsdates_obj is None:
+        logger.error("Error occurred and the observation date object could not be created.")
+    obsdates_obj.export_db_to_json(out_json_file)
+
+    edd_usage_db.add_entry("Finished: Export obsdate database table.", end_block=True)
+
+
+def import_obsdate_database(config_file, in_json_file, replace_path_jsonfile):
+    """
+    A function to import the observation dates database table from a JSON file.
+
+    :param config_file: The EODataDown configuration file path.
+    :param in_json_file: the file path of the output JSON file.
+    :param replace_path_jsonfile: a JSON file with pairs of paths to be updated during import.
+
+    """
+    if replace_path_jsonfile is None:
+        replace_path_dict = None
+    else:
+        json_file_obj = open(replace_path_jsonfile)
+        replace_path_dict = json.load(json_file_obj)
+
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Import obsdate database tables.", start_block=True)
+
+    obsdates_obj = sys_main_obj.get_obsdates_obj()
+    if obsdates_obj is None:
+        logger.error("Error occurred and the observation date object could not be created.")
+    obsdates_obj.import_obsdates_db(in_json_file, replace_path_dict)
+
+    edd_usage_db.add_entry("Finished: Import obsdate database table.", end_block=True)
+
+
 def run_scn_analysis(params):
     """
     This function runs a full per scene analysis and will check whether the scene has been: downloaded,

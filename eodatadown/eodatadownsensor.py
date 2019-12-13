@@ -443,8 +443,8 @@ class EODataDownObsDates (object):
         ses = session_sqlalc()
 
         obs_qry = ses.query(EDDObsDates).filter(EDDObsDates.SensorID == sensor_id,
-                                            EDDObsDates.PlatformID == platform_id,
-                                            EDDObsDates.ObsDate == obs_date).one_or_none()
+                                                EDDObsDates.PlatformID == platform_id,
+                                                EDDObsDates.ObsDate == obs_date).one_or_none()
         if obs_qry is not None:
             obsdate_scns_qry = ses.query(EDDObsDatesScns).filter(EDDObsDatesScns.SensorID == obs_qry.SensorID,
                                                                  EDDObsDatesScns.PlatformID == obs_qry.PlatformID,
@@ -576,4 +576,103 @@ class EODataDownObsDates (object):
                                                                 EDDObsDates.ObsDate.asc()).all()
         return obsdate_qry
 
+    def export_db_to_json(self, out_json_file):
+        """
+        Export the EDDObsDates and EDDObsDateScns databases to a JSON file.
 
+        :param out_json_file: The output JSON text file.
+
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        query_result = ses.query(EDDObsDates).all()
+        db_obs_dates_dict = dict()
+        pid = 0
+        for obsdate in query_result:
+            db_obs_dates_dict[pid] = dict()
+            db_obs_dates_dict[pid]["SensorID"] = obsdate.SensorID
+            db_obs_dates_dict[pid]["PlatformID"] = obsdate.PlatformID
+            db_obs_dates_dict[pid]["ObsDate"] = obsdate.ObsDate
+            db_obs_dates_dict[pid]["OverviewCreated"] = obsdate.OverviewCreated
+            db_obs_dates_dict[pid]["NeedUpdate"] = obsdate.NeedUpdate
+            db_obs_dates_dict[pid]["Invalid"] = obsdate.Invalid
+            db_obs_dates_dict[pid]["Overviews"] = obsdate.Overviews
+            pid = pid + 1
+
+        query_result = ses.query(EDDObsDatesScns).all()
+        db_obs_date_scns_dict = dict()
+        pid = 0
+        for obsdatescns in query_result:
+            db_obs_date_scns_dict[pid] = dict()
+            db_obs_date_scns_dict[pid]["SensorID"] = obsdatescns.SensorID
+            db_obs_date_scns_dict[pid]["PlatformID"] = obsdatescns.PlatformID
+            db_obs_date_scns_dict[pid]["ObsDate"] = obsdatescns.ObsDate
+            db_obs_date_scns_dict[pid]["Scene_PID"] = obsdatescns.Scene_PID
+            pid = pid + 1
+        ses.close()
+
+        out_dict = dict()
+        out_dict["EDDObsDates"] = db_obs_dates_dict
+        out_dict["EDDObsDatesScns"] = db_obs_date_scns_dict
+
+        with open(out_json_file, 'w') as outfile:
+            json.dump(out_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
+
+    def update_overview_file_paths(self, overviews_lst, replace_path_dict=None):
+        """
+        Update the list of overview file paths.
+        :param overviews_lst:
+        :param replace_path_dict:
+        """
+        if replace_path_dict is None:
+            return overviews_lst
+
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        out_overviews_lst = list()
+        for overview_img in overviews_lst:
+            out_overviews_lst.append(eodd_utils.update_file_path(overview_img, replace_path_dict))
+        return out_overviews_lst
+
+    def import_obsdates_db(self, input_json_file, replace_path_dict=None):
+        """
+        This function imports from the database records from the specified input JSON file.
+
+        :param input_json_file: input JSON file with the records to be imported.
+        :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
+
+        """
+        db_obsdate_records = list()
+        db_obsdatescn_records = list()
+
+        with open(input_json_file) as json_file_obj:
+            obsdate_db_dict = json.load(json_file_obj)
+            db_obs_dates_dict = obsdate_db_dict["EDDObsDates"]
+            db_obs_date_scns_dict = obsdate_db_dict["EDDObsDatesScns"]
+
+            for pid in db_obs_dates_dict:
+                db_obsdate_records.append(EDDObsDates(SensorID=db_obs_dates_dict[pid]["SensorID"],
+                                                      PlatformID=db_obs_dates_dict[pid]["PlatformID"],
+                                                      ObsDate=db_obs_dates_dict[pid]["ObsDate"],
+                                                      OverviewCreated=db_obs_dates_dict[pid]["OverviewCreated"],
+                                                      NeedUpdate=db_obs_dates_dict[pid]["NeedUpdate"],
+                                                      Invalid=db_obs_dates_dict[pid]["Invalid"],
+                                                      Overviews=self.update_overview_file_paths(
+                                                                                 db_obs_dates_dict[pid]["Overviews"])))
+            for pid in db_obs_dates_dict:
+                db_obsdatescn_records.append(EDDObsDatesScns(SensorID=db_obs_date_scns_dict[pid]["SensorID"],
+                                                             PlatformID=db_obs_date_scns_dict[pid]["PlatformID"],
+                                                             ObsDate=db_obs_date_scns_dict[pid]["ObsDate"],
+                                                             Scene_PID=db_obs_date_scns_dict[pid]["Scene_PID"]))
+
+        if len(db_obsdate_records) > 0:
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            ses.add_all(db_obsdate_records)
+            ses.commit()
+            if len(db_obsdatescn_records) > 0:
+                ses.add_all(db_obsdatescn_records)
+                ses.commit()
+            ses.close()

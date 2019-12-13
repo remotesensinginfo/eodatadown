@@ -2166,8 +2166,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
     def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
         This function imports from the database records from the specified input JSON file.
-        The database table checks are not made for duplicated as records are just appended
-        to the table with a new PID.
+
         :param input_json_file: input JSON file with the records to be imported.
         :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
         """
@@ -2222,6 +2221,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             ses = session_sqlalc()
             ses.add_all(db_records)
             ses.commit()
+            ses.close()
 
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         """

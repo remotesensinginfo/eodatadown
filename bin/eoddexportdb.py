@@ -43,8 +43,10 @@ logger = logging.getLogger('eoddexportdb.py')
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, default="", help="Path to the JSON config file.")
-    parser.add_argument("-s", "--sensor", type=str, required=True, choices=EODATADOWN_SENSORS_LIST,
+    parser.add_argument("-s", "--sensor", type=str, required=False, choices=EODATADOWN_SENSORS_LIST,
                         help='''Specify the sensor you wish to export''')
+    parser.add_argument("--obsdate", action='store_true', default=False,
+                        help="Exports the observation date database.")
     parser.add_argument("-o", "--output", type=str, required=True,
                         help="Specify the JSON file to which the sensors database should be exported to.")
     args = parser.parse_args()
@@ -62,7 +64,12 @@ if __name__ == "__main__":
     t = rsgislib.RSGISTime()
     t.start(True)
 
-    eodatadown.eodatadownrun.export_sensor_database(config_file, args.sensor, args.output)
+    if args.obsdate:
+        eodatadown.eodatadownrun.export_obsdate_database(config_file, args.output)
+    else:
+        if args.sensor is None:
+            raise Exception("A sensor needs to be specified.")
+        eodatadown.eodatadownrun.export_sensor_database(config_file, args.sensor, args.output)
 
     t.end(reportDiff=True, preceedStr='EODataDown export completed ', postStr=' - eoddexportdb.py.')
 
