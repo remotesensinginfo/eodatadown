@@ -441,7 +441,10 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         # Get the next PID value to ensure increment
         c_max_pid = ses.query(func.max(EDDSentinel2Google.PID).label("max_pid")).one().max_pid
-        n_max_pid = c_max_pid + 1
+        if c_max_pid is None:
+            n_max_pid = 0
+        else:
+            n_max_pid = c_max_pid + 1
 
         logger.debug("Perform google query...")
         goog_fields = "granule_id,product_id,datatake_identifier,mgrs_tile,sensing_time,geometric_quality_flag," \

@@ -523,7 +523,10 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         # Get the next PID value to ensure increment
         c_max_pid = ses.query(func.max(EDDLandsatGoogle.PID).label("max_pid")).one().max_pid
-        n_max_pid = c_max_pid + 1
+        if c_max_pid is None:
+            n_max_pid = 0
+        else:
+            n_max_pid = c_max_pid + 1
 
         logger.debug("Perform google query...")
         goog_fields = "scene_id,product_id,spacecraft_id,sensor_id,date_acquired,sensing_time,collection_number," \
