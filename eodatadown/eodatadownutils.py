@@ -521,7 +521,7 @@ class EDDCheckFileHash(object):
 
     def getSigFilePath(self, input_file):
         sig_file = os.path.splitext(input_file)[0]+".sig"
-        logger.debug("Signature File Path: '" + sig_file + "'")
+        logger.debug("Signature File Path: '{}'".format(sig_file))
         return sig_file
 
     def createFileHash(self, input_file):
@@ -531,12 +531,12 @@ class EDDCheckFileHash(object):
 
     def createFileSig(self, input_file):
         hash_sig = self.createFileHash(input_file)
-        logger.debug("Created signature for input file: '" + input_file + "'")
+        logger.debug("Created signature for input file: '{}'".format(input_file))
         sig_file = self.getSigFilePath(input_file)
         f = open(sig_file, "w")
         f.write(hash_sig+"\n")
         f.close()
-        logger.debug("Written to signature file: '" + sig_file + "'")
+        logger.debug("Written to signature file: '{}'".format(sig_file))
 
     def checkFileSig(self, input_file):
         sig_file = self.getSigFilePath(input_file)
@@ -546,13 +546,13 @@ class EDDCheckFileHash(object):
         f = open(sig_file, "r")
         in_hash_sig = f.read().strip()
         f.close()
-        logger.debug("Read file signature: '" + in_hash_sig + "'")
+        logger.debug("Read file signature: '{}'".format(in_hash_sig))
         calcd_hash_sig = self.createFileHash(input_file)
-        logger.debug("Calculated file signature: '" + calcd_hash_sig + "'")
+        logger.debug("Calculated file signature: '{}'".format(calcd_hash_sig))
         if calcd_hash_sig == in_hash_sig:
             logger.debug("Signatures Match")
             return True
-        logger.info("Signature Does Not Match: " + input_file + " '" +calcd_hash_sig+ "'")
+        logger.info("Signature Does Not Match: '{}' '{}'".format(input_file, calcd_hash_sig))
         return False
 
     def check_checksum(self, input_file, checksum, block_size=2 ** 13):
@@ -645,10 +645,10 @@ class EDDJSONParseHelper(object):
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '"+steps_str+"'")
+                raise EODataDownException("Could not find '{}'".format(steps_str))
         if valid_values is not None:
             if curr_json_obj not in valid_values:
-                raise EODataDownException("'"+curr_json_obj+"' is not within the list of valid values.")
+                raise EODataDownException("'{}' is not within the list of valid values.".format(curr_json_obj))
         return curr_json_obj
 
     def getBooleanValue(self, json_obj, tree_sequence):
@@ -669,7 +669,7 @@ class EDDJSONParseHelper(object):
         if type(curr_json_obj).__name__ == "bool":
             rtn_bool = curr_json_obj
         else:
-            raise EODataDownException("'"+curr_json_obj+"' is not 'True' or 'False'.")
+            raise EODataDownException("'{}' is not 'True' or 'False'.".format(curr_json_obj))
         return rtn_bool
 
     def getDateValue(self, json_obj, tree_sequence, date_format="%Y-%m-%d"):
@@ -689,7 +689,7 @@ class EDDJSONParseHelper(object):
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '"+steps_str+"'")
+                raise EODataDownException("Could not find '{}'".format(steps_str))
 
         if type(date_format) is str:
             try:
@@ -730,7 +730,7 @@ class EDDJSONParseHelper(object):
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '" + steps_str + "'")
+                raise EODataDownException("Could not find '{}'".format(steps_str))
 
         curr_json_obj = curr_json_obj.replace('Z', '')
         if type(date_time_format) is str:
@@ -770,16 +770,16 @@ class EDDJSONParseHelper(object):
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '"+steps_str+"'")
+                raise EODataDownException("Could not find '{}'".format(steps_str))
 
         if type(curr_json_obj).__name__ != "list":
             raise EODataDownException("Retrieved value is not a list.")
         if valid_values is not None:
             for val in curr_json_obj:
                 if type(val).__name__ != "str":
-                    raise EODataDownException("'" + val + "' is not of type string.")
+                    raise EODataDownException("'{}' is not of type string.".format(val))
                 if val not in valid_values:
-                    raise EODataDownException("'"+val+"' is not within the list of valid values.")
+                    raise EODataDownException("'{}' is not within the list of valid values.".format(val))
         return curr_json_obj
 
     def getNumericValue(self, json_obj, tree_sequence, valid_lower=None, valid_upper=None):
@@ -798,7 +798,7 @@ class EDDJSONParseHelper(object):
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '"+steps_str+"'")
+                raise EODataDownException("Could not find '{}'".format(steps_str))
 
         out_value = 0.0
         if (type(curr_json_obj).__name__ == "int") or (type(curr_json_obj).__name__ == "float"):
@@ -810,9 +810,9 @@ class EDDJSONParseHelper(object):
                 try:
                     out_value = float(curr_json_obj)
                 except:
-                    raise EODataDownException("The identified value is not numeric '" + steps_str + "'")
+                    raise EODataDownException("The identified value is not numeric '{}'".format(steps_str))
         else:
-            raise EODataDownException("The identified value is not numeric '" + steps_str + "'")
+            raise EODataDownException("The identified value is not numeric '{}'".format(steps_str))
 
         if valid_lower is not None:
             if out_value < valid_lower:
@@ -836,7 +836,7 @@ class EDDJSONParseHelper(object):
             if tree_step in curr_json_obj:
                 curr_json_obj = curr_json_obj[tree_step]
             else:
-                raise EODataDownException("Could not find '"+steps_str+"'")
+                raise EODataDownException("Could not find '{}'".format(steps_str))
 
         if type(curr_json_obj).__name__ != "list":
             raise EODataDownException("Retrieved value is not a list.")
