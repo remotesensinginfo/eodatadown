@@ -386,7 +386,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         # Get the next PID value to ensure increment
         c_max_pid = ses.query(func.max(EDDSentinel1ASF.PID).label("max_pid")).one().max_pid
-        n_max_pid = c_max_pid + 1
+        if c_max_pid is None:
+            n_max_pid = 0
+        else:
+            n_max_pid = c_max_pid + 1
 
         str_start_datetime = query_date.isoformat()+"UTC"
         str_now_datetime = datetime.datetime.utcnow().isoformat()+"UTC"
