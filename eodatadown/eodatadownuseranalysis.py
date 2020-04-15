@@ -76,7 +76,7 @@ class EODataDownUserAnalysis (object):
         self.params = params
 
     @abstractmethod
-    def perform_analysis(self, scn_obj):
+    def perform_analysis(self, scn_obj, sen_obj):
         """
         A function which needs to be implemented by the user to perform the analysis.
         The object for the scene representing the database record is provided to the function.
@@ -90,6 +90,7 @@ class EODataDownUserAnalysis (object):
         The function cannot alter the other database fields, only the JSON field.
 
         :param scn_obj: The scene record from the database.
+        :param scn_obj: An instance of a eodatadownsensor object related to the sensor for the scene.
         :return: (bool, dict) or None. See description above.
 
         """
