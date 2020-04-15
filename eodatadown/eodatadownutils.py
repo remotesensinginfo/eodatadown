@@ -409,7 +409,7 @@ class EODataDownUtils(object):
         """
         if datetimeisostr is None:
             return None
-        if datetimeisostr is "":
+        if datetimeisostr == "":
             return None
         return datetime.datetime.fromisoformat(datetimeisostr)
 
@@ -422,7 +422,7 @@ class EODataDownUtils(object):
         """
         if dateisostr is None:
             return None
-        if dateisostr is "":
+        if dateisostr == "":
             return None
         return datetime.date.fromisoformat(dateisostr)
 
