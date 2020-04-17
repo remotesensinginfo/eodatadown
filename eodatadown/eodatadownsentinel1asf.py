@@ -131,9 +131,10 @@ def _download_scn_asf(params):
     eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
     start_date = datetime.datetime.now()
     try:
-        success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=asf_user, password=asf_pass, try_number="10", time_out="60")
+        success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=asf_user,
+                                                    password=asf_pass, try_number="10", time_out="60")
     except Exception as e:
-        logger.error("An error has occured while downloading from ASF: '{}'".format(e))
+        logger.error("An error has occurred while downloading from ASF: '{}'".format(e))
     end_date = datetime.datetime.now()
 
     if success and os.path.exists(scn_lcl_dwnld_path):
@@ -153,7 +154,7 @@ def _download_scn_asf(params):
         ses.close()
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
-        logger.error("Download did not complete, re-run and it should continue from where it left off: {}".format(scn_lcl_dwnld_path))
+        logger.error("Download did not complete, re-run and it should try again: {}".format(scn_lcl_dwnld_path))
 
 
 class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor):

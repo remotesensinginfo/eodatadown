@@ -1088,6 +1088,7 @@ class EDDGeoBBox(object):
         """
 
         :return:
+
         """
         json_dict = dict()
         json_dict["type"] = "Polygon"
@@ -1101,6 +1102,7 @@ class EDDGeoBBox(object):
         """
 
         :return:
+
         """
         json_dict = dict()
         json_dict["type"] = "Polygon"
@@ -1112,6 +1114,7 @@ class EDDGeoBBox(object):
         Populate the object from coordinates dictionary.
         :param geo_json_poly:
         :return:
+
         """
         min_lon = 0.0
         max_lon = 0.0
@@ -1155,6 +1158,7 @@ class EDDGeoBBox(object):
         """
         Get the bounding bbox represented as a polygon as a CSV string.
         :return:
+
         """
         csv_str = str(self.west_lon) + "," + str(self.north_lat) + "," + \
                   str(self.east_lon) + "," + str(self.north_lat) + "," + \
@@ -1162,6 +1166,15 @@ class EDDGeoBBox(object):
                   str(self.west_lon) + "," + str(self.south_lat) + "," + \
                   str(self.west_lon) + "," + str(self.north_lat)
         return csv_str
+
+    def getSimpleBBOXStr(self):
+        """
+        Gets the bounding bbox represented as a simple string [upper-left and lower-right]
+        :return: [north, west, south, east]
+
+        """
+        bbox_str = "{},{},{},{}".format(self.north_lat, self.west_lon, self.south_lat, self.east_lon)
+        return bbox_str
 
 
 class EDDHTTPDownload(object):
@@ -1426,6 +1439,52 @@ class EDDHTTPDownload(object):
                 logger.info("Renamed download: ".format(out_file_path))
                 return True
             return False
+
+    def downloadFileNoMD5(self, input_url, out_file_path, username, password):
+        """
+
+        :param input_url:
+        :param input_url_md5:
+        :param out_file_path:
+        :param username:
+        :param password:
+        :return:
+        """
+        print("HERE")
+        logger.debug("Creating HTTP Session Object.")
+        session_http = requests.Session()
+        session_http.auth = (username, password)
+        user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
+        session_http.headers["User-Agent"] = user_agent
+
+        temp_dwnld_path = out_file_path + '.incomplete'
+
+        headers = {}
+        downloaded_bytes = 0
+
+        usr_update_step = 5000000
+        next_update = usr_update_step
+
+        try:
+            with session_http.get(input_url, stream=True, auth=session_http.auth, headers=headers) as r:
+                self.checkResponse(r, input_url)
+                chunk_size = 2 ** 20
+                mode = 'wb'
+
+                with open(temp_dwnld_path, mode) as f:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if chunk:  # filter out keep-alive new chunks
+                            f.write(chunk)
+                            downloaded_bytes = downloaded_bytes + len(chunk)
+                            if downloaded_bytes > next_update:
+                                logger.info("Downloaded {} of {}".format(downloaded_bytes, temp_dwnld_path))
+                                next_update = next_update + usr_update_step
+            logger.info("Download Complete: ".format(temp_dwnld_path))
+            os.rename(temp_dwnld_path, out_file_path)
+        except Exception as e:
+            print(e)
+            return False
+        return True
 
 
 class EODDFTPDownload(object):

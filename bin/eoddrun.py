@@ -71,7 +71,7 @@ if __name__ == "__main__":
     sys_config_value = os.getenv('EDD_SYS_CFG', None)
     if (config_file == '') and (sys_config_value is not None):
         config_file = sys_config_value
-        print("Using system config file: '" + config_file + "'")
+        print("Using system config file: '{}'".format(config_file))
 
     if not os.path.exists(config_file):
         logger.info("The config file does not exist: '" + config_file + "'")
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     single_scn_sensor = ""
     if args.sceneid is not None:
         process_single_scn = True
-        if process_single_scn is "":
+        if process_single_scn == "":
             raise Exception("The specified scene ID is an empty string.")
         if args.sensors is None:
             raise Exception("If a scene ID has been specified then a sensor must be specified.")

@@ -158,6 +158,10 @@ class EODataDownSystemMain(object):
             logger.debug("Found sensor Sentinel1ASF")
             from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
             sensor_obj = EODataDownSentinel1ASFProcessorSensor(self.db_info_obj)
+        elif sensor == "GEDI":
+            logger.debug("Found sensor GEDI")
+            from eodatadown.eodatadownGEDIsensor import EODataDownGEDISensor
+            sensor_obj = EODataDownGEDISensor(self.db_info_obj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensor_obj
