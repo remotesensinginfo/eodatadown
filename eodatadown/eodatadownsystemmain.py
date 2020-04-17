@@ -162,6 +162,10 @@ class EODataDownSystemMain(object):
             logger.debug("Found sensor GEDI")
             from eodatadown.eodatadownGEDIsensor import EODataDownGEDISensor
             sensor_obj = EODataDownGEDISensor(self.db_info_obj)
+        elif sensor == "ICESAT2":
+            logger.debug("Found sensor ICESAT2")
+            from eodatadown.eodatadownICESAT2sensor import EODataDownICESAT2Sensor
+            sensor_obj = EODataDownICESAT2Sensor(self.db_info_obj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensor_obj

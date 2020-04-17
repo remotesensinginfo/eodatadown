@@ -63,6 +63,7 @@ class EDDGEDI(Base):
     Date_Acquired = sqlalchemy.Column(sqlalchemy.Date, nullable=False)
     Time_Acquired = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Product = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    Version = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     # MORE ATTRIBUTES
     # MORE ATTRIBUTES
     # MORE ATTRIBUTES
@@ -71,6 +72,7 @@ class EDDGEDI(Base):
     East_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=True)
     West_Lon = sqlalchemy.Column(sqlalchemy.Float, nullable=True)
     Total_Size = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    File_MD5 = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Remote_URL = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     Query_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Download_Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
@@ -282,8 +284,6 @@ class EODataDownGEDISensor (EODataDownSensor):
                 excpt_msg = response.headers["cause-message"]
             except:
                 try:
-                    import pprint
-                    pprint.pprint(response.json())
                     excpt_msg = response.json()
                     if excpt_msg is None:
                         raise Exception()
@@ -357,7 +357,8 @@ class EODataDownGEDISensor (EODataDownSensor):
                                     product_id = os.path.splitext(basename)[0]
                                     db_records.append(EDDGEDI(PID=n_max_pid, Product_ID=product_id, FileName=basename,
                                                               Date_Acquired=acq_date, Product=prod,
-                                                              Remote_URL=data_url, Query_Date=query_datetime))
+                                                              Version=self.data_version, Remote_URL=data_url,
+                                                              Query_Date=query_datetime))
                                     n_max_pid += 1
                                     n_new_scns += 1
                         logger.info("Number Scenes Found: {}".format(n_new_scns))

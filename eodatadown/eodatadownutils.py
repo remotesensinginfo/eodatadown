@@ -1176,6 +1176,15 @@ class EDDGeoBBox(object):
         bbox_str = "{},{},{},{}".format(self.north_lat, self.west_lon, self.south_lat, self.east_lon)
         return bbox_str
 
+    def getBBOXLLURStr(self):
+        """
+        Gets the bounding bbox represented as a simple string [upper-left and lower-right]
+        :return: [north, west, south, east]
+
+        """
+        bbox_str = "{},{},{},{}".format(self.west_lon, self.south_lat, self.east_lon, self.north_lat)
+        return bbox_str
+
 
 class EDDHTTPDownload(object):
 

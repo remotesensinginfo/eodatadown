@@ -41,7 +41,7 @@ import logging.config
 import json
 
 EODATADOWN_VERSION_MAJOR = 2
-EODATADOWN_VERSION_MINOR = 1
+EODATADOWN_VERSION_MINOR = 2
 EODATADOWN_VERSION_PATCH = 0
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
@@ -64,7 +64,7 @@ EODATADOWN_SUPPORT_EMAIL = "rsgislib-support@googlegroups.com"
 
 EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
 
-EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ASF", "GEDI"]
+EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ASF", "GEDI", "ICESAT2"]
 
 eodd_install_prefix = __file__[:__file__.find('lib')]
 log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "loggingconfig.json")
