@@ -220,13 +220,20 @@ class EODataDownGEDISensor (EODataDownSensor):
             self.startDate = json_parse_helper.getDateValue(config_data,
                                                             ["eodatadown", "sensor", "download", "startdate"],
                                                             "%Y-%m-%d")
-            self.productLst = json_parse_helper.getStrListValue(config_data,
-                                                               ["eodatadown", "sensor", "download", "product"],
-                                                               ["GEDI01_B", "GEDI02_A", "GEDI02_B"])
 
-            self.data_version = json_parse_helper.getStrValue(config_data,
-                                                              ["eodatadown", "sensor", "download", "version"],
-                                                              ["001"])
+            if not json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "products"]):
+                raise EODataDownException("You must provide at least one product you want to be downloaded.")
+
+            products_lst = json_parse_helper.getListValue(config_data,
+                                                            ["eodatadown", "sensor", "download", "products"])
+            self.productsLst = []
+            for product in products_lst:
+                prod_id = json_parse_helper.getStrValue(product, ["product"], ["GEDI01_B", "GEDI02_A", "GEDI02_B"])
+
+                prod_version = json_parse_helper.getStrValue(product, ["version"],
+                                                             ["001", "002", "003", "004", "005", "006", "007",
+                                                              "008", "009", "010"])
+                self.productsLst.append({"product": prod_id, "version": prod_version})
 
             geo_bounds_lst = json_parse_helper.getListValue(config_data,
                                                             ["eodatadown", "sensor", "download", "geobounds"])
@@ -325,10 +332,10 @@ class EODataDownGEDISensor (EODataDownSensor):
         new_scns_avail = False
         query_datetime = datetime.datetime.now()
         json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-        url_base = 'https://lpdaacsvc.cr.usgs.gov/services/gedifinder?output=json&version={}'.format(self.data_version)
+        url_base = 'https://lpdaacsvc.cr.usgs.gov/services/gedifinder?output=json'
         db_records = list()
-        for prod in self.productLst:
-            query_base_url = "{}&product={}".format(url_base, prod)
+        for prod in self.productsLst:
+            query_base_url = "{}&product={}&version={}".format(url_base, prod['product'], prod['version'])
             for geo_bound in self.geoBounds:
                 query_url = "{}&bbox={}".format(query_base_url, geo_bound.getSimpleBBOXStr())
                 logger.debug("Going to use the following URL: " + query_url)
@@ -356,8 +363,8 @@ class EODataDownGEDISensor (EODataDownSensor):
                                     acq_date = datetime.datetime.strptime(scn_date_str, '%Y%j').date()
                                     product_id = os.path.splitext(basename)[0]
                                     db_records.append(EDDGEDI(PID=n_max_pid, Product_ID=product_id, FileName=basename,
-                                                              Date_Acquired=acq_date, Product=prod,
-                                                              Version=self.data_version, Remote_URL=data_url,
+                                                              Date_Acquired=acq_date, Product=prod['product'],
+                                                              Version=prod['version'], Remote_URL=data_url,
                                                               Query_Date=query_datetime))
                                     n_max_pid += 1
                                     n_new_scns += 1
