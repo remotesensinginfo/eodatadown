@@ -34,7 +34,7 @@ import logging
 import json
 import datetime
 import os
-import os.path
+import shutil
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -106,15 +106,29 @@ def _download_gedi_file(params):
     exp_out_file = params[5]
     earth_data_user = params[6]
     earth_data_pass = params[7]
+    dir_lcl_data_cache = params[8]
     success = False
 
-    eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
+    found_lcl_file = False
+    if dir_lcl_data_cache is not None:
+        file_name = os.path.basename(exp_out_file)
+        for lcl_dir in dir_lcl_data_cache:
+            if os.path.exists(lcl_dir) and os.path.isdir(lcl_dir):
+                lcl_file = os.path.join(lcl_dir, file_name)
+                if os.path.exists(lcl_file):
+                    found_lcl_file = True
+                    break
     start_date = datetime.datetime.now()
-    try:
-        success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=earth_data_user,
-                                                    password=earth_data_pass, try_number="10", time_out="60")
-    except Exception as e:
-        logger.error("An error has occurred while downloading from GEDI: '{}'".format(e))
+    if found_lcl_file:
+        shutil.copy(lcl_file, scn_lcl_dwnld_path)
+        success = True
+    else:
+        eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
+        try:
+            success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=earth_data_user,
+                                                        password=earth_data_pass, try_number="10", time_out="60")
+        except Exception as e:
+            logger.error("An error has occurred while downloading from GEDI: '{}'".format(e))
     end_date = datetime.datetime.now()
 
     if success and os.path.exists(exp_out_file) and os.path.isfile(exp_out_file):
@@ -248,6 +262,12 @@ class EODataDownGEDISensor (EODataDownSensor):
                 edd_bbox.setEastLon(json_parse_helper.getNumericValue(geo_bound_json, ["east_lon"], -180, 180))
                 self.geoBounds.append(edd_bbox)
             logger.debug("Found search params from config file")
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "lcl_data_cache"]):
+                self.dir_lcl_data_cache = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor",
+                                                                                       "download", "lcl_data_cache"])
+            else:
+                self.dir_lcl_data_cache = None
 
             logger.debug("Find EarthData Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
@@ -476,7 +496,7 @@ class EODataDownGEDISensor (EODataDownSensor):
                 out_filename = record.FileName
                 _download_gedi_file([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
                                      scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
-                                     self.earthDataUser,  self.earthDataPass])
+                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
