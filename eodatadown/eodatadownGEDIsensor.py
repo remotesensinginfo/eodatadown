@@ -35,6 +35,7 @@ import json
 import datetime
 import os
 import shutil
+import multiprocessing
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -511,7 +512,52 @@ class EODataDownGEDISensor (EODataDownSensor):
         return success
 
     def download_all_avail(self, n_cores):
-        raise Exception("Not Implement...")
+        """
+        Queries the database to find all scenes which have not been downloaded and then downloads them.
+        This function uses the python multiprocessing Pool to allow multiple simultaneous downloads to occur.
+        Be careful not use more cores than your internet connection and server can handle.
+
+        :param n_cores: The number of scenes to be simultaneously downloaded.
+
+        """
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == False).filter(
+                                                 EDDGEDI.Remote_URL is not None).all()
+        dwnld_params = list()
+        downloaded_new_scns = False
+        if query_result is not None:
+            for record in query_result:
+                logger.debug("Building download info for '" + record.Remote_URL + "'")
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath,
+                                                  "{}_{}".format(record.Product_ID, record.PID))
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
+                out_filename = record.FileName
+                downloaded_new_scns = True
+                dwnld_params.append([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
+                                     scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
+                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache])
+        else:
+            downloaded_new_scns = False
+            logger.info("There are no scenes to be downloaded.")
+
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        logger.info("Start downloading the scenes.")
+        with multiprocessing.Pool(processes=n_cores) as pool:
+            pool.map(_download_gedi_file, dwnld_params)
+        logger.info("Finished downloading the scenes.")
+        edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+        edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name,
+                               updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
     def get_scnlist_con2ard(self):
         raise Exception("Not Implement...")
