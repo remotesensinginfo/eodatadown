@@ -102,6 +102,53 @@ class EDDICESAT2(Base):
     RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
+def _download_icesat2_file(params):
+    """
+    Function which is used with multiprocessing pool object for downloading ICESAT2 data.
+
+    :param params: List of parameters [PID, Product_ID, Remote_URL, DB_Info_Obj, download_path, username, password]
+
+    """
+    pid = params[0]
+    producer_id = params[1]
+    remote_url = params[2]
+    db_info_obj = params[3]
+    scn_lcl_dwnld_path = params[4]
+    exp_out_file = params[5]
+    earth_data_user = params[6]
+    earth_data_pass = params[7]
+    success = False
+
+    eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
+    start_date = datetime.datetime.now()
+    try:
+        success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=earth_data_user,
+                                                    password=earth_data_pass, try_number="10", time_out="60")
+    except Exception as e:
+        logger.error("An error has occurred while downloading from ICESAT2: '{}'".format(e))
+    end_date = datetime.datetime.now()
+
+    if success and os.path.exists(exp_out_file) and os.path.isfile(exp_out_file):
+        logger.debug("Set up database connection and update record.")
+        db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == pid).one_or_none()
+        if query_result is None:
+            logger.error("Could not find the scene within local database: {}".format(producer_id))
+        else:
+            fileHashUtils = eodatadown.eodatadownutils.EDDCheckFileHash()
+            file_md5 = fileHashUtils.calcMD5Checksum(exp_out_file)
+            query_result.Downloaded = True
+            query_result.Download_Start_Date = start_date
+            query_result.Download_End_Date = end_date
+            query_result.Download_Path = scn_lcl_dwnld_path
+            query_result.File_MD5 = file_md5
+            ses.commit()
+        ses.close()
+        logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
+    else:
+        logger.error("Download did not complete, re-run and it should try again: {}".format(scn_lcl_dwnld_path))
 
 
 class EODataDownICESAT2Sensor (EODataDownSensor):
@@ -484,14 +531,12 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                         gran_updated = json_parse_helper.getDateTimeValue(granule_meta, ['updated'],
                                                                           ["%Y-%m-%dT%H:%M:%S.%f"])
 
-                        have_orbit_info = False
                         if json_parse_helper.doesPathExist(granule_meta, ['orbit']):
                             gran_orb_ascending_crossing = json_parse_helper.getNumericValue(granule_meta, ['orbit', 'ascending_crossing'])
                             gran_orb_start_direction = json_parse_helper.getStrValue(granule_meta, ['orbit', 'start_direction'])
                             gran_orb_start_lat = json_parse_helper.getNumericValue(granule_meta, ['orbit', 'start_lat'])
                             gran_orb_end_direction = json_parse_helper.getStrValue(granule_meta, ['orbit', 'end_direction'])
                             gran_orb_end_lat = json_parse_helper.getNumericValue(granule_meta, ['orbit', 'end_lat'])
-                            have_orbit_info = True
                         else:
                             gran_orb_ascending_crossing = None
                             gran_orb_start_direction = None
@@ -554,7 +599,9 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                                             if lat_val > north_lat:
                                                 north_lat = lat_val
                         else:
-                            if gran_size > 1.0:
+                            if gran_size > 2.0:
+                                import pprint
+                                pprint.pprint(granule_meta)
                                 raise EODataDownException("No BBOX defined for {}".format(gran_producer_id))
                             else:
                                 invalid_granule = True
@@ -629,7 +676,6 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
 
-
     def get_scnlist_all(self):
         """
         A function which returns a list of the unique IDs for all the scenes within the database.
@@ -642,7 +688,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDGEDI).all()
+        query_result = ses.query(EDDICESAT2).all()
         scns = list()
         if query_result is not None:
             for record in query_result:
@@ -665,8 +711,8 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == False).filter(
-                EDDGEDI.Remote_URL is not None).all()
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.Downloaded == False).filter(
+                EDDICESAT2.Remote_URL is not None).all()
 
         scns2dwnld = list()
         if query_result is not None:
@@ -687,7 +733,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one()
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one()
         ses.close()
         logger.debug("Closed the database session.")
         return query_result.Downloaded
@@ -698,7 +744,46 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         :param unq_id: the unique ID of the scene to be downloaded.
         :return: returns boolean indicating successful or otherwise download.
         """
-        raise Exception("Not Implement...")
+        if not os.path.exists(self.baseDownloadPath):
+            raise EODataDownException("The download path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id,
+                                                    EDDICESAT2.Downloaded == False).filter(
+                                                    EDDICESAT2.Remote_URL is not None).all()
+        ses.close()
+        success = False
+        if query_result is not None:
+            if len(query_result) == 1:
+                record = query_result[0]
+                logger.debug("Building download info for '" + record.Remote_URL + "'")
+                producer_id = record.Producer_ID
+                basename = os.path.splitext(producer_id)[0]
+
+                scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath,
+                                                  "{}_{}_{}".format(basename, record.Granule_ID, record.PID))
+                if not os.path.exists(scn_lcl_dwnld_path):
+                    os.mkdir(scn_lcl_dwnld_path)
+                _download_icesat2_file([record.PID, producer_id, record.Remote_URL, self.db_info_obj,
+                                        scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, producer_id),
+                                        self.earthDataUser, self.earthDataPass])
+                success = True
+            elif len(query_result) == 0:
+                logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
+            else:
+                logger.error("PID {0} has returned more than 1 scene - must be unique something really wrong.".
+                             format(unq_id))
+                raise EODataDownException("There was more than 1 scene which has been found - "
+                                          "something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return success
 
     def download_all_avail(self, n_cores):
         raise Exception("Not Implement...")

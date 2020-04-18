@@ -103,24 +103,21 @@ def _download_gedi_file(params):
     remote_url = params[2]
     db_info_obj = params[3]
     scn_lcl_dwnld_path = params[4]
-    earth_data_user = params[5]
-    earth_data_pass = params[6]
+    exp_out_file = params[5]
+    earth_data_user = params[6]
+    earth_data_pass = params[7]
     success = False
 
-    #eodd_http_downloader = eodatadown.eodatadownutils.EDDHTTPDownload()
     eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
     start_date = datetime.datetime.now()
     try:
-        #success = eodd_http_downloader.downloadFileNoMD5(remote_url, scn_lcl_dwnld_path,
-        #                                                 earth_data_user, earth_data_pass)
-
         success = eodd_wget_downloader.downloadFile(remote_url, scn_lcl_dwnld_path, username=earth_data_user,
                                                     password=earth_data_pass, try_number="10", time_out="60")
     except Exception as e:
         logger.error("An error has occurred while downloading from GEDI: '{}'".format(e))
     end_date = datetime.datetime.now()
 
-    if success and os.path.exists(scn_lcl_dwnld_path):
+    if success and os.path.exists(exp_out_file) and os.path.isfile(exp_out_file):
         logger.debug("Set up database connection and update record.")
         db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
@@ -129,10 +126,13 @@ def _download_gedi_file(params):
         if query_result is None:
             logger.error("Could not find the scene within local database: " + product_id)
         else:
+            fileHashUtils = eodatadown.eodatadownutils.EDDCheckFileHash()
+            file_md5 = fileHashUtils.calcMD5Checksum(exp_out_file)
             query_result.Downloaded = True
             query_result.Download_Start_Date = start_date
             query_result.Download_End_Date = end_date
             query_result.Download_Path = scn_lcl_dwnld_path
+            query_result.File_MD5 = file_md5
             ses.commit()
         ses.close()
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
@@ -468,8 +468,8 @@ class EODataDownGEDISensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 out_filename = record.FileName
                 _download_gedi_file([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
-                                    os.path.join(scn_lcl_dwnld_path, out_filename), self.earthDataUser,
-                                    self.earthDataPass])
+                                     scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
+                                     self.earthDataUser,  self.earthDataPass])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
