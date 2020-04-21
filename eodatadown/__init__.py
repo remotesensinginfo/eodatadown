@@ -49,6 +49,8 @@ rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)
 if rsgislib_img_opts_tif_envvar is None:
     os.environ["RSGISLIB_IMG_CRT_OPTS_GTIFF"] = "TILED=YES:COMPRESS=LZW:BIGTIFF=YES"
 
+eodd_log_level = os.getenv('EDD_LOG_LVL', 'INFO')
+
 # Check if the number of cores for Gamma to use through OMP has been used defined. If not, define it as 1.
 omp_num_threads_envvar = os.getenv('OMP_NUM_THREADS', None)
 if omp_num_threads_envvar is None:
@@ -66,18 +68,26 @@ EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
 
 EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ASF", "GEDI", "ICESAT2"]
 
-eodd_install_prefix = __file__[:__file__.find('lib')]
-log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "loggingconfig.json")
+#eodd_install_prefix = __file__[:__file__.find('lib')]
+#log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "loggingconfig.json")
 log_default_level=logging.INFO
+if eodd_log_level.upper() == 'INFO':
+    log_default_level = logging.INFO
+elif eodd_log_level.upper() == 'DEBUG':
+    log_default_level = logging.DEBUG
+elif eodd_log_level.upper() == 'WARNING':
+    log_default_level = logging.WARNING
+elif eodd_log_level.upper() == 'ERROR':
+    log_default_level = logging.ERROR
+elif eodd_log_level.upper() == 'CRITICAL':
+    log_default_level = logging.CRITICAL
+else:
+    raise Exception("Logging level specified ('{}') is not recognised.".format(eodd_log_level))
 
-log_config_value = os.getenv('EDD_LOG_CFG', None)
-if log_config_value is not None:
-    log_config_path = log_config_value
-
-if os.path.exists(log_config_path):
+log_config_path = os.getenv('EDD_LOG_CFG', None)
+if (log_config_path is not None) and os.path.exists(log_config_path):
     with open(log_config_path, 'rt') as f:
         config = json.load(f)
     logging.config.dictConfig(config)
 else:
-    print('Warning: did not find the logging configuration file.')
-    logging.basicConfig(level=log_default_level)
+    logging.basicConfig(level=log_default_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
