@@ -269,26 +269,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
-                                                                  ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
-                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
-                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
-                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
-                self.quicklookPath = json_parse_helper.getStrValue(config_data,
-                                                                    ["eodatadown", "sensor", "paths", "quicklooks"])
-            else:
-                self.quicklookPath = None
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "tilecache"]):
-                self.tilecachePath = json_parse_helper.getStrValue(config_data,
-                                                                    ["eodatadown", "sensor", "paths", "tilecache"])
-            else:
-                self.tilecachePath = None
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths"]):
+                self.parse_output_paths_config(config_data["eodatadown"]["sensor"]["paths"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -319,6 +301,11 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             self.asfUser = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "user"])
             self.asfPass = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "pass"]))
             logger.debug("Found ASF Account params from config file")
+
+            logger.debug("Find the plugins params")
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "plugins"]):
+                self.parse_plugins_config(config_data["eodatadown"]["sensor"]["plugins"])
+            logger.debug("Found the plugins params")
 
     def init_sensor_db(self):
         """
@@ -1213,6 +1200,18 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
+
+    def get_scnlist_usr_analysis(self):
+        raise EODataDownException("Not Implemented")
+
+    def has_scn_usr_analysis(self, unq_id):
+        return False
+
+    def run_usr_analysis(self, unq_id):
+        raise EODataDownException("Not Implemented")
+
+    def run_usr_analysis_all_avail(self, n_cores):
+        raise EODataDownException("Not Implemented")
 
     def find_unique_platforms(self):
         """

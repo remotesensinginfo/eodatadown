@@ -33,7 +33,7 @@ EODataDown - a sensor class for Landsat data downloaded from the Google Cloud.
 import logging
 import json
 import os
-import os.path
+import sys
 import datetime
 import multiprocessing
 import shutil
@@ -41,6 +41,7 @@ import rsgislib
 import uuid
 import yaml
 import subprocess
+import importlib
 
 from osgeo import osr
 from osgeo import ogr
@@ -361,26 +362,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
-                                                                  ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
-                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
-                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
-                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
-                self.quicklookPath = json_parse_helper.getStrValue(config_data,
-                                                                    ["eodatadown", "sensor", "paths", "quicklooks"])
-            else:
-                self.quicklookPath = None
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "tilecache"]):
-                self.tilecachePath = json_parse_helper.getStrValue(config_data,
-                                                                    ["eodatadown", "sensor", "paths", "tilecache"])
-            else:
-                self.tilecachePath = None
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths"]):
+                self.parse_output_paths_config(config_data["eodatadown"]["sensor"]["paths"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -432,6 +415,11 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                                     ["eodatadown", "sensor", "googleinfo", "downloadtool"],
                                                                     ["PYAPI", "GSUTIL", "GSUTIL_MULTI"])
             logger.debug("Found Google Account params from config file")
+
+            logger.debug("Find the plugins params")
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "plugins"]):
+                self.parse_plugins_config(config_data["eodatadown"]["sensor"]["plugins"])
+            logger.debug("Found the plugins params")
 
     def init_sensor_db(self):
         """
@@ -1498,6 +1486,192 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
+
+    def get_scnlist_usr_analysis(self):
+        """
+        Get a list of all scenes for which user analysis needs to be undertaken.
+
+        :return: list of unique IDs
+        """
+        scns2runusranalysis = list()
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                query_result = ses.query(EDDLandsatGoogle).filter(
+                        sqlalchemy.or_(
+                                EDDLandsatGoogle.ExtendedInfo.is_(None),
+                                sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key(plugin_key))),
+                        EDDLandsatGoogle.Invalid == False,
+                        EDDLandsatGoogle.ARDProduct == True).all()
+
+                if query_result is not None:
+                    for record in query_result:
+                        if record.PID not in scns2runusranalysis:
+                            scns2runusranalysis.append(record.PID)
+
+            ses.close()
+            logger.debug("Closed the database session.")
+        return scns2runusranalysis
+
+    def has_scn_usr_analysis(self, unq_id):
+        usr_plugins_calcd = False
+        logger.debug("Going to test whether there are plugins.")
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+            if query_result is None:
+                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+            scn_json = query_result.ExtendedInfo
+            ses.close()
+            logger.debug("Closed the database session.")
+
+            if scn_json is not None:
+                json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+                usr_plugins_calcd = True
+                for plugin_info in self.analysis_plugins:
+                    plugin_path = os.path.abspath(plugin_info["path"])
+                    plugin_module_name = plugin_info["module"]
+                    plugin_cls_name = plugin_info["class"]
+                    # Check if plugin path input is already in system path.
+                    already_in_path = False
+                    for c_path in sys.path:
+                        c_path = os.path.abspath(c_path)
+                        if c_path == plugin_path:
+                            already_in_path = True
+                            break
+                    # Add plugin path to system path
+                    if not already_in_path:
+                        sys.path.insert(0, plugin_path)
+                        logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                    # Try to import the module.
+                    logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                    plugin_mod_inst = importlib.import_module(plugin_module_name)
+                    logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                    if plugin_mod_inst is None:
+                        raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                    # Try to make instance of class.
+                    logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                    plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                    logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                    if plugin_cls_inst is None:
+                        raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                    plugin_key = plugin_cls_inst.get_ext_info_key()
+                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
+                    if not plugin_completed:
+                        usr_plugins_calcd = False
+                        break
+        return usr_plugins_calcd
+
+    def run_usr_analysis(self, unq_id):
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+            if query_result is None:
+                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+            scn_json = query_result.ExtendedInfo
+            scn_db_obj = query_result
+            ses.close()
+            logger.debug("Closed the database session.")
+
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                if scn_json is not None:
+                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
+                else:
+                    plugin_completed = False
+
+                if not plugin_completed:
+                    plg_success, out_dict = plugin_cls_inst.perform_analysis(scn_db_obj, self)
+                    if plg_success:
+                        if scn_json is None:
+                            scn_json = dict()
+
+                        if not (plugin_key in scn_json):
+                            scn_json[plugin_key] = dict()
+
+                        if out_dict is None:
+                            #scn_json[plugin_key] = True
+                            print("\n\nWould output to database but commented out for testing\n\n")
+                        else:
+                            scn_json[plugin_key] = out_dict
+
+                        query_result.ExtendedInfo = scn_json
+                        flag_modified(query_result, "ExtendedInfo")
+                        ses.commit()
+
+    def run_usr_analysis_all_avail(self, n_cores):
+        scn_lst = self.get_scnlist_usr_analysis()
+        for scn in scn_lst:
+            self.run_usr_analysis(scn)
 
     def find_unique_platforms(self):
         """

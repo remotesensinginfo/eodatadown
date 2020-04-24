@@ -60,6 +60,8 @@ if __name__ == "__main__":
                         help="Specify that the system should calculate a quicklook product.")
     parser.add_argument("--tilecache", action='store_true', default=False,
                         help="Specify that the system should calculate a tilecache product.")
+    parser.add_argument("--usrplugins", action='store_true', default=False,
+                        help="Specify that the system should apply the user plugins.")
     parser.add_argument("--sceneid", type=str, default=None,
                         help="Specify an ID of a scene to be processed.")
     parser.add_argument("--checkstart", action='store_true', default=False,
@@ -97,7 +99,7 @@ if __name__ == "__main__":
     if ncores == 0:
         ncores = 1
 
-    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc):
+    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc) and (not args.usrplugins):
         logger.info("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
         raise Exception("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
 
@@ -114,6 +116,7 @@ if __name__ == "__main__":
                 logger.info('Finished process to find new downloads.')
         except Exception as e:
             logger.error('Failed to complete the process of finding new downloads.', exc_info=True)
+
     if args.performdownload:
         try:
             if process_single_scn:
@@ -138,12 +141,13 @@ if __name__ == "__main__":
                 logger.info('Finished process to data to an ARD product.')
         except Exception as e:
             logger.error('Failed to process data to ARD products.', exc_info=True)
+
     if args.loaddc:
         try:
             if process_single_scn:
-                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                logger.info('Running load single scene "{}" into datacube.'.format(args.sceneid))
                 eodatadown.eodatadownrun.datacube_load_scene(config_file, single_scn_sensor, args.sceneid)
-                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
+                logger.info('Finished loading single scene "{}" into datacube'.format(args.sceneid))
             else:
                 logger.info('Running process to load data into a datacube.')
                 eodatadown.eodatadownrun.datacube_load_data(config_file, args.sensors)
@@ -154,9 +158,9 @@ if __name__ == "__main__":
     if args.quicklook:
         try:
             if process_single_scn:
-                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                logger.info('Running single quicklook processing for scene "{}".'.format(args.sceneid))
                 eodatadown.eodatadownrun.gen_quicklook_scene(config_file, single_scn_sensor, args.sceneid)
-                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
+                logger.info('Finished single quicklook processing for scene "{}".'.format(args.sceneid))
             else:
                 logger.info('Running process to generate quicklook images.')
                 eodatadown.eodatadownrun.gen_quicklook_images(config_file, args.sensors)
@@ -167,14 +171,28 @@ if __name__ == "__main__":
     if args.tilecache:
         try:
             if process_single_scn:
-                logger.info('Running single ARD processing for scene "{}".'.format(args.sceneid))
+                logger.info('Running single tilecache processing for scene "{}".'.format(args.sceneid))
                 eodatadown.eodatadownrun.gen_scene_tilecache(config_file, single_scn_sensor, args.sceneid)
-                logger.info('Finished single ARD processing for scene "{}".'.format(args.sceneid))
+                logger.info('Finished single tilecache processing for scene "{}".'.format(args.sceneid))
             else:
                 logger.info('Running process to generate image tilecaches.')
                 eodatadown.eodatadownrun.gen_tilecache_images(config_file, args.sensors)
                 logger.info('Finished process to generate image tilecaches.')
         except Exception as e:
             logger.error('Failed to generate image tilecaches.', exc_info=True)
+
+    if args.usrplugins:
+        try:
+            if process_single_scn:
+                logger.info('Running single scene "{}" user plugins processing.'.format(args.sceneid))
+                eodatadown.eodatadownrun.run_user_plugins_scene(config_file, single_scn_sensor, args.sceneid)
+                logger.info('Finished single scene "{}" user plugins processing.'.format(args.sceneid))
+            else:
+                logger.info('Running user plugins analysis for all scenes.')
+                eodatadown.eodatadownrun.run_user_plugins(config_file, args.sensors)
+                logger.info('Finished user plugins analysis for all scenes.')
+        except Exception as e:
+            logger.error('Failed to run user plugins.', exc_info=True)
+
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrun.py.')
 

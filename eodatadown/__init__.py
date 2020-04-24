@@ -35,7 +35,6 @@ See other source files for details
 
 from distutils.version import LooseVersion
 import os
-import os.path
 import logging
 import logging.config
 import json

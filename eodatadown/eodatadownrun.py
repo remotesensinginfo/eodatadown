@@ -445,6 +445,82 @@ def gen_scene_tilecache(config_file, sensor, scene_id):
     edd_usage_db.add_entry("Finished: Generate tilecache for specified scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
 
 
+def run_user_plugins(config_file, sensors):
+    """
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: List of sensor names.
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Starting: Running User Plugins for Available Scenes.", start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_objs_to_process = list()
+    for sensor_obj in sensor_objs:
+        process_sensor = False
+        if sensors is None:
+            process_sensor = True
+        if sensors is not None:
+            if sensor_obj.get_sensor_name() in sensors:
+                process_sensor = True
+        if process_sensor:
+            sensor_objs_to_process.append(sensor_obj)
+
+    for sensor_obj in sensor_objs_to_process:
+        try:
+            sensor_obj.run_usr_analysis_all_avail()
+        except Exception as e:
+            logger.error("Error occurred while running user plugins for sensor: " + sensor_obj.get_sensor_name())
+            logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Running User Plugins for Available Scenes.", end_block=True)
+
+
+def run_user_plugins_scene(config_file, sensor, scene_id):
+    """
+    A function which runs the process of generating a tilecache for an input scene.
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: the string name of the sensor
+    :param scene_id:
+    :return:
+    """
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Running User Plugins for specified scene ({0}: {1}).".format(sensor, scene_id), start_block=True)
+
+    sensor_objs = sys_main_obj.get_sensors()
+    sensor_obj_to_process = None
+    for sensor_obj in sensor_objs:
+        logger.debug("Testing Sensor Object: '{}'.".format(sensor_obj.get_sensor_name()))
+        if sensor_obj.get_sensor_name() == sensor:
+            sensor_obj_to_process = sensor_obj
+            logger.debug("Found Sensor Object.")
+            break
+
+    if sensor_obj_to_process is None:
+        logger.error("Error occurred could not find sensor object for '{}'".format(sensor))
+        raise EODataDownException("Could not find sensor object for '{}'".format(sensor))
+
+    try:
+        logger.debug("Going to try running the user analysis plugins for scene '{}'".format(scene_id))
+        sensor_obj_to_process.run_usr_analysis(scene_id)
+        logger.debug("Finished to try running the user analysis plugins for scene '{}'".format(scene_id))
+    except Exception as e:
+        logger.error("Error occurred while running user plugins for scene ({0}) from sensor: ({1})".format(
+                     scene_id, sensor_obj_to_process.get_sensor_name()))
+        logger.debug(e.__str__(), exc_info=True)
+    edd_usage_db.add_entry("Finished: Running User Plugins for specified scene ({0}: {1}).".format(sensor, scene_id), end_block=True)
+
+
 def export_image_footprints_vector(config_file, sensor, table, vector_file, vector_lyr, vector_driver, add_layer):
     """
 
@@ -603,32 +679,54 @@ def run_scn_analysis(params):
 
     try:
         sensor_obj = sys_main_obj.get_sensor_obj(scn_sensor)
-        qklook_complete = False
-        tilecache_complete = False
+        process_complete = False
         if not sensor_obj.has_scn_download(scn_id):
+            logger.debug("Downloading {} scene {}.".format(scn_sensor, scn_id))
             sensor_obj.download_scn(scn_id)
+            logger.debug("Downloading complete for {} scene {}.".format(scn_sensor, scn_id))
         if sensor_obj.has_scn_download(scn_id):
-            print(sensor_obj.has_scn_con2ard(scn_id))
             if not sensor_obj.has_scn_con2ard(scn_id):
+                logger.debug("Starting conversion to ARD for {} scene {}.".format(scn_sensor, scn_id))
                 sensor_obj.scn2ard(scn_id)
+                logger.debug("Completed conversion to ARD for {} scene {}.".format(scn_sensor, scn_id))
             if sensor_obj.has_scn_con2ard(scn_id):
-                if not sensor_obj.has_scn_quicklook(scn_id):
-                    sensor_obj.scn2quicklook(scn_id)
-                if sensor_obj.has_scn_quicklook(scn_id):
-                    qklook_complete = True
-                if not sensor_obj.has_scn_tilecache(scn_id):
-                    sensor_obj.scn2tilecache(scn_id)
-                if sensor_obj.has_scn_tilecache(scn_id):
-                    tilecache_complete = True
+                if sensor_obj.calc_scn_quicklook():
+                    process_complete = False
+                    if not sensor_obj.has_scn_quicklook(scn_id):
+                        logger.debug("Starting quicklook generation {} scene {}.".format(scn_sensor, scn_id))
+                        sensor_obj.scn2quicklook(scn_id)
+                        logger.debug("Completed quicklook generation {} scene {}.".format(scn_sensor, scn_id))
+                    if sensor_obj.has_scn_quicklook(scn_id):
+                        process_complete = True
+                        logger.debug("Processing quicklook complete for {} scene {}.".format(scn_sensor, scn_id))
 
-                if qklook_complete and tilecache_complete:
-                    logger.info("Processing is complete for {} scene {}.".format(scn_sensor, scn_id))
+                if sensor_obj.calc_scn_tilecache():
+                    process_complete = False
+                    if not sensor_obj.has_scn_tilecache(scn_id):
+                        logger.debug("Starting tilecache generation {} scene {}.".format(scn_sensor, scn_id))
+                        sensor_obj.scn2tilecache(scn_id)
+                        logger.debug("Completed tilecache generation {} scene {}.".format(scn_sensor, scn_id))
+                    if sensor_obj.has_scn_tilecache(scn_id):
+                        process_complete = True
+                        logger.debug("Processing tilecache complete for {} scene {}.".format(scn_sensor, scn_id))
+
+                if sensor_obj.calc_scn_usr_analysis():
+                    process_complete = False
+                    if not sensor_obj.has_scn_usr_analysis(scn_id):
+                        logger.debug("Starting user plugins processing {} scene {}.".format(scn_sensor, scn_id))
+                        sensor_obj.run_usr_analysis(scn_id)
+                        logger.debug("Completed user plugins processing {} scene {}.".format(scn_sensor, scn_id))
+                    if sensor_obj.has_scn_usr_analysis(scn_id):
+                        process_complete = True
+                        logger.debug("Completed all user analysis plugins for {} scene {}.".format(scn_sensor, scn_id))
+
+                if process_complete:
+                    logger.info("All processing steps are complete for {} scene {}.".format(scn_sensor, scn_id))
                 else:
-                    logger.error("Will need to re-run as processing is not yet complete "
-                                 "for {} scene {}.".format(scn_sensor, scn_id))
+                    logger.error("Need to re-run as processing did not complete for {} scene {}.".format(scn_sensor, scn_id))
     except Exception as e:
         # Exceptions are caught so processing is not stopped by an error.
-        logger.error("An error has occurred for {} scene {}.\n Exception: {}".format(scn_sensor, scn_id, e))
+        logger.error("An error has occurred for {} scene {}.\n Exception: {}".format(scn_sensor, scn_id, e), exc_info=True)
 
 
 def process_scenes_all_steps(config_file, sensors, ncores=1):

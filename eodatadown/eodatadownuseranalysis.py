@@ -42,7 +42,7 @@ class EODataDownUserAnalysis (object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, analysis_name, params=None):
+    def __init__(self, params=None, analysis_name=None):
         """
         A class to do some analysis defined by the user. Implemented
         as a plugin provided through the sensor configuration.
@@ -50,12 +50,26 @@ class EODataDownUserAnalysis (object):
         The params for the class are passed when the class is instantiated
         and the user parses for the sensor parsed.
 
-        :param analysis_name: A name for the analysis, must be unique for sensor.
+        This function initialises an attribute self.analysis_name to None unless an value is passed. However,
+        this attribute requires a value which must not be None. When creating an instance of this function you
+        must either pass a value to this function or define this value in your constructor after this parent
+        constructor has been called.
+
         :param params: a dict of user params for the class
+        :param analysis_name: A name for the analysis, must be unique for sensor. Must not be None.
 
         """
         self.analysis_name = analysis_name
         self.params = params
+
+    def set_analysis_name(self, analysis_name):
+        """
+        A function which sets the name of the user analysis.
+
+        :param analysis_name: A name for the analysis, must be unique for sensor. Must not be None.
+
+        """
+        self.analysis_name = analysis_name
 
     def get_analysis_name(self):
         """
@@ -75,23 +89,36 @@ class EODataDownUserAnalysis (object):
         """
         self.params = params
 
+    def get_ext_info_key(self):
+        """
+        Provide the key used for the extended info for this plugin. This function returns the analysis_name
+
+        :return: string with key.
+
+        """
+        if self.analysis_name is None:
+            raise Exception("The analysis name is None and must have a value provided.")
+
+        return self.analysis_name
+
     @abstractmethod
-    def perform_analysis(self, scn_obj, sen_obj):
+    def perform_analysis(self, scn_db_obj, sen_obj):
         """
         A function which needs to be implemented by the user to perform the analysis.
         The object for the scene representing the database record is provided to the function.
 
-        The function must return a set of a boolean and dict (bool, dict). If True, then the
-        dict return will be used to replace JSON field for the scene within the database.
-        If False, then the dict will be added to the scene JSON field using the name of the
-        analysis (i.e., provided within the constructor) as the key to uniquely identify the
-        information. If None is returned then nothing will be written to the scene database.
+        The function must return a set of with a boolean and dict (bool, dict).
+        The boolean represents whether the analysis was successfully completed.
+        The dict will be added to the database record JSON field (ExtendedInfo)
+        using the key (defined by get_ext_info_key). If the dict is None then
+        and the processing successfully completed then a simple value of True
+        will be written as the key value.
 
         The function cannot alter the other database fields, only the JSON field.
 
-        :param scn_obj: The scene record from the database.
-        :param scn_obj: An instance of a eodatadownsensor object related to the sensor for the scene.
-        :return: (bool, dict) or None. See description above.
+        :param scn_db_obj: The scene record from the database.
+        :param sen_obj: An instance of a eodatadownsensor object related to the sensor for the scene.
+        :return: (bool, dict); dict can be None. See description above.
 
         """
         pass

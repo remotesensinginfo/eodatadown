@@ -215,20 +215,8 @@ class EODataDownGEDISensor (EODataDownSensor):
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
-                                                                  ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
-                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
-                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
-                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
-                self.quicklookPath = json_parse_helper.getStrValue(config_data,
-                                                                   ["eodatadown", "sensor", "paths", "quicklooks"])
-            else:
-                self.quicklookPath = None
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths"]):
+                self.parse_output_paths_config(config_data["eodatadown"]["sensor"]["paths"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -277,6 +265,11 @@ class EODataDownGEDISensor (EODataDownSensor):
             self.earthDataPass = edd_pass_encoder.unencodePassword(
                 json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "pass"]))
             logger.debug("Found EarthData Account params from config file")
+
+            logger.debug("Find the plugins params")
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "plugins"]):
+                self.parse_plugins_config(config_data["eodatadown"]["sensor"]["plugins"])
+            logger.debug("Found the plugins params")
 
     def init_sensor_db(self):
         """
@@ -609,6 +602,18 @@ class EODataDownGEDISensor (EODataDownSensor):
 
     def get_scn_record(self, unq_id):
         raise Exception("Not Implement...")
+
+    def get_scnlist_usr_analysis(self):
+        raise EODataDownException("Not Implemented")
+
+    def has_scn_usr_analysis(self, unq_id):
+        return False
+
+    def run_usr_analysis(self, unq_id):
+        raise EODataDownException("Not Implemented")
+
+    def run_usr_analysis_all_avail(self, n_cores):
+        raise EODataDownException("Not Implemented")
 
     def find_unique_platforms(self):
         raise Exception("Not Implement...")
