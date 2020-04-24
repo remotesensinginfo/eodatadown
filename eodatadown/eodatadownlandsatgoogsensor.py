@@ -1568,6 +1568,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     plugin_path = os.path.abspath(plugin_info["path"])
                     plugin_module_name = plugin_info["module"]
                     plugin_cls_name = plugin_info["class"]
+                    logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
                     # Check if plugin path input is already in system path.
                     already_in_path = False
                     for c_path in sys.path:
@@ -1606,19 +1607,17 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
             ses = session_sqlalc()
             logger.debug("Perform query to find scene.")
-            query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
-            if query_result is None:
+            scn_db_obj = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+            if scn_db_obj is None:
                 raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
-            scn_json = query_result.ExtendedInfo
-            scn_db_obj = query_result
-            ses.close()
-            logger.debug("Closed the database session.")
 
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             for plugin_info in self.analysis_plugins:
                 plugin_path = os.path.abspath(plugin_info["path"])
                 plugin_module_name = plugin_info["module"]
                 plugin_cls_name = plugin_info["class"]
+                logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+
                 # Check if plugin path input is already in system path.
                 already_in_path = False
                 for c_path in sys.path:
@@ -1626,16 +1625,21 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     if c_path == plugin_path:
                         already_in_path = True
                         break
+
                 # Add plugin path to system path
                 if not already_in_path:
                     sys.path.insert(0, plugin_path)
                     logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+
                 # Try to import the module.
                 logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
                 plugin_mod_inst = importlib.import_module(plugin_module_name)
                 logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
                 if plugin_mod_inst is None:
                     raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+
+
+
                 # Try to make instance of class.
                 logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
                 plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
@@ -1643,7 +1647,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 if plugin_cls_inst is None:
                     raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
 
+                # Try to read any plugin parameters to be passed to the plugin when instantiated.
+                if "params" in plugin_info:
+                    plugin_cls_inst.set_users_param(plugin_info["params"])
+                    logger.debug("Read plugin params and passed to plugin.")
+
                 plugin_key = plugin_cls_inst.get_ext_info_key()
+                scn_json = scn_db_obj.ExtendedInfo
                 if scn_json is not None:
                     plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
                 else:
@@ -1652,21 +1662,30 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 if not plugin_completed:
                     plg_success, out_dict = plugin_cls_inst.perform_analysis(scn_db_obj, self)
                     if plg_success:
+                        logger.debug("The plugin analysis has been completed - SUCCESSFULLY.")
                         if scn_json is None:
+                            logger.debug("No existing extended info so creating the dict.")
                             scn_json = dict()
 
-                        if not (plugin_key in scn_json):
-                            scn_json[plugin_key] = dict()
-
                         if out_dict is None:
-                            #scn_json[plugin_key] = True
-                            print("\n\nWould output to database but commented out for testing\n\n")
+                            logger.debug("No output dict from the plugin so just setting as True to indicate "
+                                         "the plugin has successfully executed.")
+                            scn_json[plugin_key] = True
                         else:
+                            logger.debug("An output dict from the plugin was provided so adding to extended info.")
                             scn_json[plugin_key] = out_dict
 
-                        query_result.ExtendedInfo = scn_json
-                        flag_modified(query_result, "ExtendedInfo")
+                        logger.debug("Updating the extended info field in the database.")
+                        scn_db_obj.ExtendedInfo = scn_json
+                        flag_modified(scn_db_obj, "ExtendedInfo")
                         ses.commit()
+                        logger.debug("Updated the extended info field in the database.")
+                    else:
+                        logger.debug("The plugin analysis has not been completed - UNSUCCESSFUL.")
+                else:
+                    logger.debug("The plugin '{}' from '{}' has already been run so will not be run again".format(plugin_cls_name, plugin_module_name))
+            ses.close()
+            logger.debug("Closed the database session.")
 
     def run_usr_analysis_all_avail(self, n_cores):
         scn_lst = self.get_scnlist_usr_analysis()

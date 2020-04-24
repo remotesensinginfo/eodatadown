@@ -32,6 +32,7 @@ EODataDown - an abstract base class for running user analysis following ARD proc
 
 import logging
 from abc import ABCMeta, abstractmethod
+from eodatadown.eodatadownutils import EODataDownException
 
 logger = logging.getLogger(__name__)
 
@@ -42,25 +43,28 @@ class EODataDownUserAnalysis (object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, params=None, analysis_name=None):
+    def __init__(self, analysis_name):
         """
         A class to do some analysis defined by the user. Implemented
         as a plugin provided through the sensor configuration.
 
-        The params for the class are passed when the class is instantiated
-        and the user parses for the sensor parsed.
+        Any params inputted via the EODataDown configuration script for the plugin are passed
+        to the class using the set_users_param function.
 
         This function initialises an attribute self.analysis_name to None unless an value is passed. However,
         this attribute requires a value which must not be None. When creating an instance of this function you
         must either pass a value to this function or define this value in your constructor after this parent
         constructor has been called.
 
-        :param params: a dict of user params for the class
-        :param analysis_name: A name for the analysis, must be unique for sensor. Must not be None.
+        :param analysis_name: A name for the analysis, must be unique for sensor. Must not be None. This is
+                              expected to be passed to the parent from the child constructor. No value will
+                              be passed through from the EODataDown sensor when the plugin is instantiated.
 
         """
+        if analysis_name is None:
+            raise EODataDownException("The analysis name was None, a value is required.")
         self.analysis_name = analysis_name
-        self.params = params
+        self.params = None
 
     def set_analysis_name(self, analysis_name):
         """
