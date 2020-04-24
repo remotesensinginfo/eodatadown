@@ -36,6 +36,8 @@ import datetime
 import os
 import shutil
 import multiprocessing
+import sys
+import importlib
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -604,16 +606,208 @@ class EODataDownGEDISensor (EODataDownSensor):
         raise Exception("Not Implement...")
 
     def get_scnlist_usr_analysis(self):
-        raise EODataDownException("Not Implemented")
+        """
+        Get a list of all scenes for which user analysis needs to be undertaken.
+
+        :return: list of unique IDs
+        """
+        scns2runusranalysis = list()
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                query_result = ses.query(EDDGEDI).filter(
+                        sqlalchemy.or_(
+                                EDDGEDI.ExtendedInfo.is_(None),
+                                sqlalchemy.not_(EDDGEDI.ExtendedInfo.has_key(plugin_key))),
+                        EDDGEDI.Invalid == False,
+                        EDDGEDI.ARDProduct == True).all()
+
+                if query_result is not None:
+                    for record in query_result:
+                        if record.PID not in scns2runusranalysis:
+                            scns2runusranalysis.append(record.PID)
+
+            ses.close()
+            logger.debug("Closed the database session.")
+        return scns2runusranalysis
 
     def has_scn_usr_analysis(self, unq_id):
-        return False
+        usr_plugins_calcd = False
+        logger.debug("Going to test whether there are plugins.")
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one_or_none()
+            if query_result is None:
+                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+            scn_json = query_result.ExtendedInfo
+            ses.close()
+            logger.debug("Closed the database session.")
+
+            if scn_json is not None:
+                json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+                usr_plugins_calcd = True
+                for plugin_info in self.analysis_plugins:
+                    plugin_path = os.path.abspath(plugin_info["path"])
+                    plugin_module_name = plugin_info["module"]
+                    plugin_cls_name = plugin_info["class"]
+                    logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+                    # Check if plugin path input is already in system path.
+                    already_in_path = False
+                    for c_path in sys.path:
+                        c_path = os.path.abspath(c_path)
+                        if c_path == plugin_path:
+                            already_in_path = True
+                            break
+                    # Add plugin path to system path
+                    if not already_in_path:
+                        sys.path.insert(0, plugin_path)
+                        logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                    # Try to import the module.
+                    logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                    plugin_mod_inst = importlib.import_module(plugin_module_name)
+                    logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                    if plugin_mod_inst is None:
+                        raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                    # Try to make instance of class.
+                    logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                    plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                    logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                    if plugin_cls_inst is None:
+                        raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                    plugin_key = plugin_cls_inst.get_ext_info_key()
+                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
+                    if not plugin_completed:
+                        usr_plugins_calcd = False
+                        break
+        return usr_plugins_calcd
 
     def run_usr_analysis(self, unq_id):
-        raise EODataDownException("Not Implemented")
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            scn_db_obj = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one_or_none()
+            if scn_db_obj is None:
+                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                # Try to read any plugin parameters to be passed to the plugin when instantiated.
+                if "params" in plugin_info:
+                    plugin_cls_inst.set_users_param(plugin_info["params"])
+                    logger.debug("Read plugin params and passed to plugin.")
+
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                scn_json = scn_db_obj.ExtendedInfo
+                if scn_json is not None:
+                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
+                else:
+                    plugin_completed = False
+
+                if not plugin_completed:
+                    plg_success, out_dict = plugin_cls_inst.perform_analysis(scn_db_obj, self)
+                    if plg_success:
+                        logger.debug("The plugin analysis has been completed - SUCCESSFULLY.")
+                        if scn_json is None:
+                            logger.debug("No existing extended info so creating the dict.")
+                            scn_json = dict()
+
+                        if out_dict is None:
+                            logger.debug("No output dict from the plugin so just setting as True to indicate "
+                                         "the plugin has successfully executed.")
+                            scn_json[plugin_key] = True
+                        else:
+                            logger.debug("An output dict from the plugin was provided so adding to extended info.")
+                            scn_json[plugin_key] = out_dict
+
+                        logger.debug("Updating the extended info field in the database.")
+                        scn_db_obj.ExtendedInfo = scn_json
+                        flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.commit()
+                        logger.debug("Updated the extended info field in the database.")
+                    else:
+                        logger.debug("The plugin analysis has not been completed - UNSUCCESSFUL.")
+                else:
+                    logger.debug("The plugin '{}' from '{}' has already been run so will not be run again".format(
+                        plugin_cls_name, plugin_module_name))
+            ses.close()
+            logger.debug("Closed the database session.")
 
     def run_usr_analysis_all_avail(self, n_cores):
-        raise EODataDownException("Not Implemented")
+        scn_lst = self.get_scnlist_usr_analysis()
+        for scn in scn_lst:
+            self.run_usr_analysis(scn)
 
     def find_unique_platforms(self):
         raise Exception("Not Implement...")
