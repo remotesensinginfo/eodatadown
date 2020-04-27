@@ -169,6 +169,11 @@ class EODataDownSensor (object):
                 logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
                 if plugin_cls_inst is None:
                     raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+                if json_parse_helper.doesPathExist(plugin_config, ["params"]):
+                    logger.debug("User params are present for plugin so will test the required keys are present.")
+                    plugin_cls_inst.set_users_param(plugin_config["params"])
+                    plugin_cls_inst.check_param_keys(raise_except=True)
+                    logger.debug("User params for the plugin have the correct keys.")
                 self.analysis_plugins.append(plugin_config)
 
     @abstractmethod

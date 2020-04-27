@@ -1638,8 +1638,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 if plugin_mod_inst is None:
                     raise Exception("Could not load the module: '{}'".format(plugin_module_name))
 
-
-
                 # Try to make instance of class.
                 logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
                 plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()

@@ -474,7 +474,7 @@ def run_user_plugins(config_file, sensors):
 
     for sensor_obj in sensor_objs_to_process:
         try:
-            sensor_obj.run_usr_analysis_all_avail()
+            sensor_obj.run_usr_analysis_all_avail(1)
         except Exception as e:
             logger.error("Error occurred while running user plugins for sensor: " + sensor_obj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)

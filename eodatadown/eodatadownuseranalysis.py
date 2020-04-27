@@ -43,7 +43,7 @@ class EODataDownUserAnalysis (object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, analysis_name):
+    def __init__(self, analysis_name, req_keys=None):
         """
         A class to do some analysis defined by the user. Implemented
         as a plugin provided through the sensor configuration.
@@ -59,11 +59,15 @@ class EODataDownUserAnalysis (object):
         :param analysis_name: A name for the analysis, must be unique for sensor. Must not be None. This is
                               expected to be passed to the parent from the child constructor. No value will
                               be passed through from the EODataDown sensor when the plugin is instantiated.
+        :param req_keys: A list of required keys within the parameters (optionally) provided from the EODataDown
+                         configuration file. If None then it will be assume no parameters are being provided to
+                         the class.
 
         """
         if analysis_name is None:
             raise EODataDownException("The analysis name was None, a value is required.")
         self.analysis_name = analysis_name
+        self.req_keys = req_keys
         self.params = None
 
     def set_analysis_name(self, analysis_name):
@@ -83,6 +87,26 @@ class EODataDownUserAnalysis (object):
 
         """
         return self.analysis_name
+
+    def set_required_keys(self, req_keys=None):
+        """
+        A function which sets the required keys for the class parameters.
+
+        :param req_keys: A list of required keys within the parameters (optionally) provided from the EODataDown
+                         configuration file. If None then it will be assume no parameters are being provided to
+                         the class.
+
+        """
+        self.req_keys = req_keys
+
+    def get_required_keys(self):
+        """
+        A function which returns the list of require keys for the parameters dict.
+
+        :return: a list of strings or None.
+
+        """
+        return self.req_keys
 
     def set_users_param(self, params):
         """
@@ -104,6 +128,28 @@ class EODataDownUserAnalysis (object):
             raise Exception("The analysis name is None and must have a value provided.")
 
         return self.analysis_name
+
+    def check_param_keys(self, req_keys=None, raise_except=False):
+        """
+        Check that the parameters have the req_keys for the analysis
+
+        :param req_keys: list of keys, if None then the class version (defined in constructor) will be used.
+        :return: boolean (True if all present)
+
+        """
+        keys_present = True
+        if req_keys is None:
+            req_keys = self.req_keys
+        for key in req_keys:
+            if key not in self.params:
+                keys_present = False
+                logger.debug("'{}' key NOT present.".format(key))
+                if raise_except:
+                    raise EODataDownException("Parameters did not have expected key '{}'".format(key))
+                break
+            else:
+                logger.debug("'{}' key present.".format(key))
+        return keys_present
 
     @abstractmethod
     def perform_analysis(self, scn_db_obj, sen_obj):
