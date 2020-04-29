@@ -1392,7 +1392,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                 EDDSentinel2Google.ExtendedInfo.is_(None),
                                 sqlalchemy.not_(EDDSentinel2Google.ExtendedInfo.has_key(plugin_key))),
                         EDDSentinel2Google.Invalid == False,
-                        EDDSentinel2Google.ARDProduct == True).all()
+                        EDDSentinel2Google.ARDProduct == True).order_by(
+                        EDDSentinel2Google.Sensing_Time.asc()).all()
 
                 if query_result is not None:
                     for record in query_result:

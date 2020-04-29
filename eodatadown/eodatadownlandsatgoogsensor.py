@@ -1534,7 +1534,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                 EDDLandsatGoogle.ExtendedInfo.is_(None),
                                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key(plugin_key))),
                         EDDLandsatGoogle.Invalid == False,
-                        EDDLandsatGoogle.ARDProduct == True).all()
+                        EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.asc()).all()
 
                 if query_result is not None:
                     for record in query_result:

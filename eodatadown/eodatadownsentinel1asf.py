@@ -1249,7 +1249,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                 EDDSentinel1ASF.ExtendedInfo.is_(None),
                                 sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key(plugin_key))),
                         EDDSentinel1ASF.Invalid == False,
-                        EDDSentinel1ASF.ARDProduct == True).all()
+                        EDDSentinel1ASF.ARDProduct == True).order_by(
+                        EDDSentinel1ASF.Acquisition_Date.asc()).all()
 
                 if query_result is not None:
                     for record in query_result:
