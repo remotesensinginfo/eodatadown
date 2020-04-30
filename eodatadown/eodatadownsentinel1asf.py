@@ -490,7 +490,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDSentinel1ASF).all()
+        query_result = ses.query(EDDSentinel1ASF).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
         scns = list()
         if query_result is not None:
             for record in query_result:
@@ -512,7 +512,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == False).filter(
-            EDDSentinel1ASF.Remote_URL is not None).all()
+            EDDSentinel1ASF.Remote_URL is not None).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
 
         scns2dwnld = list()
         if query_result is not None:
@@ -639,7 +639,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Downloaded == True,
                                                          EDDSentinel1ASF.ARDProduct == False,
-                                                         EDDSentinel1ASF.Invalid == False).all()
+                                                         EDDSentinel1ASF.Invalid == False).order_by(
+                                                         EDDSentinel1ASF.Acquisition_Date.asc()).all()
 
         scns2ard = list()
         if query_result is not None:
@@ -881,7 +882,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.ARDProduct == True,
-                                                         EDDSentinel1ASF.DCLoaded == loaded).all()
+                                                         EDDSentinel1ASF.DCLoaded == loaded).order_by(
+                                                         EDDSentinel1ASF.Acquisition_Date.asc()).all()
         scns2dcload = list()
         if query_result is not None:
             for record in query_result:
@@ -937,7 +939,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 EDDSentinel1ASF.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('quicklook'))),
             EDDSentinel1ASF.Invalid == False,
-            EDDSentinel1ASF.ARDProduct == True).all()
+            EDDSentinel1ASF.ARDProduct == True).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
         scns2quicklook = list()
         if query_result is not None:
             for record in query_result:
@@ -1065,7 +1067,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 EDDSentinel1ASF.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('tilecache'))),
             EDDSentinel1ASF.Invalid == False,
-            EDDSentinel1ASF.ARDProduct == True).all()
+            EDDSentinel1ASF.ARDProduct == True).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
         scns2tilecache = list()
         if query_result is not None:
             for record in query_result:

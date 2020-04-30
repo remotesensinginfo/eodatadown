@@ -536,7 +536,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDSentinel2Google).all()
+        query_result = ses.query(EDDSentinel2Google).order_by(EDDSentinel2Google.Sensing_Time.asc()).all()
         scns = list()
         if query_result is not None:
             for record in query_result:
@@ -557,7 +557,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).all()
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).order_by(
+                                                            EDDSentinel2Google.Sensing_Time.asc()).all()
 
         scns2dwnld = list()
         if query_result is not None:
@@ -748,7 +749,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == True,
                                                             EDDSentinel2Google.ARDProduct == False,
-                                                            EDDSentinel2Google.Invalid == False).all()
+                                                            EDDSentinel2Google.Invalid == False).order_by(
+                                                            EDDSentinel2Google.Sensing_Time.asc()).all()
 
         scns2ard = []
         if query_result is not None:
@@ -942,7 +944,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.ARDProduct == True,
-                                                            EDDSentinel2Google.DCLoaded == loaded).all()
+                                                            EDDSentinel2Google.DCLoaded == loaded).order_by(
+                                                            EDDSentinel2Google.Sensing_Time.asc()).all()
         scns2dcload = []
         if query_result is not None:
             for record in query_result:
@@ -1083,7 +1086,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 EDDSentinel2Google.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDSentinel2Google.ExtendedInfo.has_key('quicklook'))),
             EDDSentinel2Google.Invalid == False,
-            EDDSentinel2Google.ARDProduct == True).all()
+            EDDSentinel2Google.ARDProduct == True).order_by(
+                        EDDSentinel2Google.Sensing_Time.asc()).all()
         scns2quicklook = []
         if query_result is not None:
             for record in query_result:
@@ -1211,7 +1215,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 EDDSentinel2Google.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDSentinel2Google.ExtendedInfo.has_key('tilecache'))),
             EDDSentinel2Google.Invalid == False,
-            EDDSentinel2Google.ARDProduct == True).all()
+            EDDSentinel2Google.ARDProduct == True).order_by(
+                        EDDSentinel2Google.Sensing_Time.asc()).all()
         scns2tilecache = []
         if query_result is not None:
             for record in query_result:

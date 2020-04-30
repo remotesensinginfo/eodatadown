@@ -774,6 +774,12 @@ def get_scenes_need_processing(config_file, sensors):
     for sensor in sensors:
         sensor_obj = sys_main_obj.get_sensor_obj(sensor)
         scn_ids = []
+        scns = sensor_obj.get_scnlist_usr_analysis()
+        for scn in scns:
+            if scn not in scn_ids:
+                tasks.append([config_file, sensor, scn])
+                scn_ids.append(scn)
+
         scns = sensor_obj.get_scnlist_quicklook()
         for scn in scns:
             if scn not in scn_ids:

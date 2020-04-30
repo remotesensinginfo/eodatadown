@@ -660,7 +660,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDLandsatGoogle).all()
+        query_result = ses.query(EDDLandsatGoogle).order_by(
+                                 EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns = list()
         if query_result is not None:
             for record in query_result:
@@ -681,7 +682,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.asc()).all()
 
         scns2dwnld = list()
         if query_result is not None:
@@ -867,7 +869,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
                                                           EDDLandsatGoogle.ARDProduct == False,
-                                                          EDDLandsatGoogle.Invalid == False).all()
+                                                          EDDLandsatGoogle.Invalid == False).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.asc()).all()
 
         scns2ard = list()
         if query_result is not None:
@@ -1062,7 +1065,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
-                                                          EDDLandsatGoogle.DCLoaded == loaded).all()
+                                                          EDDLandsatGoogle.DCLoaded == loaded).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns2dcload = list()
         if query_result is not None:
             for record in query_result:
@@ -1219,7 +1223,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 EDDLandsatGoogle.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('quicklook'))),
             EDDLandsatGoogle.Invalid == False,
-            EDDLandsatGoogle.ARDProduct == True).all()
+            EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns2quicklook = list()
         if query_result is not None:
             for record in query_result:
@@ -1349,7 +1354,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 EDDLandsatGoogle.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('tilecache'))),
             EDDLandsatGoogle.Invalid == False,
-            EDDLandsatGoogle.ARDProduct == True).all()
+            EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns2tilecache = list()
         if query_result is not None:
             for record in query_result:
