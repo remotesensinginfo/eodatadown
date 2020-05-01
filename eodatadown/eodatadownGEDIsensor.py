@@ -188,6 +188,7 @@ class EODataDownGEDISensor (EODataDownSensor):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
             logger.debug("Testing config file is for 'GEDI'")
             json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "name"], [self.sensor_name])
             logger.debug("Have the correct config file for 'GEDI'")
@@ -262,10 +263,18 @@ class EODataDownGEDISensor (EODataDownSensor):
 
             logger.debug("Find EarthData Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
-            self.earthDataUser = json_parse_helper.getStrValue(config_data,
-                                                               ["eodatadown", "sensor", "earthdata", "user"])
-            self.earthDataPass = edd_pass_encoder.unencodePassword(
-                json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "pass"]))
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "earthdata", "usrpassfile"]):
+                usr_pass_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "passfile"])
+                if os.path.exists(usr_pass_file):
+                    usr_pass_info = eodd_utils.readTextFile2List(usr_pass_file)
+                    self.earthDataUser = usr_pass_info[0]
+                    self.earthDataPass = edd_pass_encoder.unencodePassword(usr_pass_info[1])
+                else:
+                    raise EODataDownException("The username/password file specified does not exist on the system.")
+            else:
+                self.earthDataUser = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "user"])
+                self.earthDataPass = edd_pass_encoder.unencodePassword(json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "pass"]))
+
             logger.debug("Found EarthData Account params from config file")
 
             logger.debug("Find the plugins params")

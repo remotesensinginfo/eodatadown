@@ -41,7 +41,7 @@ import json
 
 EODATADOWN_VERSION_MAJOR = 2
 EODATADOWN_VERSION_MINOR = 2
-EODATADOWN_VERSION_PATCH = 4
+EODATADOWN_VERSION_PATCH = 5
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
 rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)
@@ -57,18 +57,12 @@ if omp_num_threads_envvar is None:
 
 EODATADOWN_VERSION = str(EODATADOWN_VERSION_MAJOR) + "."  + str(EODATADOWN_VERSION_MINOR) + "." + str(EODATADOWN_VERSION_PATCH)
 EODATADOWN_VERSION_OBJ = LooseVersion(EODATADOWN_VERSION)
-
 EODATADOWN_COPYRIGHT_YEAR = "2018"
 EODATADOWN_COPYRIGHT_NAMES = "Pete Bunting"
-
 EODATADOWN_SUPPORT_EMAIL = "rsgislib-support@googlegroups.com"
-
 EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
-
 EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ASF", "GEDI", "ICESAT2"]
 
-#eodd_install_prefix = __file__[:__file__.find('lib')]
-#log_config_path = os.path.join(eodd_install_prefix, "share", "eodatadown", "loggingconfig.json")
 log_default_level=logging.INFO
 if eodd_log_level.upper() == 'INFO':
     log_default_level = logging.INFO
