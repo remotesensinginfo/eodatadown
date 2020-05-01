@@ -205,13 +205,14 @@ def _process_to_ard(params):
     mask_outputs = params[16]
     mask_vec_file = params[17]
     mask_vec_lyr = params[18]
+    low_res = params[19]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
     input_hdr = edd_utils.findFirstFile(scn_path, "*MTD*.xml")
 
     start_date = datetime.datetime.now()
     eodatadown.eodatadownrunarcsi.run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs,
-                                                      proj_wkt_file, projabbv)
+                                                      proj_wkt_file, projabbv, low_res)
 
     logger.debug("Move final ARD files to specified location.")
     # Move ARD files to be kept.
@@ -307,6 +308,11 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             logger.debug("Find ARD processing params from config file")
             self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "dem"])
+
+            self.low_res_prod = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "lowres"]):
+                self.low_res_prod = json_parse_helper.getBooleanValue(config_data, ["eodatadown", "sensor", "ardparams", "lowres"])
+
             self.projEPSG = -1
             self.projabbv = ""
             self.ardProjDefined = False
@@ -841,7 +847,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                              work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
                              proj_wkt_file, self.projabbv, self.use_roi, self.intersect_vec_file,
                              self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
-                             self.mask_vec_file, self.mask_vec_lyr])
+                             self.mask_vec_file, self.mask_vec_lyr, self.low_res_prod])
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -916,7 +922,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                    work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
                                    proj_wkt_file, self.projabbv, self.use_roi, self.intersect_vec_file,
                                    self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
-                                   self.mask_vec_file, self.mask_vec_lyr])
+                                   self.mask_vec_file, self.mask_vec_lyr, self.low_res_prod])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
