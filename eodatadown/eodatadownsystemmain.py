@@ -38,6 +38,7 @@ from eodatadown.eodatadownsensor import EODataDownObsDates
 
 import logging
 import json
+import os
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -104,6 +105,7 @@ class EODataDownSystemMain(object):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
 
             # Get Basic System Info.
             self.name = json_parse_helper.getStrValue(config_data, ['eodatadown', 'details', 'name'])
@@ -112,7 +114,20 @@ class EODataDownSystemMain(object):
             # Get Database Information
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
 
-            db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'database', 'connection']):
+                db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
+            elif json_parse_helper.doesPathExist(config_data, ['eodatadown', 'database', 'connection_file']):
+                connection_file = json_parse_helper.getStrValue(config_data,
+                                                                ['eodatadown', 'database', 'connection_file'])
+                logger.debug("Using connection database file: '{}'".format(connection_file))
+                if os.path.exists(connection_file):
+                    logger.debug("Database connection file exists and being read")
+                    db_conn_str = eodd_utils.readTextFileNoNewLines(connection_file)
+                else:
+                    raise EODataDownException("The database connection file specified was not present.")
+            else:
+                raise EODataDownException("A database connection is required. You must provided via either"
+                                          " a 'connection' or 'connection_file' key.")
             self.db_info_obj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
 
             if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'reports', 'date_report_config']):
