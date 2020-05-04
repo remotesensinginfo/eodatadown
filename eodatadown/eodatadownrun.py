@@ -897,5 +897,92 @@ def get_obs_dates_need_processing(config_file, sensor):
     return obs_dates_list
 
 
+def get_scenes_need_processing_date_order(config_file, sensors):
+    """
+    This function returns a list of dicts with sensor, scene PID and observation date
+    sorted to ascending order (i.e., earliest first). This can be used for a single
+    sensor or multiple sensors where the the scenes are merged from the different
+    sensors.
+
+    The outputs of this function can be used to call the run_scn_analysis function.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: a list of sensors
+    :return: a list of lists where each scn has [config_file, scn_sensor, scn_id]
+
+    """
+    import datetime
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+
+    scns = get_scenes_need_processing(config_file, sensors)
+
+    sen_objs = dict()
+    for sensor_str in sensors:
+        sen_objs[sensor_str] = sys_main_obj.get_sensor_obj(sensor_str)
+
+    scns_dict = dict()
+    for scn in scns:
+        scn_datetime = sen_objs[scn[1]].get_scn_obs_date(scn[2])
+        if type(scn_datetime) is datetime.date:
+            scn_datetime = datetime.datetime(scn_datetime.year, scn_datetime.month, scn_datetime.day)
+        logger.debug("Scene {} ({}) acq datetime: {}".format(scn[2], scn[1], scn_datetime.isoformat()))
+        scns_dict[scn_datetime] = scn
+
+    out_scns = list()
+    for scn_key in sorted(list(scns_dict.keys())):
+        print("{}: {} - {}".format(scn_key.isoformat(), scns_dict[scn_key][1], scns_dict[scn_key][2]))
+        out_scns.append(scns_dict[scn_key])
+
+    return out_scns
 
 
+def does_scn_need_processing(config_file, sensor, unq_id):
+    """
+    A function which tests whether a scene required processing or if processing has been completed.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: The sensor for the observation of interest.
+    :param unq_id: Unique integer ID for the scene to be checked.
+    :return: boolean. True IS processing is required. False is processing is NOT required.
+
+    """
+    logger.debug("Testing whether scene ({}) from {} has completed all processing.".format(unq_id, sensor))
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+
+    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+    logger.debug("Got sensor object for scene {} from sensor {}.".format(unq_id, sensor))
+
+    processing_required = False
+    if not sensor_obj.has_scn_download(unq_id):
+        processing_required = True
+        logger.debug("Scene has not been downloaded.")
+    elif not sensor_obj.has_scn_con2ard(unq_id):
+        processing_required = True
+        logger.debug("Scene has not been processed to an ARD product.")
+
+    if (not processing_required) and sensor_obj.calc_scn_quicklook():
+        logger.debug("Generation of a quicklook product is required.")
+        if not sensor_obj.has_scn_quicklook(unq_id):
+            processing_required = True
+            logger.debug("A quicklook product has not be generated.")
+
+    if (not processing_required) and sensor_obj.calc_scn_tilecache():
+        logger.debug("Generation of a tilecache product is required.")
+        if not sensor_obj.has_scn_tilecache(unq_id):
+            processing_required = True
+            logger.debug("A tilecache product has not be generated.")
+
+    if (not processing_required) and sensor_obj.calc_scn_usr_analysis():
+        logger.debug("There are user defined processing plugins to execute.")
+        if not sensor_obj.has_scn_usr_analysis(unq_id):
+            processing_required = True
+            logger.debug("The user defined plugins have not been (fully) executed.")
+
+    if processing_required:
+        logger.debug("Processing is required for scene ({}) from {}.".format(unq_id, sensor))
+    else:
+        logger.debug("Processing is complete for scene ({}) from {}.".format(unq_id, sensor))
+
+    return processing_required
