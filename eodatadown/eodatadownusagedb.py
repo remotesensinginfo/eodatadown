@@ -64,7 +64,7 @@ class EODataDownUpdateUsageLogDB(object):
     def __init__(self, db_info_obj):
         self.db_info_obj = db_info_obj
 
-    def init_usage_log_db(self):
+    def init_usage_log_db(self, drop_tables=True):
         """
         A function which will setup the system data base for each of the sensors.
         Note. this function should only be used to initialing the system.
@@ -73,8 +73,9 @@ class EODataDownUpdateUsageLogDB(object):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop usage table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop usage table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating Usage Database.")
         Base.metadata.bind = db_engine

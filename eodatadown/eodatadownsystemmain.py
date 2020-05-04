@@ -210,7 +210,7 @@ class EODataDownSystemMain(object):
 
         return sensor_obj_to_process
 
-    def init_dbs(self):
+    def init_dbs(self, drop_tables=True):
         """
         A function which will setup the system data base for each of the sensors.
         Note. this function should only be used to initialing the system.
@@ -219,12 +219,13 @@ class EODataDownSystemMain(object):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Initialise the data usage database.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
-        edd_usage_db.init_usage_log_db()
+        edd_usage_db.init_usage_log_db(drop_tables)
 
         logger.debug("Creating System Details Database.")
         Base.metadata.bind = db_engine
@@ -242,18 +243,18 @@ class EODataDownSystemMain(object):
 
         for sensor_obj in self.sensors:
             logger.debug("Initialise Sensor Database: '" + sensor_obj.get_sensor_name() + "'")
-            sensor_obj.init_sensor_db()
+            sensor_obj.init_sensor_db(drop_tables)
             logger.debug("Finished initialising the sensor database for '" + sensor_obj.get_sensor_name() + "'")
 
         if self.date_report_config_file is not None:
             report_obj = EODataDownDateReports(self.db_info_obj)
             report_obj.parse_sensor_config(self.date_report_config_file)
-            report_obj.init_db()
+            report_obj.init_db(drop_tables)
 
         if self.obsdates_config_file is not None:
             obsdates_obj = EODataDownObsDates(self.db_info_obj)
             obsdates_obj.parse_sensor_config(self.obsdates_config_file)
-            obsdates_obj.init_db()
+            obsdates_obj.init_db(drop_tables)
 
     def get_date_report_obj(self):
         """

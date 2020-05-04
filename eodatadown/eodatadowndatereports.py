@@ -114,7 +114,7 @@ class EODataDownDateReports (object):
                 self.scn_overlay_vec_lyr = json_parse_helper.getStrValue(config_data, ["eodatadown", "report",
                                                                                        "vec_overlay_lyr"])
 
-    def init_db(self):
+    def init_db(self, drop_tables=True):
         """
         A function which initialises the database use the db_info_obj passed to __init__.
         Be careful as running this function drops the table if it already exists and therefore
@@ -123,8 +123,9 @@ class EODataDownDateReports (object):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating EDDDateReports Database Table.")
         Base.metadata.bind = db_engine

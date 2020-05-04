@@ -79,6 +79,10 @@ def update_existing_system(config_file):
     sys_main_obj.parse_config(config_file, True)
     logger.debug("Parsed the system configuration.")
 
+    # Create and initialise the sensor databases
+    sys_main_obj.init_dbs(drop_tables=False)
+    logger.debug("Initialised the sensor databases.")
+
     edd_usage_db = sys_main_obj.get_usage_db_obj()
     edd_usage_db.add_entry("Started: Updating initialisation of the configure files.", start_block=True)
     # I don't think there is anything which need doing - keeping start and end for consistency.

@@ -180,7 +180,7 @@ class EODataDownSensor (object):
     def parse_sensor_config(self, config_file, first_parse=False): pass
 
     @abstractmethod
-    def init_sensor_db(self): pass
+    def init_sensor_db(self, drop_tables=True): pass
 
     @abstractmethod
     def check_new_scns(self, check_from_start=False): pass
@@ -465,7 +465,7 @@ class EODataDownObsDates (object):
             else:
                 raise EODataDownException("No information on eodatadown > obsdates > overviews.")
 
-    def init_db(self):
+    def init_db(self, drop_tables=True):
         """
         A function which initialises the database use the db_info_obj passed to __init__.
         Be careful as running this function drops the table if it already exists and therefore
@@ -474,8 +474,9 @@ class EODataDownObsDates (object):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating EDDObsDates & EDDObsDatesScns Tables.")
         Base.metadata.bind = db_engine

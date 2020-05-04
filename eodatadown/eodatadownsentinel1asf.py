@@ -318,7 +318,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 self.parse_plugins_config(config_data["eodatadown"]["sensor"]["plugins"])
             logger.debug("Found the plugins params")
 
-    def init_sensor_db(self):
+    def init_sensor_db(self, drop_tables=True):
         """
         A function which initialises the database use the db_info_obj passed to __init__.
         Be careful as running this function drops the table if it already exists and therefore
@@ -327,8 +327,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating Sentinel1ASF Database.")
         Base.metadata.bind = db_engine
