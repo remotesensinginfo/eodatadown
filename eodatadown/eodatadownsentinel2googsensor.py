@@ -69,7 +69,7 @@ class EDDSentinel2Google(Base):
     Platform_ID = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Datatake_Identifier = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Mgrs_Tile = sqlalchemy.Column(sqlalchemy.String, nullable=True)
-    Sensing_Time = sqlalchemy.Column(sqlalchemy.Date, nullable=True)
+    Sensing_Time = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
     Geometric_Quality_Flag = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     Generation_Time = sqlalchemy.Column(sqlalchemy.DateTime, nullable=False)
     Cloud_Cover = sqlalchemy.Column(sqlalchemy.Float, nullable=False, default=0.0)
@@ -1351,11 +1351,41 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                 logger.error(
                     "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
                 raise EODataDownException(
-                    "There was more than 1 scene which has been found - soomething has gone really wrong!")
+                    "There was more than 1 scene which has been found - something has gone really wrong!")
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
+
+    def get_scn_obs_date(self, unq_id):
+        """
+        A function which returns a datetime object for the observation date/time of a scene.
+
+        :param unq_id: the unique id (PID) of the scene of interest.
+        :return: a datetime object.
+
+        """
+        import copy
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.PID == unq_id).all()
+        ses.close()
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                      "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
+                raise EODataDownException(
+                        "There was more than 1 scene which has been found - something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return copy.copy(scn_record.Sensing_Time)
 
     def get_scnlist_usr_analysis(self):
         """
@@ -2238,7 +2268,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                                      Platform_ID=platform,
                                                      Datatake_Identifier=sensor_rows[pid]['Datatake_Identifier'],
                                                      Mgrs_Tile=sensor_rows[pid]['Mgrs_Tile'],
-                                                     Sensing_Time=eodd_utils.getDateFromISOString(sensor_rows[pid]['Sensing_Time']),
+                                                     Sensing_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Sensing_Time']),
                                                      Geometric_Quality_Flag=sensor_rows[pid]['Geometric_Quality_Flag'],
                                                      Generation_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Generation_Time']),
                                                      Cloud_Cover=sensor_rows[pid]['Cloud_Cover'],

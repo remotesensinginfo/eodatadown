@@ -1209,11 +1209,42 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 logger.error(
                     "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
                 raise EODataDownException(
-                    "There was more than 1 scene which has been found - soomething has gone really wrong!")
+                    "There was more than 1 scene which has been found - something has gone really wrong!")
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
+
+    def get_scn_obs_date(self, unq_id):
+        """
+        A function which returns a datetime object for the observation date/time of a scene.
+
+        :param unq_id: the unique id (PID) of the scene of interest.
+        :return: a datetime object.
+
+        """
+        import copy
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id).all()
+        ses.close()
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                        "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(
+                            unq_id))
+                raise EODataDownException(
+                        "There was more than 1 scene which has been found - something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return copy.copy(scn_record.BeginPosition)
 
     def get_scnlist_usr_analysis(self):
         """

@@ -510,7 +510,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
             if (not check_from_start) and \
                     (ses.query(EDDICESAT2).filter(EDDICESAT2.Product == prod["product"]).first() is not None):
                 query_date = ses.query(EDDICESAT2).filter(EDDICESAT2.Product == prod["product"]).\
-                    order_by(EDDICESAT2.Date_Acquired.desc()).first().Date_Acquired
+                    order_by(EDDICESAT2.Start_Time.desc()).first().Start_Time
             logger.info("Query for product '{}' with start at date: {}".format(prod["product"], query_date))
 
             start_date_str = query_date.strftime("%Y-%m-%dT00:00:00Z")
@@ -911,7 +911,63 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         raise Exception("Not Implement...")
 
     def get_scn_record(self, unq_id):
-        raise Exception("Not Implement...")
+        """
+        A function which queries the database using the unique ID of a scene returning the record
+        :param unq_id:
+        :return: Returns the database record object
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).all()
+        ses.close()
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                        "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(
+                                unq_id))
+                raise EODataDownException(
+                        "There was more than 1 scene which has been found - something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return scn_record
+
+    def get_scn_obs_date(self, unq_id):
+        """
+        A function which returns a datetime object for the observation date/time of a scene.
+
+        :param unq_id: the unique id (PID) of the scene of interest.
+        :return: a datetime object.
+
+        """
+        import copy
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).all()
+        ses.close()
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                        "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(
+                            unq_id))
+                raise EODataDownException(
+                        "There was more than 1 scene which has been found - something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return copy.copy(scn_record.Start_Time)
 
     def get_scnlist_usr_analysis(self):
         """

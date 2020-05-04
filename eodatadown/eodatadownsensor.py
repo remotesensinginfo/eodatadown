@@ -306,6 +306,9 @@ class EODataDownSensor (object):
     def get_scn_record(self, unq_id): pass
 
     @abstractmethod
+    def get_scn_obs_date(self, unq_id): pass
+
+    @abstractmethod
     def find_unique_platforms(self): pass
 
     @abstractmethod
