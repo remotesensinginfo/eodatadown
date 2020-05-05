@@ -62,6 +62,8 @@ if __name__ == "__main__":
                         help="Specify that the system should calculate a tilecache product.")
     parser.add_argument("--usrplugins", action='store_true', default=False,
                         help="Specify that the system should apply the user plugins.")
+    parser.add_argument("--rmintersect", action='store_true', default=False,
+                        help="Specify that the system should check if scenes intersect roi vector layer.")
     parser.add_argument("--sceneid", type=str, default=None,
                         help="Specify an ID of a scene to be processed.")
     parser.add_argument("--checkstart", action='store_true', default=False,
@@ -99,9 +101,9 @@ if __name__ == "__main__":
     if ncores == 0:
         ncores = 1
 
-    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc) and (not args.usrplugins):
-        logger.info("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
-        raise Exception("At least one of --finddownloads, --performdownload, --processard or --loaddc needs to be specified.")
+    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc) and (not args.usrplugins) and (not args.rmintersect):
+        logger.info("At least one of --finddownloads, --performdownload, --processard --loaddc --usrplugins or --rmintersect needs to be specified.")
+        raise Exception("At least one of --finddownloads, --performdownload, --processard --loaddc --usrplugins or --rmintersect needs to be specified.")
 
 
     t = rsgislib.RSGISTime()
@@ -193,6 +195,17 @@ if __name__ == "__main__":
                 logger.info('Finished user plugins analysis for all scenes.')
         except Exception as e:
             logger.error('Failed to run user plugins.', exc_info=True)
+
+    if args.rmintersect:
+        try:
+            if process_single_scn:
+                raise Exception("--rmintersect cannot be excuted with a single scene.")
+            else:
+                logger.info('Running rmintersect analysis for all scenes.')
+                eodatadown.eodatadownrun.rm_scn_intersect(config_file, args.sensors, args.checkstart)
+                logger.info('Finished rmintersect analysis for all scenes.')
+        except Exception as e:
+            logger.error('Failed to run rmintersect.', exc_info=True)
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrun.py.')
 

@@ -186,6 +186,9 @@ class EODataDownSensor (object):
     def check_new_scns(self, check_from_start=False): pass
 
     @abstractmethod
+    def rm_scns_intersect(self, all_scns=False): pass
+
+    @abstractmethod
     def get_scnlist_all(self): pass
 
     @abstractmethod

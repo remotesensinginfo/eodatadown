@@ -253,13 +253,26 @@ class EODataDownGEDISensor (EODataDownSensor):
                 edd_bbox.setWestLon(json_parse_helper.getNumericValue(geo_bound_json, ["west_lon"], -180, 180))
                 edd_bbox.setEastLon(json_parse_helper.getNumericValue(geo_bound_json, ["east_lon"], -180, 180))
                 self.geoBounds.append(edd_bbox)
-            logger.debug("Found search params from config file")
 
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "lcl_data_cache"]):
                 self.dir_lcl_data_cache = json_parse_helper.getListValue(config_data, ["eodatadown", "sensor",
                                                                                        "download", "lcl_data_cache"])
             else:
                 self.dir_lcl_data_cache = None
+            logger.debug("Found search params from config file")
+
+            self.scn_intersect = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "validity"]):
+                logger.debug("Find scene validity params from config file")
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "validity", "scn_intersect"]):
+                    self.scn_intersect_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                                ["eodatadown", "sensor", "validity",
+                                                                                 "scn_intersect", "vec_file"])
+                    self.scn_intersect_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                               ["eodatadown", "sensor", "validity",
+                                                                                "scn_intersect", "vec_lyr"])
+                    self.scn_intersect = True
+                logger.debug("Found scene validity params from config file")
 
             logger.debug("Find EarthData Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
@@ -409,6 +422,21 @@ class EODataDownGEDISensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
 
+    def rm_scns_intersect(self, all_scns=False):
+        """
+        A function which checks whether the bounding box for the scene intersects with a specified
+        vector layer. If the scene does not intersect then it is deleted from the database. By default
+        this is only testing the scenes which have not been downloaded.
+
+        :param all_scns: If True all the scenes in the database will be tested otherwise only the
+                         scenes which have not been downloaded will be tested.
+
+        """
+        if self.scn_intersect:
+            raise EODataDownException("Cannot provide implementation of rm_scns_intersect "
+                                      "as database does not have BBOX until after the download "
+                                      "has been completed.")
+
     def get_scnlist_all(self):
         """
         A function which returns a list of the unique IDs for all the scenes within the database.
@@ -421,7 +449,7 @@ class EODataDownGEDISensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDGEDI).all()
+        query_result = ses.query(EDDGEDI).order_by(EDDGEDI.Date_Acquired.asc()).all()
         scns = list()
         if query_result is not None:
             for record in query_result:
@@ -445,7 +473,7 @@ class EODataDownGEDISensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == False).filter(
-                EDDGEDI.Remote_URL is not None).all()
+                EDDGEDI.Remote_URL is not None).order_by(EDDGEDI.Date_Acquired.asc()).all()
 
         scns2dwnld = list()
         if query_result is not None:
@@ -534,7 +562,8 @@ class EODataDownGEDISensor (EODataDownSensor):
         ses = session_sqlalc()
 
         query_result = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == False).filter(
-                                                 EDDGEDI.Remote_URL is not None).all()
+                                                 EDDGEDI.Remote_URL is not None).order_by(
+                                                 EDDGEDI.Date_Acquired.asc()).all()
         dwnld_params = list()
         downloaded_new_scns = False
         if query_result is not None:
@@ -715,8 +744,8 @@ class EODataDownGEDISensor (EODataDownSensor):
                         sqlalchemy.or_(
                                 EDDGEDI.ExtendedInfo.is_(None),
                                 sqlalchemy.not_(EDDGEDI.ExtendedInfo.has_key(plugin_key))),
-                        EDDGEDI.Invalid == False,
-                        EDDGEDI.ARDProduct == True).all()
+                        EDDGEDI.Invalid == False, EDDGEDI.ARDProduct == True).order_by(
+                        EDDGEDI.Date_Acquired.asc()).all()
 
                 if query_result is not None:
                     for record in query_result:

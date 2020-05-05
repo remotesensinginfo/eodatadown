@@ -376,6 +376,19 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                                                        ["eodatadown", "sensor", "download", "months"])
             logger.debug("Found search params from config file")
 
+            self.scn_intersect = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "validity"]):
+                logger.debug("Find scene validity params from config file")
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "validity", "scn_intersect"]):
+                    self.scn_intersect_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                                 ["eodatadown", "sensor", "validity",
+                                                                                  "scn_intersect", "vec_file"])
+                    self.scn_intersect_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                                ["eodatadown", "sensor", "validity",
+                                                                                 "scn_intersect", "vec_lyr"])
+                    self.scn_intersect = True
+                logger.debug("Found scene validity params from config file")
+
             logger.debug("Find Google Account params from config file")
             self.goog_proj_name = json_parse_helper.getStrValue(config_data,
                                                               ["eodatadown", "sensor", "googleinfo", "projectname"])
@@ -531,6 +544,57 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
+
+    def rm_scns_intersect(self, all_scns=False):
+        """
+        A function which checks whether the bounding box for the scene intersects with a specified
+        vector layer. If the scene does not intersect then it is deleted from the database. By default
+        this is only testing the scenes which have not been downloaded.
+
+        :param all_scns: If True all the scenes in the database will be tested otherwise only the
+                         scenes which have not been downloaded will be tested.
+
+        """
+        if self.scn_intersect:
+            import rsgislib.vectorutils
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scenes which need downloading.")
+
+            if all_scns:
+                scns = ses.query(EDDSentinel2Google).order_by(EDDSentinel2Google.Sensing_Time.asc()).all()
+            else:
+                scns = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Downloaded == False).order_by(
+                        EDDSentinel2Google.Sensing_Time.asc()).all()
+
+            if scns is not None:
+                eodd_vec_utils = eodatadown.eodatadownutils.EODDVectorUtils()
+                vec_idx, geom_lst = eodd_vec_utils.create_rtree_index(self.scn_intersect_vec_file,
+                                                                      self.scn_intersect_vec_lyr)
+
+                for scn in scns:
+                    logger.debug("Check Scene '{}' to check for intersection".format(scn.PID))
+                    rsgis_utils = rsgislib.RSGISPyUtils()
+                    north_lat = scn.North_Lat
+                    south_lat = scn.South_Lat
+                    east_lon = scn.East_Lon
+                    west_lon = scn.West_Lon
+                    # (xMin, xMax, yMin, yMax)
+                    scn_bbox = [west_lon, east_lon, south_lat, north_lat]
+
+                    intersect_vec_epsg = rsgis_utils.getProjEPSGFromVec(self.scn_intersect_vec_file,
+                                                                        self.scn_intersect_vec_lyr)
+                    if intersect_vec_epsg != 4326:
+                        scn_bbox = rsgis_utils.reprojBBOX_epsg(scn_bbox, 4326, intersect_vec_epsg)
+
+                    has_scn_intersect = eodd_vec_utils.bboxIntersectsIndex(vec_idx, geom_lst, scn_bbox)
+                    if not has_scn_intersect:
+                        logger.info("Removing scene {} from Sentinel-2 as it does not intersect.".format(scn.PID))
+                        ses.query(EDDSentinel2Google.PID).filter(EDDSentinel2Google.PID == scn.PID).delete()
+                        ses.commit()
+            ses.close()
 
     def get_scnlist_all(self):
         """

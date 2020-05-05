@@ -1794,3 +1794,76 @@ class EODDDefineSensorROI(object):
             raise(e)
 
 
+class EODDVectorUtils(object):
+
+    def create_rtree_index(self, vec_file, vec_lyr):
+        """
+        A function which creates a spatial index using the rtree package for the inputted vector file/layer.
+
+        :param vec_file: Input vector file to be processed.
+        :param vec_lyr: The layer within the vector file for which the index is to be built.
+
+        """
+        import osgeo.gdal as gdal
+        import rtree
+        import tqdm
+
+        vec_file_obj = gdal.OpenEx(vec_file, gdal.OF_READONLY)
+        if vec_file_obj is None:
+            raise Exception("Could not open '{}'".format(vec_file))
+
+        vec_lyr_obj = vec_file_obj.GetLayerByName(vec_lyr)
+        if vec_lyr_obj is None:
+            raise Exception("Could not find layer '{}'".format(vec_lyr))
+
+        idx_obj = rtree.index.Index(interleaved=False)
+        geom_lst = list()
+
+        n_feats = vec_lyr_obj.GetFeatureCount(True)
+        n_geom = 0
+        pbar = tqdm.tqdm(total=n_feats)
+        vec_lyr_obj.ResetReading()
+        feat = vec_lyr_obj.GetNextFeature()
+        while feat is not None:
+            geom_obj = feat.GetGeometryRef()
+            if geom_obj is not None:
+                xmin, xmax, ymin, ymax = geom_obj.GetEnvelope()
+                geom_lst.append(geom_obj.Clone())
+                idx_obj.insert(n_geom, (xmin, xmax, ymin, ymax))
+                n_geom = n_geom + 1
+            pbar.update(1)
+            feat = vec_lyr_obj.GetNextFeature()
+        vec_file_obj = None
+        return idx_obj, geom_lst
+
+    def bboxIntersectsIndex(self, rt_idx, geom_lst, bbox):
+        """
+        A function which tests for intersection between the geometries and the bounding box
+        using a spatial index.
+
+        :param rt_idx: the rtree spatial index object (created using the create_rtree_index function)
+        :param geom_lst: the list of geometries as referenced in the index (created using the create_rtree_index function)
+        :param bbox: the bounding box (xMin, xMax, yMin, yMax). Same projection as geometries in the index.
+        :return: True there is an intersection. False there is not an intersection.
+
+        """
+        import osgeo.ogr as ogr
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(bbox[0], bbox[3])
+        ring.AddPoint(bbox[1], bbox[3])
+        ring.AddPoint(bbox[1], bbox[2])
+        ring.AddPoint(bbox[0], bbox[2])
+        ring.AddPoint(bbox[0], bbox[3])
+        # Create polygon.
+        poly_bbox = ogr.Geometry(ogr.wkbPolygon)
+        poly_bbox.AddGeometry(ring)
+
+        bbox_intersects = False
+
+        for geom_idx in list(rt_idx.intersection(bbox)):
+            geom_obj = geom_lst[geom_idx]
+            if poly_bbox.Intersects(geom_obj):
+                bbox_intersects = True
+                break
+        return bbox_intersects
+

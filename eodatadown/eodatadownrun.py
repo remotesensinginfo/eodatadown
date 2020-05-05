@@ -41,12 +41,14 @@ import eodatadown.eodatadownsystemmain
 
 logger = logging.getLogger(__name__)
 
+
 def find_new_downloads(config_file, sensors, check_from_start=False):
     """
     A function to run the process of finding new data to download.
     :param config_file: The EODataDown configuration file path.
     :param sensors: list of sensor names.
-    :param check_from_start:
+    :param check_from_start: If True the search from new downloads will be from the configured start date.
+                             If False the search will be from the most recent scene in the database.
 
     """
     logger.info("Running process to find new downloads.")
@@ -61,8 +63,39 @@ def find_new_downloads(config_file, sensors, check_from_start=False):
     for sensor in sensors:
         sensor_obj = sys_main_obj.get_sensor_obj(sensor)
         sensor_obj.check_new_scns(check_from_start)
+        sensor_obj.rm_scns_intersect()
 
     edd_usage_db.add_entry("Finished: Finding Available Downloads.", end_block=True)
+
+
+def rm_scn_intersect(config_file, sensors, check_all=False):
+    """
+    A function which tests whether a scenes bounding box (BBOX) intersects with a
+    vector layer provided. If there is no intersection then the scene will be deleted
+    from the database. This function only performs an operation if the configure file
+    provides a vector layer for the intersection.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensors: list of sensor names.
+    :param check_all: If True all scenes within the database will be checked.
+                      If False then only those scenes which have not been downloaded
+                      will be tested.
+
+    """
+    logger.info("Running process to remove scenes which do not intersect with an ROI vector layer.")
+    # Create the System 'Main' object and parse the configuration file.
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+    logger.debug("Parsed the system configuration.")
+
+    edd_usage_db = sys_main_obj.get_usage_db_obj()
+    edd_usage_db.add_entry("Started: Removing Scenes with No Intersection.", start_block=True)
+
+    for sensor in sensors:
+        sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+        sensor_obj.rm_scns_intersect(check_all)
+
+    edd_usage_db.add_entry("Finished: Removing Scenes with No Intersection.", end_block=True)
 
 
 def get_sensor_obj(config_file, sensor):
