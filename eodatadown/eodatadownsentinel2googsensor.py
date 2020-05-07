@@ -130,8 +130,12 @@ def _download_scn_goog(params):
         download_completed = True
     elif goog_down_meth == 'GSUTIL':
         logger.debug("Using Google GSUTIL utility to download.")
+        auth_cmd = "gcloud auth activate-service-account --key-file={}".format(goog_key_json)
         cmd = "gsutil cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
         try:
+            logger.debug("Running command: '{}'".format(auth_cmd))
+            subprocess.call(auth_cmd, shell=True)
+
             logger.debug("Running command: '{}'".format(cmd))
             subprocess.call(cmd, shell=True)
             download_completed = True
@@ -141,8 +145,12 @@ def _download_scn_goog(params):
             logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
     elif goog_down_meth == 'GSUTIL_MULTI':
         logger.debug("Using Google GSUTIL (multi threaded) utility to download.")
+        auth_cmd = "gcloud auth activate-service-account --key-file={}".format(goog_key_json)
         cmd = "gsutil -m cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
         try:
+            logger.debug("Running command: '{}'".format(auth_cmd))
+            subprocess.call(auth_cmd, shell=True)
+
             logger.debug("Running command: '{}'".format(cmd))
             subprocess.call(cmd, shell=True)
             download_completed = True
