@@ -277,7 +277,7 @@ class EODataDownGEDISensor (EODataDownSensor):
             logger.debug("Find EarthData Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "earthdata", "usrpassfile"]):
-                usr_pass_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "passfile"])
+                usr_pass_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "earthdata", "usrpassfile"])
                 if os.path.exists(usr_pass_file):
                     usr_pass_info = eodd_utils.readTextFile2List(usr_pass_file)
                     self.earthDataUser = usr_pass_info[0]

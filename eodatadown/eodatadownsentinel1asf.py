@@ -314,7 +314,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             logger.debug("Find ASF Account params from config file")
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "asfaccount", "usrpassfile"]):
-                usr_pass_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "passfile"])
+                usr_pass_file = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "asfaccount", "usrpassfile"])
                 if os.path.exists(usr_pass_file):
                     usr_pass_info = eodd_utils.readTextFile2List(usr_pass_file)
                     self.asfUser = usr_pass_info[0]
