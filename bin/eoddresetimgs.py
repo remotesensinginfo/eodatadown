@@ -57,6 +57,8 @@ if __name__ == "__main__":
                              "ARD products for all images.")
     parser.add_argument("--invalid", action='store_true', default=False,
                         help="Resets images including those which have been assigned as invalid.")
+    parser.add_argument("--cleartab", action='store_true', default=False,
+                        help="Reset the sensor table removing all content - data files are not deleted.")
     args = parser.parse_args()
 
     config_file = args.config
@@ -115,10 +117,21 @@ if __name__ == "__main__":
                     sensor_obj.reset_scn(scn, reset_download=args.rmdownloads, reset_invalid=args.invalid)
             else:
                 sensor_obj.reset_scn(args.scene, reset_download=args.rmdownloads, reset_invalid=args.invalid)
-            logger.info('Running process to reset all scenes within the database.')
+            logger.info('Finished process to reset all scenes within the database.')
         except Exception as e:
             logger.error('Failed to reset all scenes the available data.', exc_info=True)
+    elif args.cleartab:
+        try:
+            logger.info('Running process to reset and clear the database table(s).')
+            sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
+            if args.scene is None:
+                sensor_obj.init_sensor_db(drop_tables=True)
+            else:
+                raise Exception()
+            logger.info('Finished process to reset and clear the database table(s).')
+        except Exception as e:
+            logger.error('Failed to reset and clear the database table(s).', exc_info=True)
     else:
-        logger.info('No processing option given (i.e., --noard, --nodcload or --all).')
+        logger.info('No processing option given (i.e., --noard, --nodcload, --all or --cleartab).')
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrestimgs.py.')
