@@ -1228,7 +1228,11 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_sharp_rad_srefdem_stdsref.tif')
+            try:
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_sharp_rad_srefdem_stdsref.tif')
+            except:
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
+            logger.debug("ARD Image: {}".format(ard_img_file))
 
             out_quicklook_path = os.path.join(self.quicklookPath,
                                               "{}_{}".format(query_result.Product_ID, query_result.PID))
@@ -1357,7 +1361,11 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_sharp_rad_srefdem_stdsref.tif')
+            try:
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_sharp_rad_srefdem_stdsref.tif')
+            except:
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
+            logger.debug("ARD Image: {}".format(ard_img_file))
 
             out_tilecache_dir = os.path.join(self.tilecachePath,
                                             "{}_{}".format(query_result.Product_ID, query_result.PID))
