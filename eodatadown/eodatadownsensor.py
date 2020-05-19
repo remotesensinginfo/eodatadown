@@ -241,11 +241,65 @@ class EODataDownSensor (object):
         logger.debug("There are {} plugins.".format(len(self.analysis_plugins)))
         return True
 
+    def get_usr_analysis_keys(self):
+        """
+        A function which returns a list of plugin keys.
+
+        :return: list of strings.
+
+        """
+        plgin_lst = list()
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating a list of plugins")
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                # Try to read any plugin parameters to be passed to the plugin when instantiated.
+                if "params" in plugin_info:
+                    plugin_cls_inst.set_users_param(plugin_info["params"])
+                    logger.debug("Read plugin params and passed to plugin.")
+                plgin_lst.append(plugin_cls_inst.get_ext_info_key())
+        logger.debug("Created a list of plugins, there are {} plugins.".format(len(plgin_lst)))
+        return plgin_lst
+
     @abstractmethod
     def run_usr_analysis(self, unq_id): pass
 
     @abstractmethod
     def run_usr_analysis_all_avail(self, n_cores): pass
+
+    @abstractmethod
+    def reset_usr_analysis(self, plgin_lst=None, scn_pid=None): pass
 
     @abstractmethod
     def get_scnlist_datacube(self, loaded=False): pass

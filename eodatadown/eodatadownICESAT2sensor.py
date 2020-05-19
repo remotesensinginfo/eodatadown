@@ -1238,6 +1238,64 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         for scn in scn_lst:
             self.run_usr_analysis(scn)
 
+    def reset_usr_analysis(self, plgin_lst=None, scn_pid=None):
+        """
+        Reset the user analysis plugins within the database.
+
+        :param plgin_lst: A list of plugins to be reset. If None (default) then all reset.
+        :param scn_pid: Optionally specify the a scene PID, if provided then only that scene will be reset.
+                        If None then all the scenes will be reset.
+
+        """
+        if self.calc_scn_usr_analysis():
+            if plgin_lst is None:
+                logger.debug(
+                    "A list of plugins to reset has not been provided so populating that list with all plugins.")
+                plgin_lst = self.get_usr_analysis_keys()
+            logger.debug("There are {} plugins to reset".format(len(plgin_lst)))
+
+            if len(plgin_lst) > 0:
+                logger.debug("Creating Database Engine and Session.")
+                db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+                session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+                ses = session_sqlalc()
+
+                if scn_pid is None:
+                    logger.debug("No scene PID has been provided so resetting all the scenes.")
+                    query_result = ses.query(EDDICESAT2).all()
+                    if query_result is not None:
+                        for record in query_result:
+                            out_ext_info = dict()
+                            in_ext_info = record.ExtendedInfo
+                            if in_ext_info is not None:
+                                for key in in_ext_info:
+                                    if key not in plgin_lst:
+                                        out_ext_info[key] = in_ext_info[key]
+                                # If out dict is empty then set to None.
+                                if not out_ext_info:
+                                    out_ext_info = sqlalchemy.sql.null()
+                                record.ExtendedInfo = out_ext_info
+                                flag_modified(record, "ExtendedInfo")
+                                ses.commit()
+                else:
+                    logger.debug("Scene PID {} has been provided so resetting.".format(scn_pid))
+                    scn_db_obj = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == scn_pid).one_or_none()
+                    if scn_db_obj is None:
+                        raise EODataDownException("Scene ('{}') could not be found in database".format(scn_pid))
+                    out_ext_info = dict()
+                    in_ext_info = scn_db_obj.ExtendedInfo
+                    if in_ext_info is not None:
+                        for key in in_ext_info:
+                            if key not in plgin_lst:
+                                out_ext_info[key] = in_ext_info[key]
+                        # If out dict is empty then set to None.
+                        if not out_ext_info:
+                            out_ext_info = sqlalchemy.sql.null()
+                        scn_db_obj.ExtendedInfo = out_ext_info
+                        flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.commit()
+                ses.close()
+
     def find_unique_platforms(self):
         raise Exception("Not Implement...")
 

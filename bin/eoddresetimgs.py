@@ -59,6 +59,11 @@ if __name__ == "__main__":
                         help="Resets images including those which have been assigned as invalid.")
     parser.add_argument("--cleartab", action='store_true', default=False,
                         help="Reset the sensor table removing all content - data files are not deleted.")
+    parser.add_argument("--usranalysis", action='store_true', default=False,
+                        help="Reset the user analysis plugins.")
+    parser.add_argument("--plugin", type=str, nargs='+', default=None,
+                        help="Specify the plugins which should be reset - if not specified then all will be reset.")
+
     args = parser.parse_args()
 
     config_file = args.config
@@ -127,11 +132,22 @@ if __name__ == "__main__":
             if args.scene is None:
                 sensor_obj.init_sensor_db(drop_tables=True)
             else:
-                raise Exception()
+                raise Exception("Cannot reset the database table for only a single scene.")
             logger.info('Finished process to reset and clear the database table(s).')
         except Exception as e:
             logger.error('Failed to reset and clear the database table(s).', exc_info=True)
+    elif args.usranalysis:
+        try:
+            logger.info('Running process to reset the user analysis plugins.')
+            sensor_obj = eodatadown.eodatadownrun.get_sensor_obj(config_file, args.sensor)
+            if args.scene is None:
+                sensor_obj.reset_usr_analysis(plgin_lst=args.plugin, scn_pid=None)
+            else:
+                sensor_obj.reset_usr_analysis(plgin_lst=args.plugin, scn_pid=args.scene)
+            logger.info('Finished process to reset the user analysis plugins.')
+        except Exception as e:
+            logger.error('Failed to reset and clear the database table(s).', exc_info=True)
     else:
-        logger.info('No processing option given (i.e., --noard, --nodcload, --all or --cleartab).')
+        logger.info('No processing option given (i.e., --noard, --nodcload, --all, --cleartab or --usranalysis).')
 
     t.end(reportDiff=True, preceedStr='EODataDown processing completed ', postStr=' - eoddrestimgs.py.')
