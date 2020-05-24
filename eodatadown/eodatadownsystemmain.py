@@ -38,6 +38,7 @@ from eodatadown.eodatadownsensor import EODataDownObsDates
 
 import logging
 import json
+import os
 
 from sqlalchemy.ext.declarative import declarative_base
 import sqlalchemy
@@ -104,6 +105,7 @@ class EODataDownSystemMain(object):
         with open(config_file) as f:
             config_data = json.load(f)
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
 
             # Get Basic System Info.
             self.name = json_parse_helper.getStrValue(config_data, ['eodatadown', 'details', 'name'])
@@ -112,7 +114,20 @@ class EODataDownSystemMain(object):
             # Get Database Information
             edd_pass_encoder = eodatadown.eodatadownutils.EDDPasswordTools()
 
-            db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
+            if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'database', 'connection']):
+                db_conn_str = json_parse_helper.getStrValue(config_data, ['eodatadown', 'database', 'connection'])
+            elif json_parse_helper.doesPathExist(config_data, ['eodatadown', 'database', 'connection_file']):
+                connection_file = json_parse_helper.getStrValue(config_data,
+                                                                ['eodatadown', 'database', 'connection_file'])
+                logger.debug("Using connection database file: '{}'".format(connection_file))
+                if os.path.exists(connection_file):
+                    logger.debug("Database connection file exists and being read")
+                    db_conn_str = eodd_utils.readTextFileNoNewLines(connection_file)
+                else:
+                    raise EODataDownException("The database connection file specified was not present.")
+            else:
+                raise EODataDownException("A database connection is required. You must provided via either"
+                                          " a 'connection' or 'connection_file' key.")
             self.db_info_obj = eodatadown.eodatadownutils.EODataDownDatabaseInfo(db_conn_str)
 
             if json_parse_helper.doesPathExist(config_data, ['eodatadown', 'reports', 'date_report_config']):
@@ -158,6 +173,14 @@ class EODataDownSystemMain(object):
             logger.debug("Found sensor Sentinel1ASF")
             from eodatadown.eodatadownsentinel1asf import EODataDownSentinel1ASFProcessorSensor
             sensor_obj = EODataDownSentinel1ASFProcessorSensor(self.db_info_obj)
+        elif sensor == "GEDI":
+            logger.debug("Found sensor GEDI")
+            from eodatadown.eodatadownGEDIsensor import EODataDownGEDISensor
+            sensor_obj = EODataDownGEDISensor(self.db_info_obj)
+        elif sensor == "ICESAT2":
+            logger.debug("Found sensor ICESAT2")
+            from eodatadown.eodatadownICESAT2sensor import EODataDownICESAT2Sensor
+            sensor_obj = EODataDownICESAT2Sensor(self.db_info_obj)
         else:
             raise EODataDownException("Do not know of an object for sensor: '"+sensor+"'")
         return sensor_obj
@@ -187,7 +210,7 @@ class EODataDownSystemMain(object):
 
         return sensor_obj_to_process
 
-    def init_dbs(self):
+    def init_dbs(self, drop_tables=True):
         """
         A function which will setup the system data base for each of the sensors.
         Note. this function should only be used to initialing the system.
@@ -196,12 +219,13 @@ class EODataDownSystemMain(object):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Initialise the data usage database.")
         edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
-        edd_usage_db.init_usage_log_db()
+        edd_usage_db.init_usage_log_db(drop_tables)
 
         logger.debug("Creating System Details Database.")
         Base.metadata.bind = db_engine
@@ -219,18 +243,18 @@ class EODataDownSystemMain(object):
 
         for sensor_obj in self.sensors:
             logger.debug("Initialise Sensor Database: '" + sensor_obj.get_sensor_name() + "'")
-            sensor_obj.init_sensor_db()
+            sensor_obj.init_sensor_db(drop_tables)
             logger.debug("Finished initialising the sensor database for '" + sensor_obj.get_sensor_name() + "'")
 
         if self.date_report_config_file is not None:
             report_obj = EODataDownDateReports(self.db_info_obj)
             report_obj.parse_sensor_config(self.date_report_config_file)
-            report_obj.init_db()
+            report_obj.init_db(drop_tables)
 
         if self.obsdates_config_file is not None:
             obsdates_obj = EODataDownObsDates(self.db_info_obj)
             obsdates_obj.parse_sensor_config(self.obsdates_config_file)
-            obsdates_obj.init_db()
+            obsdates_obj.init_db(drop_tables)
 
     def get_date_report_obj(self):
         """

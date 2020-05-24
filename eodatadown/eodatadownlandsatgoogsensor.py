@@ -33,7 +33,7 @@ EODataDown - a sensor class for Landsat data downloaded from the Google Cloud.
 import logging
 import json
 import os
-import os.path
+import sys
 import datetime
 import multiprocessing
 import shutil
@@ -41,6 +41,7 @@ import rsgislib
 import uuid
 import yaml
 import subprocess
+import importlib
 
 from osgeo import osr
 from osgeo import ogr
@@ -137,8 +138,11 @@ def _download_scn_goog(params):
         download_completed = True
     elif goog_down_meth == 'GSUTIL':
         logger.debug("Using Google GSUTIL utility to download.")
+        auth_cmd = "gcloud auth activate-service-account --key-file={}".format(goog_key_json)
         cmd = "gsutil cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
         try:
+            logger.debug("Running command: '{}'".format(auth_cmd))
+            subprocess.call(auth_cmd, shell=True)
             logger.debug("Running command: '{}'".format(cmd))
             subprocess.call(cmd, shell=True)
             download_completed = True
@@ -148,8 +152,11 @@ def _download_scn_goog(params):
             logger.error("Download Failed for {} with error {}".format(scn_remote_url, e))
     elif goog_down_meth == 'GSUTIL_MULTI':
         logger.debug("Using Google GSUTIL (multi threaded) utility to download.")
+        auth_cmd = "gcloud auth activate-service-account --key-file={}".format(goog_key_json)
         cmd = "gsutil -m cp -r {} {}".format(scn_remote_url, scn_lcl_dwnld_path)
         try:
+            logger.debug("Running command: '{}'".format(auth_cmd))
+            subprocess.call(auth_cmd, shell=True)
             logger.debug("Running command: '{}'".format(cmd))
             subprocess.call(cmd, shell=True)
             download_completed = True
@@ -361,26 +368,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
-            self.baseDownloadPath = json_parse_helper.getStrValue(config_data,
-                                                                  ["eodatadown", "sensor", "paths", "download"])
-            self.ardProdWorkPath = json_parse_helper.getStrValue(config_data,
-                                                                 ["eodatadown", "sensor", "paths", "ardwork"])
-            self.ardFinalPath = json_parse_helper.getStrValue(config_data,
-                                                              ["eodatadown", "sensor", "paths", "ardfinal"])
-            self.ardProdTmpPath = json_parse_helper.getStrValue(config_data,
-                                                                ["eodatadown", "sensor", "paths", "ardtmp"])
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "quicklooks"]):
-                self.quicklookPath = json_parse_helper.getStrValue(config_data,
-                                                                    ["eodatadown", "sensor", "paths", "quicklooks"])
-            else:
-                self.quicklookPath = None
-
-            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths", "tilecache"]):
-                self.tilecachePath = json_parse_helper.getStrValue(config_data,
-                                                                    ["eodatadown", "sensor", "paths", "tilecache"])
-            else:
-                self.tilecachePath = None
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "paths"]):
+                self.parse_output_paths_config(config_data["eodatadown"]["sensor"]["paths"])
             logger.debug("Found paths from config file")
 
             logger.debug("Find search params from config file")
@@ -420,6 +409,19 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                     raise EODataDownException("WRS2 rows must be between (including) 1 and 248.")
             logger.debug("Found search params from config file")
 
+            self.scn_intersect = False
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "validity"]):
+                logger.debug("Find scene validity params from config file")
+                if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "validity", "scn_intersect"]):
+                    self.scn_intersect_vec_file = json_parse_helper.getStrValue(config_data,
+                                                                                ["eodatadown", "sensor", "validity",
+                                                                                 "scn_intersect", "vec_file"])
+                    self.scn_intersect_vec_lyr = json_parse_helper.getStrValue(config_data,
+                                                                               ["eodatadown", "sensor", "validity",
+                                                                                "scn_intersect", "vec_lyr"])
+                    self.scn_intersect = True
+                logger.debug("Found scene validity params from config file")
+
             logger.debug("Find Google Account params from config file")
             self.goog_proj_name = json_parse_helper.getStrValue(config_data,
                                                               ["eodatadown", "sensor", "googleinfo", "projectname"])
@@ -433,7 +435,12 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                                     ["PYAPI", "GSUTIL", "GSUTIL_MULTI"])
             logger.debug("Found Google Account params from config file")
 
-    def init_sensor_db(self):
+            logger.debug("Find the plugins params")
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "plugins"]):
+                self.parse_plugins_config(config_data["eodatadown"]["sensor"]["plugins"])
+            logger.debug("Found the plugins params")
+
+    def init_sensor_db(self, drop_tables=True):
         """
         A function which initialises the database use the db_info_obj passed to __init__.
         Be careful as running this function drops the table if it already exists and therefore
@@ -442,8 +449,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating LandsatGOOG Database.")
         Base.metadata.bind = db_engine
@@ -661,6 +669,55 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Checked for availability of new scenes", sensor_val=self.sensor_name,
                                updated_lcl_db=True, scns_avail=new_scns_avail)
 
+    def rm_scns_intersect(self, all_scns=False):
+        """
+        A function which checks whether the bounding box for the scene intersects with a specified
+        vector layer. If the scene does not intersect then it is deleted from the database. By default
+        this is only testing the scenes which have not been downloaded.
+
+        :param all_scns: If True all the scenes in the database will be tested otherwise only the
+                         scenes which have not been downloaded will be tested.
+
+        """
+        if self.scn_intersect:
+            import rsgislib.vectorutils
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scenes which need downloading.")
+
+            if all_scns:
+                scns = ses.query(EDDLandsatGoogle).order_by(EDDLandsatGoogle.Date_Acquired.asc()).all()
+            else:
+                scns = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).order_by(
+                                                                  EDDLandsatGoogle.Date_Acquired.asc()).all()
+
+            if scns is not None:
+                eodd_vec_utils = eodatadown.eodatadownutils.EODDVectorUtils()
+                vec_idx, geom_lst = eodd_vec_utils.create_rtree_index(self.scn_intersect_vec_file, self.scn_intersect_vec_lyr)
+
+                for scn in scns:
+                    logger.debug("Check Scene '{}' to check for intersection".format(scn.PID))
+                    rsgis_utils = rsgislib.RSGISPyUtils()
+                    north_lat = scn.North_Lat
+                    south_lat = scn.South_Lat
+                    east_lon = scn.East_Lon
+                    west_lon = scn.West_Lon
+                    # (xMin, xMax, yMin, yMax)
+                    scn_bbox = [west_lon, east_lon, south_lat, north_lat]
+
+                    intersect_vec_epsg = rsgis_utils.getProjEPSGFromVec(self.scn_intersect_vec_file, self.scn_intersect_vec_lyr)
+                    if intersect_vec_epsg != 4326:
+                        scn_bbox = rsgis_utils.reprojBBOX_epsg(scn_bbox, 4326, intersect_vec_epsg)
+
+                    has_scn_intersect = eodd_vec_utils.bboxIntersectsIndex(vec_idx, geom_lst, scn_bbox)
+                    if not has_scn_intersect:
+                        logger.info("Removing scene {} from Landsat as it does not intersect.".format(scn.PID))
+                        ses.query(EDDLandsatGoogle.PID).filter(EDDLandsatGoogle.PID == scn.PID).delete()
+                        ses.commit()
+            ses.close()
+
     def get_scnlist_all(self):
         """
         A function which returns a list of the unique IDs for all the scenes within the database.
@@ -672,7 +729,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDLandsatGoogle).all()
+        query_result = ses.query(EDDLandsatGoogle).order_by(EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns = list()
         if query_result is not None:
             for record in query_result:
@@ -693,7 +750,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         ses = session_sqlalc()
 
         logger.debug("Perform query to find scenes which need downloading.")
-        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).all()
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == False).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.asc()).all()
 
         scns2dwnld = list()
         if query_result is not None:
@@ -879,7 +937,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         logger.debug("Perform query to find scenes which need downloading.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True,
                                                           EDDLandsatGoogle.ARDProduct == False,
-                                                          EDDLandsatGoogle.Invalid == False).all()
+                                                          EDDLandsatGoogle.Invalid == False).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.asc()).all()
 
         scns2ard = list()
         if query_result is not None:
@@ -1074,7 +1133,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Perform query to find scenes which need converting to ARD.")
         query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True,
-                                                          EDDLandsatGoogle.DCLoaded == loaded).all()
+                                                          EDDLandsatGoogle.DCLoaded == loaded).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns2dcload = list()
         if query_result is not None:
             for record in query_result:
@@ -1231,7 +1291,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 EDDLandsatGoogle.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('quicklook'))),
             EDDLandsatGoogle.Invalid == False,
-            EDDLandsatGoogle.ARDProduct == True).all()
+            EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns2quicklook = list()
         if query_result is not None:
             for record in query_result:
@@ -1361,7 +1422,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 EDDLandsatGoogle.ExtendedInfo.is_(None),
                 sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key('tilecache'))),
             EDDLandsatGoogle.Invalid == False,
-            EDDLandsatGoogle.ARDProduct == True).all()
+            EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.asc()).all()
         scns2tilecache = list()
         if query_result is not None:
             for record in query_result:
@@ -1493,11 +1555,303 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 logger.error(
                     "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
                 raise EODataDownException(
-                    "There was more than 1 scene which has been found - soomething has gone really wrong!")
+                    "There was more than 1 scene which has been found - something has gone really wrong!")
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
         return scn_record
+
+    def get_scn_obs_date(self, unq_id):
+        """
+        A function which returns a datetime object for the observation date/time of a scene.
+
+        :param unq_id: the unique id (PID) of the scene of interest.
+        :return: a datetime object.
+
+        """
+        import copy
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).all()
+        ses.close()
+        scn_record = None
+        if query_result is not None:
+            if len(query_result) == 1:
+                scn_record = query_result[0]
+            else:
+                logger.error(
+                      "PID {0} has returned more than 1 scene - must be unique something really wrong.".format(unq_id))
+                raise EODataDownException(
+                        "There was more than 1 scene which has been found - something has gone really wrong!")
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+        return copy.copy(scn_record.Sensing_Time)
+
+    def get_scnlist_usr_analysis(self):
+        """
+        Get a list of all scenes for which user analysis needs to be undertaken.
+
+        :return: list of unique IDs
+        """
+        scns2runusranalysis = list()
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                query_result = ses.query(EDDLandsatGoogle).filter(
+                        sqlalchemy.or_(
+                                EDDLandsatGoogle.ExtendedInfo.is_(None),
+                                sqlalchemy.not_(EDDLandsatGoogle.ExtendedInfo.has_key(plugin_key))),
+                        EDDLandsatGoogle.Invalid == False,
+                        EDDLandsatGoogle.ARDProduct == True).order_by(
+                        EDDLandsatGoogle.Date_Acquired.asc()).all()
+
+                if query_result is not None:
+                    for record in query_result:
+                        if record.PID not in scns2runusranalysis:
+                            scns2runusranalysis.append(record.PID)
+
+            ses.close()
+            logger.debug("Closed the database session.")
+        return scns2runusranalysis
+
+    def has_scn_usr_analysis(self, unq_id):
+        usr_plugins_calcd = False
+        logger.debug("Going to test whether there are plugins.")
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+            if query_result is None:
+                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+            scn_json = query_result.ExtendedInfo
+            ses.close()
+            logger.debug("Closed the database session.")
+
+            if scn_json is not None:
+                json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+                usr_plugins_calcd = True
+                for plugin_info in self.analysis_plugins:
+                    plugin_path = os.path.abspath(plugin_info["path"])
+                    plugin_module_name = plugin_info["module"]
+                    plugin_cls_name = plugin_info["class"]
+                    logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+                    # Check if plugin path input is already in system path.
+                    already_in_path = False
+                    for c_path in sys.path:
+                        c_path = os.path.abspath(c_path)
+                        if c_path == plugin_path:
+                            already_in_path = True
+                            break
+                    # Add plugin path to system path
+                    if not already_in_path:
+                        sys.path.insert(0, plugin_path)
+                        logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                    # Try to import the module.
+                    logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                    plugin_mod_inst = importlib.import_module(plugin_module_name)
+                    logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                    if plugin_mod_inst is None:
+                        raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                    # Try to make instance of class.
+                    logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                    plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                    logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                    if plugin_cls_inst is None:
+                        raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                    plugin_key = plugin_cls_inst.get_ext_info_key()
+                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
+                    if not plugin_completed:
+                        usr_plugins_calcd = False
+                        break
+        return usr_plugins_calcd
+
+    def run_usr_analysis(self, unq_id):
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            scn_db_obj = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == unq_id).one_or_none()
+            if scn_db_obj is None:
+                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+
+            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                # Try to read any plugin parameters to be passed to the plugin when instantiated.
+                if "params" in plugin_info:
+                    plugin_cls_inst.set_users_param(plugin_info["params"])
+                    logger.debug("Read plugin params and passed to plugin.")
+
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                scn_json = scn_db_obj.ExtendedInfo
+                if scn_json is not None:
+                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
+                else:
+                    plugin_completed = False
+
+                if not plugin_completed:
+                    plg_success, out_dict = plugin_cls_inst.perform_analysis(scn_db_obj, self)
+                    if plg_success:
+                        logger.debug("The plugin analysis has been completed - SUCCESSFULLY.")
+                        if scn_json is None:
+                            logger.debug("No existing extended info so creating the dict.")
+                            scn_json = dict()
+
+                        if out_dict is None:
+                            logger.debug("No output dict from the plugin so just setting as True to indicate "
+                                         "the plugin has successfully executed.")
+                            scn_json[plugin_key] = True
+                        else:
+                            logger.debug("An output dict from the plugin was provided so adding to extended info.")
+                            scn_json[plugin_key] = out_dict
+
+                        logger.debug("Updating the extended info field in the database.")
+                        scn_db_obj.ExtendedInfo = scn_json
+                        flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.commit()
+                        logger.debug("Updated the extended info field in the database.")
+                    else:
+                        logger.debug("The plugin analysis has not been completed - UNSUCCESSFUL.")
+                else:
+                    logger.debug("The plugin '{}' from '{}' has already been run so will not be run again".format(plugin_cls_name, plugin_module_name))
+            ses.close()
+            logger.debug("Closed the database session.")
+
+    def run_usr_analysis_all_avail(self, n_cores):
+        scn_lst = self.get_scnlist_usr_analysis()
+        for scn in scn_lst:
+            self.run_usr_analysis(scn)
+
+    def reset_usr_analysis(self, plgin_lst=None, scn_pid=None):
+        """
+        Reset the user analysis plugins within the database.
+
+        :param plgin_lst: A list of plugins to be reset. If None (default) then all reset.
+        :param scn_pid: Optionally specify the a scene PID, if provided then only that scene will be reset.
+                        If None then all the scenes will be reset.
+
+        """
+        if self.calc_scn_usr_analysis():
+            if plgin_lst is None:
+                logger.debug(
+                    "A list of plugins to reset has not been provided so populating that list with all plugins.")
+                plgin_lst = self.get_usr_analysis_keys()
+            logger.debug("There are {} plugins to reset".format(len(plgin_lst)))
+
+            if len(plgin_lst) > 0:
+                logger.debug("Creating Database Engine and Session.")
+                db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+                session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+                ses = session_sqlalc()
+
+                if scn_pid is None:
+                    logger.debug("No scene PID has been provided so resetting all the scenes.")
+                    query_result = ses.query(EDDLandsatGoogle).all()
+                    if query_result is not None:
+                        for record in query_result:
+                            out_ext_info = dict()
+                            in_ext_info = record.ExtendedInfo
+                            if in_ext_info is not None:
+                                for key in in_ext_info:
+                                    if key not in plgin_lst:
+                                        out_ext_info[key] = in_ext_info[key]
+                                # If out dict is empty then set to None.
+                                if not out_ext_info:
+                                    out_ext_info = sqlalchemy.sql.null()
+                                record.ExtendedInfo = out_ext_info
+                                flag_modified(record, "ExtendedInfo")
+                                ses.commit()
+                else:
+                    logger.debug("Scene PID {} has been provided so resetting.".format(scn_pid))
+                    scn_db_obj = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.PID == scn_pid).one_or_none()
+                    if scn_db_obj is None:
+                        raise EODataDownException("Scene ('{}') could not be found in database".format(scn_pid))
+                    out_ext_info = dict()
+                    in_ext_info = scn_db_obj.ExtendedInfo
+                    if in_ext_info is not None:
+                        for key in in_ext_info:
+                            if key not in plgin_lst:
+                                out_ext_info[key] = in_ext_info[key]
+                        # If out dict is empty then set to None.
+                        if not out_ext_info:
+                            out_ext_info = sqlalchemy.sql.null()
+                        scn_db_obj.ExtendedInfo = out_ext_info
+                        flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.commit()
+                ses.close()
 
     def find_unique_platforms(self):
         """

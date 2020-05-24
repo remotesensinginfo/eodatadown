@@ -409,7 +409,7 @@ class EODataDownUtils(object):
         """
         if datetimeisostr is None:
             return None
-        if datetimeisostr is "":
+        if datetimeisostr == "":
             return None
         return datetime.datetime.fromisoformat(datetimeisostr)
 
@@ -422,7 +422,7 @@ class EODataDownUtils(object):
         """
         if dateisostr is None:
             return None
-        if dateisostr is "":
+        if dateisostr == "":
             return None
         return datetime.date.fromisoformat(dateisostr)
 
@@ -495,6 +495,80 @@ class EODataDownUtils(object):
             if (punct != '_') and (punct != '-'):
                 out_str = out_str.replace(punct, '')
         return out_str
+
+    def get_file_lock(self, input_file, sleep_period=1, wait_iters=120, use_except=False):
+        """
+        A function which gets a lock on a file.
+
+        The lock file will be a unix hidden file (i.e., starts with a .) and it will have .lok added to the end.
+        E.g., for input file hello_world.txt the lock file will be .hello_world.txt.lok. The contents of the lock
+        file will be the time and date of creation.
+
+        Using the default parameters (sleep 1 second and wait 120 iterations) if the lock isn't available
+        it will be retried every second for 120 seconds (i.e., 2 mins).
+
+        :param input_file: The input file for which the lock will be created.
+        :param sleep_period: time in seconds to sleep for, if the lock isn't available. (Default=1 second)
+        :param wait_iters: the number of iterations to wait for before giving up. (Default=120)
+        :param use_except: Boolean. If True then an exception will be thrown if the lock is not
+                           available. If False (default) False will be returned if the lock is
+                           not successful.
+        :return: boolean. True: lock was successfully gained. False: lock was not gained.
+
+        """
+        file_path, file_name = os.path.split(input_file)
+        lock_file_name = ".{}.lok".format(file_name)
+        lock_file_path = os.path.join(file_path, lock_file_name)
+
+        got_lock = False
+        for i in range(wait_iters+1):
+            if not os.path.exists(lock_file_path):
+                got_lock = True
+                break
+            time.sleep(sleep_period)
+
+        if got_lock:
+            c_datetime = datetime.datetime.now()
+            f = open(lock_file_path, 'w')
+            f.write('{}\n'.format(c_datetime.isoformat()))
+            f.flush()
+            f.close()
+        elif use_except:
+            raise EODataDownException("Lock could not be gained for file: {}".format(input_file))
+
+        return got_lock
+
+    def release_file_lock(self, input_file):
+        """
+        A function which releases a lock file for the input file.
+
+        :param input_file: The input file for which the lock will be created.
+
+        """
+        file_path, file_name = os.path.split(input_file)
+        lock_file_name = ".{}.lok".format(file_name)
+        lock_file_path = os.path.join(file_path, lock_file_name)
+        if os.path.exists(lock_file_path):
+            os.remove(lock_file_path)
+
+    def clean_file_locks(self, dir_path, timeout=3600):
+        """
+        A function which cleans up any remaining lock file (i.e., if an application has crashed).
+        The timeout time will be compared with the time written within the file.
+
+        :param dir_path: the file path to search for lock files (i.e., ".*.lok")
+        :param timeout: the time (in seconds) for the timeout. Default: 3600 (1 hours)
+
+        """
+        c_dateime = datetime.datetime.now()
+        lock_files = glob.glob(os.path.join(dir_path, ".*.lok"))
+        for lock_file_path in lock_files:
+            create_date_str = self.readTextFileNoNewLines(lock_file_path)
+            create_date = datetime.datetime.fromisoformat(create_date_str)
+            time_since_create = (c_dateime - create_date).total_seconds()
+            if time_since_create > timeout:
+                os.remove(lock_file_path)
+
 
 
 class EODataDownDatabaseInfo(object):
@@ -1088,6 +1162,7 @@ class EDDGeoBBox(object):
         """
 
         :return:
+
         """
         json_dict = dict()
         json_dict["type"] = "Polygon"
@@ -1101,6 +1176,7 @@ class EDDGeoBBox(object):
         """
 
         :return:
+
         """
         json_dict = dict()
         json_dict["type"] = "Polygon"
@@ -1112,6 +1188,7 @@ class EDDGeoBBox(object):
         Populate the object from coordinates dictionary.
         :param geo_json_poly:
         :return:
+
         """
         min_lon = 0.0
         max_lon = 0.0
@@ -1155,6 +1232,7 @@ class EDDGeoBBox(object):
         """
         Get the bounding bbox represented as a polygon as a CSV string.
         :return:
+
         """
         csv_str = str(self.west_lon) + "," + str(self.north_lat) + "," + \
                   str(self.east_lon) + "," + str(self.north_lat) + "," + \
@@ -1162,6 +1240,24 @@ class EDDGeoBBox(object):
                   str(self.west_lon) + "," + str(self.south_lat) + "," + \
                   str(self.west_lon) + "," + str(self.north_lat)
         return csv_str
+
+    def getSimpleBBOXStr(self):
+        """
+        Gets the bounding bbox represented as a simple string [upper-left and lower-right]
+        :return: [north, west, south, east]
+
+        """
+        bbox_str = "{},{},{},{}".format(self.north_lat, self.west_lon, self.south_lat, self.east_lon)
+        return bbox_str
+
+    def getBBOXLLURStr(self):
+        """
+        Gets the bounding bbox represented as a simple string [upper-left and lower-right]
+        :return: [north, west, south, east]
+
+        """
+        bbox_str = "{},{},{},{}".format(self.west_lon, self.south_lat, self.east_lon, self.north_lat)
+        return bbox_str
 
 
 class EDDHTTPDownload(object):
@@ -1427,6 +1523,52 @@ class EDDHTTPDownload(object):
                 return True
             return False
 
+    def downloadFileNoMD5(self, input_url, out_file_path, username, password):
+        """
+
+        :param input_url:
+        :param input_url_md5:
+        :param out_file_path:
+        :param username:
+        :param password:
+        :return:
+        """
+        print("HERE")
+        logger.debug("Creating HTTP Session Object.")
+        session_http = requests.Session()
+        session_http.auth = (username, password)
+        user_agent = "eoedatadown/" + str(eodatadown.EODATADOWN_VERSION)
+        session_http.headers["User-Agent"] = user_agent
+
+        temp_dwnld_path = out_file_path + '.incomplete'
+
+        headers = {}
+        downloaded_bytes = 0
+
+        usr_update_step = 5000000
+        next_update = usr_update_step
+
+        try:
+            with session_http.get(input_url, stream=True, auth=session_http.auth, headers=headers) as r:
+                self.checkResponse(r, input_url)
+                chunk_size = 2 ** 20
+                mode = 'wb'
+
+                with open(temp_dwnld_path, mode) as f:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if chunk:  # filter out keep-alive new chunks
+                            f.write(chunk)
+                            downloaded_bytes = downloaded_bytes + len(chunk)
+                            if downloaded_bytes > next_update:
+                                logger.info("Downloaded {} of {}".format(downloaded_bytes, temp_dwnld_path))
+                                next_update = next_update + usr_update_step
+            logger.info("Download Complete: ".format(temp_dwnld_path))
+            os.rename(temp_dwnld_path, out_file_path)
+        except Exception as e:
+            print(e)
+            return False
+        return True
+
 
 class EODDFTPDownload(object):
 
@@ -1651,4 +1793,77 @@ class EODDDefineSensorROI(object):
                                                                                                   roi_vec_file))
             raise(e)
 
+
+class EODDVectorUtils(object):
+
+    def create_rtree_index(self, vec_file, vec_lyr):
+        """
+        A function which creates a spatial index using the rtree package for the inputted vector file/layer.
+
+        :param vec_file: Input vector file to be processed.
+        :param vec_lyr: The layer within the vector file for which the index is to be built.
+
+        """
+        import osgeo.gdal as gdal
+        import rtree
+        import tqdm
+
+        vec_file_obj = gdal.OpenEx(vec_file, gdal.OF_READONLY)
+        if vec_file_obj is None:
+            raise Exception("Could not open '{}'".format(vec_file))
+
+        vec_lyr_obj = vec_file_obj.GetLayerByName(vec_lyr)
+        if vec_lyr_obj is None:
+            raise Exception("Could not find layer '{}'".format(vec_lyr))
+
+        idx_obj = rtree.index.Index(interleaved=False)
+        geom_lst = list()
+
+        n_feats = vec_lyr_obj.GetFeatureCount(True)
+        n_geom = 0
+        pbar = tqdm.tqdm(total=n_feats)
+        vec_lyr_obj.ResetReading()
+        feat = vec_lyr_obj.GetNextFeature()
+        while feat is not None:
+            geom_obj = feat.GetGeometryRef()
+            if geom_obj is not None:
+                xmin, xmax, ymin, ymax = geom_obj.GetEnvelope()
+                geom_lst.append(geom_obj.Clone())
+                idx_obj.insert(n_geom, (xmin, xmax, ymin, ymax))
+                n_geom = n_geom + 1
+            pbar.update(1)
+            feat = vec_lyr_obj.GetNextFeature()
+        vec_file_obj = None
+        return idx_obj, geom_lst
+
+    def bboxIntersectsIndex(self, rt_idx, geom_lst, bbox):
+        """
+        A function which tests for intersection between the geometries and the bounding box
+        using a spatial index.
+
+        :param rt_idx: the rtree spatial index object (created using the create_rtree_index function)
+        :param geom_lst: the list of geometries as referenced in the index (created using the create_rtree_index function)
+        :param bbox: the bounding box (xMin, xMax, yMin, yMax). Same projection as geometries in the index.
+        :return: True there is an intersection. False there is not an intersection.
+
+        """
+        import osgeo.ogr as ogr
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(bbox[0], bbox[3])
+        ring.AddPoint(bbox[1], bbox[3])
+        ring.AddPoint(bbox[1], bbox[2])
+        ring.AddPoint(bbox[0], bbox[2])
+        ring.AddPoint(bbox[0], bbox[3])
+        # Create polygon.
+        poly_bbox = ogr.Geometry(ogr.wkbPolygon)
+        poly_bbox.AddGeometry(ring)
+
+        bbox_intersects = False
+
+        for geom_idx in list(rt_idx.intersection(bbox)):
+            geom_obj = geom_lst[geom_idx]
+            if poly_bbox.Intersects(geom_obj):
+                bbox_intersects = True
+                break
+        return bbox_intersects
 

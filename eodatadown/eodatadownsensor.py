@@ -30,6 +30,8 @@ EODataDown - an abstract sensor class.
 # History:
 # Version 1.0 - Created.
 
+import sys
+import importlib
 import logging
 import json
 import os
@@ -77,6 +79,14 @@ class EODataDownSensor (object):
         self.db_tab_name = "AbstractTableName"
         self.db_info_obj = db_info_obj
 
+        self.baseDownloadPath = None
+        self.ardProdWorkPath = None
+        self.ardFinalPath = None
+        self.ardProdTmpPath = None
+        self.quicklookPath = None
+        self.tilecachePath = None
+        self.analysis_plugins = None
+
     def get_sensor_name(self):
         """
         Get the name of the sensor this class is representing.
@@ -91,14 +101,92 @@ class EODataDownSensor (object):
         """
         return self.db_tab_name
 
+    def parse_output_paths_config(self, params_dict):
+        """
+        Function which parses the input paths
+
+        :param params_dict: input params from eodatadown:sensor:paths
+
+        """
+        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+        self.baseDownloadPath = json_parse_helper.getStrValue(params_dict, ["download"])
+        logger.debug("Download Path: {}".format(self.baseDownloadPath))
+        self.ardProdWorkPath = json_parse_helper.getStrValue(params_dict, ["ardwork"])
+        logger.debug("ARD Work Path: {}".format(self.ardProdWorkPath))
+        self.ardFinalPath = json_parse_helper.getStrValue(params_dict, ["ardfinal"])
+        logger.debug("ARD Final Path: {}".format(self.ardFinalPath))
+        self.ardProdTmpPath = json_parse_helper.getStrValue(params_dict, ["ardtmp"])
+        logger.debug("ARD Temp Path: {}".format(self.ardProdTmpPath))
+
+        if json_parse_helper.doesPathExist(params_dict, ["quicklooks"]):
+            self.quicklookPath = json_parse_helper.getStrValue(params_dict, ["quicklooks"])
+            logger.debug("Quicklook Path: {}".format(self.quicklookPath))
+        else:
+            self.quicklookPath = None
+
+        if json_parse_helper.doesPathExist(params_dict, ["tilecache"]):
+            self.tilecachePath = json_parse_helper.getStrValue(params_dict, ["tilecache"])
+            logger.debug("TileCache Path: {}".format(self.tilecachePath))
+        else:
+            self.tilecachePath = None
+
+    def parse_plugins_config(self, params_dict):
+        """
+        Function to parse the json config dict for plugsin creating the
+        a list of plugins.
+
+        :param params_dict: input params from eodatadown:sensor:plugins
+
+        """
+        self.analysis_plugins = list()
+        json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
+        if json_parse_helper.doesPathExist(params_dict, ["analysis"]):
+            for plugin_config in params_dict["analysis"]:
+                plugin_path = json_parse_helper.getStrValue(plugin_config, ["path"])
+                plugin_path = os.path.abspath(plugin_path)
+                plugin_module_name = json_parse_helper.getStrValue(plugin_config, ["module"])
+                plugin_cls_name = json_parse_helper.getStrValue(plugin_config, ["class"])
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+                if json_parse_helper.doesPathExist(plugin_config, ["params"]):
+                    logger.debug("User params are present for plugin so will test the required keys are present.")
+                    plugin_cls_inst.set_users_param(plugin_config["params"])
+                    plugin_cls_inst.check_param_keys(raise_except=True)
+                    logger.debug("User params for the plugin have the correct keys.")
+                self.analysis_plugins.append(plugin_config)
+
     @abstractmethod
     def parse_sensor_config(self, config_file, first_parse=False): pass
 
     @abstractmethod
-    def init_sensor_db(self): pass
+    def init_sensor_db(self, drop_tables=True): pass
 
     @abstractmethod
     def check_new_scns(self, check_from_start=False): pass
+
+    @abstractmethod
+    def rm_scns_intersect(self, all_scns=False): pass
 
     @abstractmethod
     def get_scnlist_all(self): pass
@@ -128,6 +216,92 @@ class EODataDownSensor (object):
     def scns2ard_all_avail(self, n_cores): pass
 
     @abstractmethod
+    def get_scnlist_usr_analysis(self): pass
+
+    @abstractmethod
+    def has_scn_usr_analysis(self, unq_id): pass
+
+    def calc_scn_usr_analysis(self):
+        """
+        Are there user analysis plugins to be executed.
+
+        :return: boolean
+
+        """
+        logger.debug("Going to test whether there are any plugins.")
+        if self.analysis_plugins == None:
+            logger.debug("There are no plugins and list of None.")
+            return False
+        elif type(self.analysis_plugins) is not list:
+            logger.debug("There are no plugins the variable is not None but not a list: {}.".format(type(self.analysis_plugins)))
+            return False
+        elif len(self.analysis_plugins) == 0:
+            logger.debug("There are no plugins the list has a length of zero.")
+            return False
+        logger.debug("There are {} plugins.".format(len(self.analysis_plugins)))
+        return True
+
+    def get_usr_analysis_keys(self):
+        """
+        A function which returns a list of plugin keys.
+
+        :return: list of strings.
+
+        """
+        plgin_lst = list()
+        if self.calc_scn_usr_analysis():
+            logger.debug("Creating a list of plugins")
+            for plugin_info in self.analysis_plugins:
+                plugin_path = os.path.abspath(plugin_info["path"])
+                plugin_module_name = plugin_info["module"]
+                plugin_cls_name = plugin_info["class"]
+                logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
+
+                # Check if plugin path input is already in system path.
+                already_in_path = False
+                for c_path in sys.path:
+                    c_path = os.path.abspath(c_path)
+                    if c_path == plugin_path:
+                        already_in_path = True
+                        break
+
+                # Add plugin path to system path
+                if not already_in_path:
+                    sys.path.insert(0, plugin_path)
+                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
+
+                # Try to import the module.
+                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
+                plugin_mod_inst = importlib.import_module(plugin_module_name)
+                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
+                if plugin_mod_inst is None:
+                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
+
+                # Try to make instance of class.
+                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
+                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
+                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
+                if plugin_cls_inst is None:
+                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+
+                # Try to read any plugin parameters to be passed to the plugin when instantiated.
+                if "params" in plugin_info:
+                    plugin_cls_inst.set_users_param(plugin_info["params"])
+                    logger.debug("Read plugin params and passed to plugin.")
+                plgin_lst.append(plugin_cls_inst.get_ext_info_key())
+        logger.debug("Created a list of plugins, there are {} plugins.".format(len(plgin_lst)))
+        return plgin_lst
+
+    @abstractmethod
+    def run_usr_analysis(self, unq_id): pass
+
+    @abstractmethod
+    def run_usr_analysis_all_avail(self, n_cores): pass
+
+    @abstractmethod
+    def reset_usr_analysis(self, plgin_lst=None, scn_pid=None): pass
+
+    @abstractmethod
     def get_scnlist_datacube(self, loaded=False): pass
 
     @abstractmethod
@@ -142,6 +316,17 @@ class EODataDownSensor (object):
     @abstractmethod
     def get_scnlist_quicklook(self): pass
 
+    def calc_scn_quicklook(self):
+        """
+        Is a quicklook image(s) to be calculated.
+
+        :return: boolean
+
+        """
+        if self.quicklookPath is None:
+            return False
+        return True
+
     @abstractmethod
     def has_scn_quicklook(self, unq_id): pass
 
@@ -154,6 +339,17 @@ class EODataDownSensor (object):
     @abstractmethod
     def get_scnlist_tilecache(self): pass
 
+    def calc_scn_tilecache(self):
+        """
+        Is a tilecache to be calculated.
+
+        :return: boolean
+
+        """
+        if self.tilecachePath is None:
+            return False
+        return True
+
     @abstractmethod
     def has_scn_tilecache(self, unq_id): pass
 
@@ -165,6 +361,9 @@ class EODataDownSensor (object):
 
     @abstractmethod
     def get_scn_record(self, unq_id): pass
+
+    @abstractmethod
+    def get_scn_obs_date(self, unq_id): pass
 
     @abstractmethod
     def find_unique_platforms(self): pass
@@ -326,7 +525,7 @@ class EODataDownObsDates (object):
             else:
                 raise EODataDownException("No information on eodatadown > obsdates > overviews.")
 
-    def init_db(self):
+    def init_db(self, drop_tables=True):
         """
         A function which initialises the database use the db_info_obj passed to __init__.
         Be careful as running this function drops the table if it already exists and therefore
@@ -335,8 +534,9 @@ class EODataDownObsDates (object):
         logger.debug("Creating Database Engine.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
 
-        logger.debug("Drop system table if within the existing database.")
-        Base.metadata.drop_all(db_engine)
+        if drop_tables:
+            logger.debug("Drop system table if within the existing database.")
+            Base.metadata.drop_all(db_engine)
 
         logger.debug("Creating EDDObsDates & EDDObsDatesScns Tables.")
         Base.metadata.bind = db_engine
