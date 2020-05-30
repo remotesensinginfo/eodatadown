@@ -177,6 +177,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         EODataDownSensor.__init__(self, db_info_obj)
         self.sensor_name = "ICESAT2"
         self.db_tab_name = "EDDICESAT2"
+        self.ard_vec_format = "GPKG"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -222,10 +223,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                                                                           ["eodatadown", "sensor", "ardparams",
                                                                            "proj",
                                                                            "epsg"], 0, 1000000000))
-                else:
-                    self.ard_vec_format = "GEOJSON"
-            else:
-                self.ard_vec_format = "GEOJSON"
+
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")

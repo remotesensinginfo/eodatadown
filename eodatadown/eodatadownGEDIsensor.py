@@ -166,6 +166,7 @@ class EODataDownGEDISensor (EODataDownSensor):
         EODataDownSensor.__init__(self, db_info_obj)
         self.sensor_name = "GEDI"
         self.db_tab_name = "EDDGEDI"
+        self.ard_vec_format = "GPKG"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -211,10 +212,6 @@ class EODataDownGEDISensor (EODataDownSensor):
                                                                           ["eodatadown", "sensor", "ardparams",
                                                                            "proj",
                                                                            "epsg"], 0, 1000000000))
-                else:
-                    self.ard_vec_format = "GEOJSON"
-            else:
-                self.ard_vec_format = "GEOJSON"
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
