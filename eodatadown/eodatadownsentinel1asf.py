@@ -1434,6 +1434,8 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             scn_db_obj = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id).one_or_none()
             if scn_db_obj is None:
                 raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+            ses.close()
+            logger.debug("Closed the database session.")
 
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             for plugin_info in self.analysis_plugins:
@@ -1497,18 +1499,22 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                             logger.debug("An output dict from the plugin was provided so adding to extended info.")
                             scn_json[plugin_key] = out_dict
 
+                        logger.debug("Creating Database Engine and Session.")
+                        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+                        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+                        ses = session_sqlalc()
                         logger.debug("Updating the extended info field in the database.")
                         scn_db_obj.ExtendedInfo = scn_json
                         flag_modified(scn_db_obj, "ExtendedInfo")
                         ses.commit()
                         logger.debug("Updated the extended info field in the database.")
+                        ses.close()
+                        logger.debug("Closed the database session.")
                     else:
                         logger.debug("The plugin analysis has not been completed - UNSUCCESSFUL.")
                 else:
                     logger.debug("The plugin '{}' from '{}' has already been run so will not be run again".format(
                         plugin_cls_name, plugin_module_name))
-            ses.close()
-            logger.debug("Closed the database session.")
 
     def run_usr_analysis_all_avail(self, n_cores):
         scn_lst = self.get_scnlist_usr_analysis()
