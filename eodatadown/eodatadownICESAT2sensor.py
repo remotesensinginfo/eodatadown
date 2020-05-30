@@ -637,46 +637,49 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                                             if lat_val > north_lat:
                                                 north_lat = lat_val
                         else:
-                            if gran_size > 2.0:
+                            if gran_size > 4.0:
                                 import pprint
                                 pprint.pprint(granule_meta)
                                 raise EODataDownException("No BBOX defined for {}".format(gran_producer_id))
                             else:
                                 invalid_granule = True
+                                logger.debug("The granule '{}' has been defined as invalid as no BBOX "
+                                             "or polygon was defined.".format(gran_producer_id))
 
-                        granule_links = json_parse_helper.getListValue(granule_meta, ['links'])
-                        gran_url = None
-                        for link in granule_links:
-                            if link['type'] == 'application/x-hdfeos':
-                                gran_url = link['href']
-                                break
-                        if gran_url is None:
-                            raise EODataDownException("Could not find a dataset URL for '{}'".format(gran_producer_id))
+                        if not invalid_granule:
+                            granule_links = json_parse_helper.getListValue(granule_meta, ['links'])
+                            gran_url = None
+                            for link in granule_links:
+                                if link['type'] == 'application/x-hdfeos':
+                                    gran_url = link['href']
+                                    break
+                            if gran_url is None:
+                                raise EODataDownException("Could not find a dataset URL for '{}'".format(gran_producer_id))
 
-                        granule_extra_info = dict()
-                        granule_extra_info['granule'] = dict()
-                        use_extra_info = False
-                        gran_equator_crossing_date_time = None
-                        gran_equator_crossing_longitude = None
-                        gran_orbit_number = None
-                        if json_parse_helper.doesPathExist(granule_meta, ['orbit_calculated_spatial_domains']):
-                            if len(granule_meta['orbit_calculated_spatial_domains']) == 1:
-                                orb_calcd_spat_domain = granule_meta['orbit_calculated_spatial_domains'][0]
-                                gran_equator_crossing_date_time = json_parse_helper.getDateTimeValue(orb_calcd_spat_domain, ['equator_crossing_date_time'], ["%Y-%m-%dT%H:%M:%S.%f"])
-                                gran_equator_crossing_longitude = json_parse_helper.getNumericValue(orb_calcd_spat_domain, ['equator_crossing_longitude'], -180, 180)
-                                gran_orbit_number = int(json_parse_helper.getNumericValue(orb_calcd_spat_domain, ['orbit_number']))
-                            else:
+                            granule_extra_info = dict()
+                            granule_extra_info['granule'] = dict()
+                            use_extra_info = False
+                            gran_equator_crossing_date_time = None
+                            gran_equator_crossing_longitude = None
+                            gran_orbit_number = None
+                            if json_parse_helper.doesPathExist(granule_meta, ['orbit_calculated_spatial_domains']):
+                                if len(granule_meta['orbit_calculated_spatial_domains']) == 1:
+                                    orb_calcd_spat_domain = granule_meta['orbit_calculated_spatial_domains'][0]
+                                    gran_equator_crossing_date_time = json_parse_helper.getDateTimeValue(orb_calcd_spat_domain, ['equator_crossing_date_time'], ["%Y-%m-%dT%H:%M:%S.%f"])
+                                    gran_equator_crossing_longitude = json_parse_helper.getNumericValue(orb_calcd_spat_domain, ['equator_crossing_longitude'], -180, 180)
+                                    gran_orbit_number = int(json_parse_helper.getNumericValue(orb_calcd_spat_domain, ['orbit_number']))
+                                else:
+                                    use_extra_info = True
+                                    granule_extra_info['granule']['orbit_calculated_spatial_domains'] = granule_meta['orbit_calculated_spatial_domains']
+                            if json_parse_helper.doesPathExist(granule_meta, ['polygons']):
                                 use_extra_info = True
-                                granule_extra_info['granule']['orbit_calculated_spatial_domains'] = granule_meta['orbit_calculated_spatial_domains']
-                        if json_parse_helper.doesPathExist(granule_meta, ['polygons']):
-                            use_extra_info = True
-                            granule_extra_info['granule']['polygons'] = granule_meta['polygons']
-                        if json_parse_helper.doesPathExist(granule_meta, ['boxes']):
-                            use_extra_info = True
-                            granule_extra_info['granule']['boxes'] = granule_meta['boxes']
+                                granule_extra_info['granule']['polygons'] = granule_meta['polygons']
+                            if json_parse_helper.doesPathExist(granule_meta, ['boxes']):
+                                use_extra_info = True
+                                granule_extra_info['granule']['boxes'] = granule_meta['boxes']
 
-                        if not use_extra_info:
-                            granule_extra_info = None
+                            if not use_extra_info:
+                                granule_extra_info = None
 
                         if not invalid_granule:
                             db_records.append(EDDICESAT2(PID=n_max_pid, Producer_ID=gran_producer_id, Granule_ID=gran_id,
