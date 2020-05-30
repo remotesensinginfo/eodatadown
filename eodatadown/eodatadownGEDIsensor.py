@@ -1023,3 +1023,21 @@ class EODataDownGEDISensor (EODataDownSensor):
     def reset_dc_load(self, unq_id):
         raise Exception("Not Implement...")
 
+    def get_sensor_summary_info(self):
+        """
+        A function which returns a dict of summary information for the sensor.
+        For example, summary statistics for the download time, summary statistics
+        for the file size, summary statistics for the ARD processing time.
+
+        :return: dict of information.
+
+        """
+        import statistics
+        info_dict = dict()
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        return info_dict
+

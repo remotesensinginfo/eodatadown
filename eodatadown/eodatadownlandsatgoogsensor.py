@@ -2803,7 +2803,9 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         """
         A function which resets whether an image has been loaded into a datacube
         (i.e., sets the flag to False).
+
         :param unq_id: unique id for the scene to be reset.
+        
         """
         logger.debug("Creating Database Engine and Session.")
         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -2826,3 +2828,73 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         ses.commit()
         ses.close()
+
+    def get_sensor_summary_info(self):
+        """
+        A function which returns a dict of summary information for the sensor.
+        For example, summary statistics for the download time, summary statistics
+        for the file size, summary statistics for the ARD processing time.
+
+        :return: dict of information.
+
+        """
+        import statistics
+        info_dict = dict()
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Find the scene count.")
+        vld_scn_count = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Invalid == False).count()
+        invld_scn_count = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Invalid == True).count()
+        dwn_scn_count = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True).count()
+        ard_scn_count = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.ARDProduct == True).count()
+        dcload_scn_count = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.DCLoaded == True).count()
+        arch_scn_count = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Archived == True).count()
+        info_dict['n_valid_scenes'] = vld_scn_count
+        info_dict['n_invalid_scenes'] = invld_scn_count
+        info_dict['n_downloaded_scenes'] = dwn_scn_count
+        info_dict['n_ard_processed_scenes'] = ard_scn_count
+        info_dict['n_dc_loaded_scenes'] = dcload_scn_count
+        info_dict['n_archived_scenes'] = arch_scn_count
+        logger.debug("Calculated the scene count.")
+
+        logger.debug("Find the scene file sizes.")
+        file_sizes = ses.query(EDDLandsatGoogle.Total_Size).filter(EDDLandsatGoogle.Invalid == False).all()
+        total_file_size = sum(file_sizes)
+        info_dict['file_size_total'] = total_file_size
+        if total_file_size > 0:
+            info_dict['file_size_mean'] = statistics.mean(file_sizes)
+            info_dict['file_size_min'] = min(file_sizes)
+            info_dict['file_size_max'] = max(file_sizes)
+            info_dict['file_size_stdev'] = statistics.stdev(file_sizes)
+            info_dict['file_size_quartiles'] = statistics.quantiles(file_sizes)
+        logger.debug("Calculated the scene file sizes.")
+
+        logger.debug("Find download and processing time stats.")
+        download_times = []
+        ard_process_times = []
+        scns = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Downloaded == True)
+        for scn in scns:
+            download_times.append((scn.Download_Start_Date - scn.Download_End_Date).total_seconds())
+            if scn.ARDProduct:
+                ard_process_times.append((scn.ARDProduct_Start_Date - scn.ARDProduct_End_Date).total_seconds())
+
+        if len(download_times) > 0:
+            info_dict['download_time_mean'] = statistics.mean(download_times)
+            info_dict['download_time_min'] = min(download_times)
+            info_dict['download_time_max'] = max(download_times)
+            info_dict['download_time_stdev'] = statistics.stdev(download_times)
+            info_dict['download_time_quartiles'] = statistics.quantiles(download_times)
+
+        if len(ard_process_times) > 0:
+            info_dict['ard_process_time_mean'] = statistics.mean(ard_process_times)
+            info_dict['ard_process_time_min'] = min(ard_process_times)
+            info_dict['ard_process_time_max'] = max(ard_process_times)
+            info_dict['ard_process_time_stdev'] = statistics.stdev(ard_process_times)
+            info_dict['ard_process_time_quartiles'] = statistics.quantiles(ard_process_times)
+        logger.debug("Calculated the download and processing time stats.")
+        return info_dict
+
+

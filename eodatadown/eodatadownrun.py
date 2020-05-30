@@ -1019,3 +1019,28 @@ def does_scn_need_processing(config_file, sensor, unq_id):
         logger.debug("Processing is complete for scene ({}) from {}.".format(unq_id, sensor))
 
     return processing_required
+
+def gen_sensor_summary_report(config_file, sensor, output_file=None):
+    """
+    A function which generates a summary report for a given sensor. Report includes info such
+    as the file size, download times, number of scenes etc.
+
+    :param config_file: The EODataDown configuration file path.
+    :param sensor: The sensor for the report to be generated
+    :param output_file: Output JSON file with the report. If None report is printed to the console.
+
+    """
+    sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
+    sys_main_obj.parse_config(config_file)
+
+    sensor_obj = sys_main_obj.get_sensor_obj(sensor)
+    report_dict = sensor_obj.get_sensor_summary_info()
+
+    if output_file is not None:
+        import json
+        with open(output_file, 'w') as fp:
+            json.dump(report_dict, fp, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
+    else:
+        import pprint
+        pprint.pprint(report_dict)
+
