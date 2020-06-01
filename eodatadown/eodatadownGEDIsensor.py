@@ -166,6 +166,7 @@ class EODataDownGEDISensor (EODataDownSensor):
         EODataDownSensor.__init__(self, db_info_obj)
         self.sensor_name = "GEDI"
         self.db_tab_name = "EDDGEDI"
+        self.ard_vec_format = "GPKG"
 
     def parse_sensor_config(self, config_file, first_parse=False):
         """
@@ -211,10 +212,6 @@ class EODataDownGEDISensor (EODataDownSensor):
                                                                           ["eodatadown", "sensor", "ardparams",
                                                                            "proj",
                                                                            "epsg"], 0, 1000000000))
-                else:
-                    self.ard_vec_format = "GEOJSON"
-            else:
-                self.ard_vec_format = "GEOJSON"
             logger.debug("Found ARD processing params from config file")
 
             logger.debug("Find paths from config file")
@@ -821,6 +818,8 @@ class EODataDownGEDISensor (EODataDownSensor):
             scn_db_obj = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one_or_none()
             if scn_db_obj is None:
                 raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+            ses.close()
+            logger.debug("Closed the database session.")
 
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             for plugin_info in self.analysis_plugins:
@@ -884,18 +883,22 @@ class EODataDownGEDISensor (EODataDownSensor):
                             logger.debug("An output dict from the plugin was provided so adding to extended info.")
                             scn_json[plugin_key] = out_dict
 
+                        logger.debug("Creating Database Engine and Session.")
+                        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+                        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+                        ses = session_sqlalc()
                         logger.debug("Updating the extended info field in the database.")
                         scn_db_obj.ExtendedInfo = scn_json
                         flag_modified(scn_db_obj, "ExtendedInfo")
                         ses.commit()
                         logger.debug("Updated the extended info field in the database.")
+                        ses.close()
+                        logger.debug("Closed the database session.")
                     else:
                         logger.debug("The plugin analysis has not been completed - UNSUCCESSFUL.")
                 else:
                     logger.debug("The plugin '{}' from '{}' has already been run so will not be run again".format(
                         plugin_cls_name, plugin_module_name))
-            ses.close()
-            logger.debug("Closed the database session.")
 
     def run_usr_analysis_all_avail(self, n_cores):
         scn_lst = self.get_scnlist_usr_analysis()
@@ -1019,4 +1022,83 @@ class EODataDownGEDISensor (EODataDownSensor):
 
     def reset_dc_load(self, unq_id):
         raise Exception("Not Implement...")
+
+    def get_sensor_summary_info(self):
+        """
+        A function which returns a dict of summary information for the sensor.
+        For example, summary statistics for the download time, summary statistics
+        for the file size, summary statistics for the ARD processing time.
+
+        :return: dict of information.
+
+        """
+        import statistics
+        info_dict = dict()
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Find the scene count.")
+        vld_scn_count = ses.query(EDDGEDI).filter(EDDGEDI.Invalid == False).count()
+        invld_scn_count = ses.query(EDDGEDI).filter(EDDGEDI.Invalid == True).count()
+        dwn_scn_count = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == True).count()
+        ard_scn_count = ses.query(EDDGEDI).filter(EDDGEDI.ARDProduct == True).count()
+        dcload_scn_count = ses.query(EDDGEDI).filter(EDDGEDI.DCLoaded == True).count()
+        arch_scn_count = ses.query(EDDGEDI).filter(EDDGEDI.Archived == True).count()
+        info_dict['n_scenes'] = dict()
+        info_dict['n_scenes']['n_valid_scenes'] = vld_scn_count
+        info_dict['n_scenes']['n_invalid_scenes'] = invld_scn_count
+        info_dict['n_scenes']['n_downloaded_scenes'] = dwn_scn_count
+        info_dict['n_scenes']['n_ard_processed_scenes'] = ard_scn_count
+        info_dict['n_scenes']['n_dc_loaded_scenes'] = dcload_scn_count
+        info_dict['n_scenes']['n_archived_scenes'] = arch_scn_count
+        logger.debug("Calculated the scene count.")
+
+        logger.debug("Find the scene file sizes.")
+        file_sizes = ses.query(EDDGEDI.Total_Size).filter(EDDGEDI.Invalid == False).all()
+        if file_sizes is not None:
+            if len(file_sizes) > 0:
+                file_sizes_nums = list()
+                for file_size in file_sizes:
+                    if file_size[0] is not None:
+                        file_sizes_nums.append(file_size[0])
+                if len(file_sizes_nums) > 0:
+                    total_file_size = sum(file_sizes_nums)
+                    info_dict['file_size'] = dict()
+                    info_dict['file_size']['file_size_total'] = total_file_size
+                    if total_file_size > 0:
+                        info_dict['file_size']['file_size_mean'] = statistics.mean(file_sizes_nums)
+                        info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
+                        info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
+                        info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
+                        info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
+        logger.debug("Calculated the scene file sizes.")
+
+        logger.debug("Find download and processing time stats.")
+        download_times = []
+        ard_process_times = []
+        scns = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == True)
+        for scn in scns:
+            download_times.append((scn.Download_End_Date - scn.Download_Start_Date).total_seconds())
+            if scn.ARDProduct:
+                ard_process_times.append((scn.ARDProduct_End_Date - scn.ARDProduct_Start_Date).total_seconds())
+
+        if len(download_times) > 0:
+            info_dict['download_time'] = dict()
+            info_dict['download_time']['download_time_mean_secs'] = statistics.mean(download_times)
+            info_dict['download_time']['download_time_min_secs'] = min(download_times)
+            info_dict['download_time']['download_time_max_secs'] = max(download_times)
+            info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
+            info_dict['download_time']['download_time_quartiles_secs'] = statistics.quantiles(download_times)
+
+        if len(ard_process_times) > 0:
+            info_dict['ard_process_time'] = dict()
+            info_dict['ard_process_time']['ard_process_time_mean_secs'] = statistics.mean(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_min_secs'] = min(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_max_secs'] = max(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(ard_process_times)
+        logger.debug("Calculated the download and processing time stats.")
+        return info_dict
 

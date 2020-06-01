@@ -101,9 +101,9 @@ if __name__ == "__main__":
     if ncores == 0:
         ncores = 1
 
-    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc) and (not args.usrplugins) and (not args.rmintersect):
-        logger.info("At least one of --finddownloads, --performdownload, --processard --loaddc --usrplugins or --rmintersect needs to be specified.")
-        raise Exception("At least one of --finddownloads, --performdownload, --processard --loaddc --usrplugins or --rmintersect needs to be specified.")
+    if (not args.finddownloads) and (not args.performdownload) and (not args.processard) and (not args.loaddc) and (not args.quicklook) and (not args.tilecache) and (not args.usrplugins) and (not args.rmintersect):
+        logger.info("At least one of --finddownloads, --performdownload, --processard, --loaddc, --quicklook, --tilecache,  --usrplugins or --rmintersect needs to be specified.")
+        raise Exception("At least one of --finddownloads, --performdownload, --processard --loaddc, --quicklook, --tilecache, --usrplugins or --rmintersect needs to be specified.")
 
 
     t = rsgislib.RSGISTime()

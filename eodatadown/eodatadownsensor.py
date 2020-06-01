@@ -453,6 +453,9 @@ class EODataDownSensor (object):
     @abstractmethod
     def reset_dc_load(self, unq_id): pass
 
+    @abstractmethod
+    def get_sensor_summary_info(self): pass
+
 
 class EODataDownObsDates (object):
 

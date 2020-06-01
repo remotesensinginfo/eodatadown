@@ -37,7 +37,7 @@ from distutils.core import setup
 import os
 
 setup(name='EODataDown',
-    version='2.2.15',
+    version='2.2.20',
     description='A tool for automating Earth Observation Data Downloading.',
     author='Pete Bunting',
     author_email='pfb@aber.ac.uk',
@@ -45,7 +45,7 @@ setup(name='EODataDown',
              'bin/eoddgenscncmds.py', 'bin/eoddsenroi.py', 'bin/eoddresetimgs.py', 'bin/eoddinitdatacube.py',
              'bin/eoddexportdb.py', 'bin/eoddimportdb.py', 'bin/eoddgenmonscncmds.py', 'bin/eoddrunmonitoring.py',
              'bin/eoddrunscnmonitoring.py', 'bin/eoddchknewscns.py', 'bin/eoddcreatereport.py',
-             'bin/eoddobsdatetools.py', 'bin/eoddgenobsdatecmds.py'],
+             'bin/eoddobsdatetools.py', 'bin/eoddgenobsdatecmds.py', 'bin/eoddsensorinfo.py'],
     packages=['eodatadown'],
     package_dir={'eodatadown': 'eodatadown'},
     package_data={'eodatadown': ['templates/*.jinja2']},
