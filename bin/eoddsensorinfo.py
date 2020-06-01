@@ -60,10 +60,6 @@ if __name__ == "__main__":
         logger.info("The config file does not exist: '" + config_file + "'")
         raise Exception("Config file does not exist")
 
-    ncores = int(os.getenv('EDD_NCORES', 0))
-    if args.ncores > ncores:
-        ncores = args.ncores
-
     t = rsgislib.RSGISTime()
     t.start(True)
 
