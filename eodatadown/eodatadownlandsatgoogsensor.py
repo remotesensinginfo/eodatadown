@@ -2863,18 +2863,22 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         logger.debug("Find the scene file sizes.")
         file_sizes = ses.query(EDDLandsatGoogle.Total_Size).filter(EDDLandsatGoogle.Invalid == False).all()
-        file_sizes_nums = list()
-        for file_size in file_sizes:
-            file_sizes_nums.append(file_size[0])
-        total_file_size = sum(file_sizes_nums)
-        info_dict['file_size'] = dict()
-        info_dict['file_size']['file_size_total'] = total_file_size
-        if total_file_size > 0:
-            info_dict['file_size']['file_size_mean'] = statistics.mean(file_sizes_nums)
-            info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
-            info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
-            info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
-            info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
+        if file_sizes is not None:
+            if len(file_sizes) > 0:
+                file_sizes_nums = list()
+                for file_size in file_sizes:
+                    if file_size[0] is not None:
+                        file_sizes_nums.append(file_size[0])
+                if len(file_sizes_nums) > 0:
+                    total_file_size = sum(file_sizes_nums)
+                    info_dict['file_size'] = dict()
+                    info_dict['file_size']['file_size_total'] = total_file_size
+                    if total_file_size > 0:
+                        info_dict['file_size']['file_size_mean'] = statistics.mean(file_sizes_nums)
+                        info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
+                        info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
+                        info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
+                        info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
         logger.debug("Calculated the scene file sizes.")
 
         logger.debug("Find download and processing time stats.")

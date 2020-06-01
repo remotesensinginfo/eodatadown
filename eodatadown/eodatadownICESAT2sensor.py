@@ -1379,5 +1379,66 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
         ses = session_sqlalc()
 
+        logger.debug("Find the scene count.")
+        vld_scn_count = ses.query(EDDICESAT2).filter(EDDICESAT2.Invalid == False).count()
+        invld_scn_count = ses.query(EDDICESAT2).filter(EDDICESAT2.Invalid == True).count()
+        dwn_scn_count = ses.query(EDDICESAT2).filter(EDDICESAT2.Downloaded == True).count()
+        ard_scn_count = ses.query(EDDICESAT2).filter(EDDICESAT2.ARDProduct == True).count()
+        dcload_scn_count = ses.query(EDDICESAT2).filter(EDDICESAT2.DCLoaded == True).count()
+        arch_scn_count = ses.query(EDDICESAT2).filter(EDDICESAT2.Archived == True).count()
+        info_dict['n_scenes'] = dict()
+        info_dict['n_scenes']['n_valid_scenes'] = vld_scn_count
+        info_dict['n_scenes']['n_invalid_scenes'] = invld_scn_count
+        info_dict['n_scenes']['n_downloaded_scenes'] = dwn_scn_count
+        info_dict['n_scenes']['n_ard_processed_scenes'] = ard_scn_count
+        info_dict['n_scenes']['n_dc_loaded_scenes'] = dcload_scn_count
+        info_dict['n_scenes']['n_archived_scenes'] = arch_scn_count
+        logger.debug("Calculated the scene count.")
+
+        logger.debug("Find the scene file sizes.")
+        file_sizes = ses.query(EDDICESAT2.Total_Size).filter(EDDICESAT2.Invalid == False).all()
+        if file_sizes is not None:
+            if len(file_sizes) > 0:
+                file_sizes_nums = list()
+                for file_size in file_sizes:
+                    if file_size[0] is not None:
+                        file_sizes_nums.append(file_size[0])
+                if len(file_sizes_nums) > 0:
+                    total_file_size = sum(file_sizes_nums)
+                    info_dict['file_size'] = dict()
+                    info_dict['file_size']['file_size_total'] = total_file_size
+                    if total_file_size > 0:
+                        info_dict['file_size']['file_size_mean'] = statistics.mean(file_sizes_nums)
+                        info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
+                        info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
+                        info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
+                        info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
+        logger.debug("Calculated the scene file sizes.")
+
+        logger.debug("Find download and processing time stats.")
+        download_times = []
+        ard_process_times = []
+        scns = ses.query(EDDICESAT2).filter(EDDICESAT2.Downloaded == True)
+        for scn in scns:
+            download_times.append((scn.Download_End_Date - scn.Download_Start_Date).total_seconds())
+            if scn.ARDProduct:
+                ard_process_times.append((scn.ARDProduct_End_Date - scn.ARDProduct_Start_Date).total_seconds())
+
+        if len(download_times) > 0:
+            info_dict['download_time'] = dict()
+            info_dict['download_time']['download_time_mean_secs'] = statistics.mean(download_times)
+            info_dict['download_time']['download_time_min_secs'] = min(download_times)
+            info_dict['download_time']['download_time_max_secs'] = max(download_times)
+            info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
+            info_dict['download_time']['download_time_quartiles_secs'] = statistics.quantiles(download_times)
+
+        if len(ard_process_times) > 0:
+            info_dict['ard_process_time'] = dict()
+            info_dict['ard_process_time']['ard_process_time_mean_secs'] = statistics.mean(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_min_secs'] = min(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_max_secs'] = max(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(ard_process_times)
+        logger.debug("Calculated the download and processing time stats.")
         return info_dict
 
