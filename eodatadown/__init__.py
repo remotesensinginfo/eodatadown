@@ -35,13 +35,18 @@ See other source files for details
 
 from distutils.version import LooseVersion
 import os
+import sys
 import logging
 import logging.config
 import json
 
 EODATADOWN_VERSION_MAJOR = 2
 EODATADOWN_VERSION_MINOR = 2
-EODATADOWN_VERSION_PATCH = 20
+EODATADOWN_VERSION_PATCH = 21
+
+py_sys_version = sys.version_info
+py_sys_version_str = "{}.{}".format(py_sys_version.major, py_sys_version.minor)
+py_sys_version_flt = float(py_sys_version_str)
 
 # Check is GTIFF Creation Options Flag has been defined and if not then define it.
 rsgislib_img_opts_tif_envvar = os.getenv('RSGISLIB_IMG_CRT_OPTS_GTIFF', None)
@@ -84,3 +89,5 @@ if (log_config_path is not None) and os.path.exists(log_config_path):
     logging.config.dictConfig(config)
 else:
     logging.basicConfig(level=log_default_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+

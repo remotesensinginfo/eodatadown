@@ -2586,7 +2586,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
                         info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
                         info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
-                        info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
+                        info_dict['file_size']['file_size_median'] = statistics.median(file_sizes_nums)
+                        if eodatadown.py_sys_version_flt >= 3.8:
+                            info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
         logger.debug("Calculated the scene file sizes.")
 
         logger.debug("Find download and processing time stats.")
@@ -2604,7 +2606,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             info_dict['download_time']['download_time_min_secs'] = min(download_times)
             info_dict['download_time']['download_time_max_secs'] = max(download_times)
             info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
-            info_dict['download_time']['download_time_quartiles_secs'] = statistics.quantiles(download_times)
+            info_dict['download_time']['download_time_median_secs'] = statistics.median(download_times)
+            if eodatadown.py_sys_version_flt >= 3.8:
+                info_dict['download_time']['download_time_quartiles_secs'] = statistics.quantiles(download_times)
 
         if len(ard_process_times) > 0:
             info_dict['ard_process_time'] = dict()
@@ -2612,6 +2616,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             info_dict['ard_process_time']['ard_process_time_min_secs'] = min(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_max_secs'] = max(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
-            info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(ard_process_times)
+            info_dict['ard_process_time']['ard_process_time_median_secs'] = statistics.median(ard_process_times)
+            if eodatadown.py_sys_version_flt >= 3.8:
+                info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(ard_process_times)
         logger.debug("Calculated the download and processing time stats.")
         return info_dict
