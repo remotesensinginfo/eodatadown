@@ -963,6 +963,27 @@ class EODataDownGEDISensor (EODataDownSensor):
                         ses.commit()
                 ses.close()
 
+    def is_scn_invalid(self, unq_id):
+        """
+        A function which tests whether a scene has been defined as invalid.
+
+        :param unq_id: the unique PID for the scene to test.
+        :return: True: The scene is invalid. False: the Scene is valid.
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one_or_none()
+        if query_result is None:
+            raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+        invalid = query_result.Invalid
+        ses.close()
+        logger.debug("Closed the database session.")
+        return invalid
+
     def find_unique_platforms(self):
         raise Exception("Not Implement...")
 

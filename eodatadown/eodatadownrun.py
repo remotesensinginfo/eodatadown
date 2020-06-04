@@ -545,7 +545,10 @@ def run_user_plugins_scene(config_file, sensor, scene_id):
 
     try:
         logger.debug("Going to try running the user analysis plugins for scene '{}'".format(scene_id))
-        sensor_obj_to_process.run_usr_analysis(scene_id)
+        if not sensor_obj_to_process.is_scn_invalid(scene_id):
+            sensor_obj_to_process.run_usr_analysis(scene_id)
+        else:
+            logger.info("Scene '{}' is an invalid scene and therefore analysis is not executed.".format(scene_id))
         logger.debug("Finished to try running the user analysis plugins for scene '{}'".format(scene_id))
     except Exception as e:
         logger.error("Error occurred while running user plugins for scene ({0}) from sensor: ({1})".format(
@@ -722,7 +725,7 @@ def run_scn_analysis(params):
                 logger.debug("Starting conversion to ARD for {} scene {}.".format(scn_sensor, scn_id))
                 sensor_obj.scn2ard(scn_id)
                 logger.debug("Completed conversion to ARD for {} scene {}.".format(scn_sensor, scn_id))
-            if sensor_obj.has_scn_con2ard(scn_id):
+            if sensor_obj.has_scn_con2ard(scn_id) and (not sensor_obj.is_scn_invalid(scn_id)):
                 if sensor_obj.calc_scn_quicklook():
                     process_complete = False
                     if not sensor_obj.has_scn_quicklook(scn_id):
@@ -807,23 +810,26 @@ def get_scenes_need_processing(config_file, sensors):
     for sensor in sensors:
         sensor_obj = sys_main_obj.get_sensor_obj(sensor)
         scn_ids = []
-        scns = sensor_obj.get_scnlist_usr_analysis()
-        for scn in scns:
-            if scn not in scn_ids:
-                tasks.append([config_file, sensor, scn])
-                scn_ids.append(scn)
+        if sensor_obj.calc_scn_usr_analysis():
+            scns = sensor_obj.get_scnlist_usr_analysis()
+            for scn in scns:
+                if scn not in scn_ids:
+                    tasks.append([config_file, sensor, scn])
+                    scn_ids.append(scn)
 
-        scns = sensor_obj.get_scnlist_quicklook()
-        for scn in scns:
-            if scn not in scn_ids:
-                tasks.append([config_file, sensor, scn])
-                scn_ids.append(scn)
+        if sensor_obj.calc_scn_tilecache():
+            scns = sensor_obj.get_scnlist_quicklook()
+            for scn in scns:
+                if scn not in scn_ids:
+                    tasks.append([config_file, sensor, scn])
+                    scn_ids.append(scn)
 
-        scns = sensor_obj.get_scnlist_tilecache()
-        for scn in scns:
-            if scn not in scn_ids:
-                tasks.append([config_file, sensor, scn])
-                scn_ids.append(scn)
+        if sensor_obj.calc_scn_quicklook():
+            scns = sensor_obj.get_scnlist_tilecache()
+            for scn in scns:
+                if scn not in scn_ids:
+                    tasks.append([config_file, sensor, scn])
+                    scn_ids.append(scn)
 
         scns = sensor_obj.get_scnlist_con2ard()
         for scn in scns:

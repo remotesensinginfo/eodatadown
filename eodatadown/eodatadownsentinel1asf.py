@@ -1004,23 +1004,24 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         :return: list of unique IDs
         """
-        logger.debug("Creating Database Engine and Session.")
-        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session_sqlalc()
-        logger.debug("Perform query to find scene.")
-        query_result = ses.query(EDDSentinel1ASF).filter(
-            sqlalchemy.or_(
-                EDDSentinel1ASF.ExtendedInfo.is_(None),
-                sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('quicklook'))),
-            EDDSentinel1ASF.Invalid == False,
-            EDDSentinel1ASF.ARDProduct == True).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
         scns2quicklook = list()
-        if query_result is not None:
-            for record in query_result:
-                scns2quicklook.append(record.PID)
-        ses.close()
-        logger.debug("Closed the database session.")
+        if self.calc_scn_quicklook():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            query_result = ses.query(EDDSentinel1ASF).filter(
+                sqlalchemy.or_(
+                    EDDSentinel1ASF.ExtendedInfo.is_(None),
+                    sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('quicklook'))),
+                EDDSentinel1ASF.Invalid == False,
+                EDDSentinel1ASF.ARDProduct == True).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
+            if query_result is not None:
+                for record in query_result:
+                    scns2quicklook.append(record.PID)
+            ses.close()
+            logger.debug("Closed the database session.")
         return scns2quicklook
 
     def has_scn_quicklook(self, unq_id):
@@ -1132,23 +1133,24 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         :return: list of unique IDs
         """
-        logger.debug("Creating Database Engine and Session.")
-        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
-        ses = session_sqlalc()
-        logger.debug("Perform query to find scene.")
-        query_result = ses.query(EDDSentinel1ASF).filter(
-            sqlalchemy.or_(
-                EDDSentinel1ASF.ExtendedInfo.is_(None),
-                sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('tilecache'))),
-            EDDSentinel1ASF.Invalid == False,
-            EDDSentinel1ASF.ARDProduct == True).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
         scns2tilecache = list()
-        if query_result is not None:
-            for record in query_result:
-                scns2tilecache.append(record.PID)
-        ses.close()
-        logger.debug("Closed the database session.")
+        if self.calc_scn_tilecache():
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            logger.debug("Perform query to find scene.")
+            query_result = ses.query(EDDSentinel1ASF).filter(
+                sqlalchemy.or_(
+                    EDDSentinel1ASF.ExtendedInfo.is_(None),
+                    sqlalchemy.not_(EDDSentinel1ASF.ExtendedInfo.has_key('tilecache'))),
+                EDDSentinel1ASF.Invalid == False,
+                EDDSentinel1ASF.ARDProduct == True).order_by(EDDSentinel1ASF.Acquisition_Date.asc()).all()
+            if query_result is not None:
+                for record in query_result:
+                    scns2tilecache.append(record.PID)
+            ses.close()
+            logger.debug("Closed the database session.")
         return scns2tilecache
 
     def has_scn_tilecache(self, unq_id):
@@ -1578,6 +1580,27 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                         flag_modified(scn_db_obj, "ExtendedInfo")
                         ses.commit()
                 ses.close()
+
+    def is_scn_invalid(self, unq_id):
+        """
+        A function which tests whether a scene has been defined as invalid.
+
+        :param unq_id: the unique PID for the scene to test.
+        :return: True: The scene is invalid. False: the Scene is valid.
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id).one_or_none()
+        if query_result is None:
+            raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+        invalid = query_result.Invalid
+        ses.close()
+        logger.debug("Closed the database session.")
+        return invalid
 
     def find_unique_platforms(self):
         """
