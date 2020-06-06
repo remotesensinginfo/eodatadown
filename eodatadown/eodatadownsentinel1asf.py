@@ -1430,17 +1430,6 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
     def run_usr_analysis(self, unq_id):
         if self.calc_scn_usr_analysis():
-            logger.debug("Creating Database Engine and Session.")
-            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
-            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
-            ses = session_sqlalc()
-            logger.debug("Perform query to find scene.")
-            scn_db_obj = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id).one_or_none()
-            if scn_db_obj is None:
-                raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
-            ses.close()
-            logger.debug("Closed the database session.")
-
             json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             for plugin_info in self.analysis_plugins:
                 plugin_path = os.path.abspath(plugin_info["path"])
@@ -1480,6 +1469,17 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                     plugin_cls_inst.set_users_param(plugin_info["params"])
                     logger.debug("Read plugin params and passed to plugin.")
 
+                logger.debug("Creating Database Engine and Session.")
+                db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+                session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+                ses = session_sqlalc()
+                logger.debug("Perform query to find scene.")
+                scn_db_obj = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id).one_or_none()
+                if scn_db_obj is None:
+                    raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+                ses.close()
+                logger.debug("Closed the database session.")
+
                 plugin_key = plugin_cls_inst.get_ext_info_key()
                 scn_json = scn_db_obj.ExtendedInfo
                 if scn_json is not None:
@@ -1507,10 +1507,13 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
                         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
                         ses = session_sqlalc()
+                        scn_db_up_obj = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.PID == unq_id).one_or_none()
+                        if scn_db_up_obj is None:
+                            raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
                         logger.debug("Updating the extended info field in the database.")
-                        scn_db_obj.ExtendedInfo = scn_json
-                        flag_modified(scn_db_obj, "ExtendedInfo")
-                        ses.add(scn_db_obj)
+                        scn_db_up_obj.ExtendedInfo = scn_json
+                        flag_modified(scn_db_up_obj, "ExtendedInfo")
+                        ses.add(scn_db_up_obj)
                         ses.commit()
                         logger.debug("Updated the extended info field in the database.")
                         ses.close()
