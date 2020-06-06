@@ -1324,6 +1324,42 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         logger.debug("Closed the database session.")
         return invalid
 
+    def get_scn_unq_name(self, unq_id):
+        """
+        A function which returns a name which will be unique for the specified scene.
+
+        :param unq_id: the unique PID for the scene.
+        :return: string with a unique name.
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one_or_none()
+        if query_result is None:
+            raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+        producer_id = query_result.Producer_ID
+        basename = os.path.splitext(producer_id)[0]
+        unq_name = "{}_{}_{}".format(basename, query_result.Granule_ID, query_result.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return unq_name
+
+    def get_scn_unq_name_record(self, scn_record):
+        """
+        A function which returns a name which will be unique using the scene record object passed to the function.
+
+        :param scn_record: the database dict like object representing the scene.
+        :return: string with a unique name.
+
+        """
+        producer_id = scn_record.Producer_ID
+        basename = os.path.splitext(producer_id)[0]
+        unq_name = "{}_{}_{}".format(basename, scn_record.Granule_ID, scn_record.PID)
+        return unq_name
+
     def find_unique_platforms(self):
         raise Exception("Not Implement...")
 

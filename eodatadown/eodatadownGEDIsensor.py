@@ -984,6 +984,38 @@ class EODataDownGEDISensor (EODataDownSensor):
         logger.debug("Closed the database session.")
         return invalid
 
+    def get_scn_unq_name(self, unq_id):
+        """
+        A function which returns a name which will be unique for the specified scene.
+
+        :param unq_id: the unique PID for the scene.
+        :return: string with a unique name.
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one_or_none()
+        if query_result is None:
+            raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+        unq_name = "{}_{}".format(query_result.Product_ID, query_result.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return unq_name
+
+    def get_scn_unq_name_record(self, scn_record):
+        """
+        A function which returns a name which will be unique using the scene record object passed to the function.
+
+        :param scn_record: the database dict like object representing the scene.
+        :return: string with a unique name.
+
+        """
+        unq_name = "{}_{}".format(scn_record.Product_ID, scn_record.PID)
+        return unq_name
+
     def find_unique_platforms(self):
         raise Exception("Not Implement...")
 
