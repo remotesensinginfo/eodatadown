@@ -1392,6 +1392,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             scn_json["quicklook"]["quicklookimgs"] = quicklook_imgs
             query_result.ExtendedInfo = scn_json
             flag_modified(query_result, "ExtendedInfo")
+            ses.add(query_result)
             ses.commit()
         else:
             raise EODataDownException("Could not find input image with PID {}".format(unq_id))
@@ -1520,6 +1521,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             scn_json["tilecache"]["visgtiff"] = out_visual_gtiff
             query_result.ExtendedInfo = scn_json
             flag_modified(query_result, "ExtendedInfo")
+            ses.add(query_result)
             ses.commit()
         else:
             raise EODataDownException("Could not find input image with PID {}".format(unq_id))
@@ -1790,6 +1792,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                         logger.debug("Updating the extended info field in the database.")
                         scn_db_obj.ExtendedInfo = scn_json
                         flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.add(scn_db_obj)
                         ses.commit()
                         logger.debug("Updated the extended info field in the database.")
                         ses.close()
@@ -1842,6 +1845,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                     out_ext_info = sqlalchemy.sql.null()
                                 record.ExtendedInfo = out_ext_info
                                 flag_modified(record, "ExtendedInfo")
+                                ses.add(record)
                                 ses.commit()
                 else:
                     logger.debug("Scene PID {} has been provided so resetting.".format(scn_pid))
@@ -1859,6 +1863,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                             out_ext_info = sqlalchemy.sql.null()
                         scn_db_obj.ExtendedInfo = out_ext_info
                         flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.add(scn_db_obj)
                         ses.commit()
                 ses.close()
 
@@ -2851,6 +2856,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
         scn_record.ExtendedInfo = None
         flag_modified(scn_record, "ExtendedInfo")
+        ses.add(scn_record)
 
         ses.commit()
         ses.close()

@@ -1230,6 +1230,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                         logger.debug("Updating the extended info field in the database.")
                         scn_db_obj.ExtendedInfo = scn_json
                         flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.add(scn_db_obj)
                         ses.commit()
                         logger.debug("Updated the extended info field in the database.")
                         ses.close()
@@ -1283,6 +1284,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                                     out_ext_info = sqlalchemy.sql.null()
                                 record.ExtendedInfo = out_ext_info
                                 flag_modified(record, "ExtendedInfo")
+                                ses.add(record)
                                 ses.commit()
                 else:
                     logger.debug("Scene PID {} has been provided so resetting.".format(scn_pid))
@@ -1300,6 +1302,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                             out_ext_info = sqlalchemy.sql.null()
                         scn_db_obj.ExtendedInfo = out_ext_info
                         flag_modified(scn_db_obj, "ExtendedInfo")
+                        ses.add(scn_db_obj)
                         ses.commit()
                 ses.close()
 
