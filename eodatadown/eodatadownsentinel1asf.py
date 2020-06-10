@@ -114,6 +114,19 @@ class EDDSentinel1ASF(Base):
     RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
 
 
+class EDDSentinel1ASFPlugins(Base):
+    __tablename__ = "EDDSentinel1ASFPlugins"
+    Scene_PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    PlugInName = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+    Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    Completed = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Success = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Outputs = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
+
+
 def _download_scn_asf(params):
     """
     Function which is used with multiprocessing pool object for downloading Sentinel-1 data from ASF.
@@ -2197,8 +2210,33 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             db_scn_dict[scn.PID]['RegCheck'] = scn.RegCheck
         ses.close()
 
+        db_plgin_dict = dict()
+        if self.calc_scn_usr_analysis():
+            plugin_keys = self.get_usr_analysis_keys()
+            for plgin_key in plugin_keys:
+                query_result = ses.query(EDDSentinel1ASFPlugins).filter(EDDSentinel1ASFPlugins.PlugInName == plgin_key).all()
+                db_plgin_dict[plgin_key] = dict()
+                for scn in query_result:
+                    db_plgin_dict[plgin_key][scn.Scene_PID] = dict()
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Scene_PID'] = scn.Scene_PID
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['PlugInName'] = scn.PlugInName
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Start_Date'] = eodd_utils.getDateTimeAsString(
+                            scn.Start_Date)
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['End_Date'] = eodd_utils.getDateTimeAsString(scn.End_Date)
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Completed'] = scn.Completed
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Success'] = scn.Success
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Outputs'] = scn.Outputs
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Error'] = scn.Error
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['ExtendedInfo'] = scn.ExtendedInfo
+        ses.close()
+
+        fnl_out_dict = dict()
+        fnl_out_dict['scn_db'] = db_scn_dict
+        if db_plgin_dict:
+            fnl_out_dict['plgin_db'] = db_plgin_dict
+
         with open(out_json_file, 'w') as outfile:
-            json.dump(db_scn_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
+            json.dump(fnl_out_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
 
     def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
@@ -2209,9 +2247,15 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
         """
         db_records = list()
+        db_plgin_records = list()
         eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
         with open(input_json_file) as json_file_obj:
-            sensor_rows = json.load(json_file_obj)
+            db_data = json.load(json_file_obj)
+            if 'scn_db' in db_data:
+                sensor_rows = db_data['scn_db']
+            else:
+                sensor_rows = db_data
+
             for pid in sensor_rows:
                 db_records.append(EDDSentinel1ASF(PID=sensor_rows[pid]['PID'],
                                                   Scene_ID=sensor_rows[pid]['Scene_ID'],
@@ -2260,12 +2304,29 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                   Invalid=sensor_rows[pid]['Invalid'],
                                                   ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(sensor_rows[pid]['ExtendedInfo'], replace_path_dict),
                                                   RegCheck=sensor_rows[pid]['RegCheck']))
+
+                if 'plgin_db' in db_data:
+                    plgin_rows = db_data['plgin_db']
+                    for plgin_key in plgin_rows:
+                        for scn_pid in plgin_rows[plgin_key]:
+                            db_plgin_records.append(EDDSentinel1ASFPlugins(Scene_PID=plgin_rows[plgin_key][scn_pid]['Scene_PID'],
+                                                                           PlugInName=plgin_rows[plgin_key][scn_pid]['PlugInName'],
+                                                                           Start_Date=eodd_utils.getDateTimeFromISOString(plgin_rows[plgin_key][scn_pid]['Start_Date']),
+                                                                           End_Date=eodd_utils.getDateTimeFromISOString(plgin_rows[plgin_key][scn_pid]['End_Date']),
+                                                                           Completed=plgin_rows[plgin_key][scn_pid]['Completed'],
+                                                                           Success=plgin_rows[plgin_key][scn_pid]['Success'],
+                                                                           Outputs=plgin_rows[plgin_key][scn_pid]['Outputs'],
+                                                                           Error=plgin_rows[plgin_key][scn_pid]['Error'],
+                                                                           ExtendedInfo=plgin_rows[plgin_key][scn_pid]['ExtendedInfo']))
         if len(db_records) > 0:
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
             session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
             ses = session_sqlalc()
             ses.add_all(db_records)
             ses.commit()
+            if len(db_plgin_records) > 0:
+                ses.add_all(db_plgin_records)
+                ses.commit()
             ses.close()
 
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
@@ -2409,9 +2470,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                         info_dict['file_size']['file_size_mean'] = statistics.mean(file_sizes_nums)
                         info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
                         info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
-                        info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
+                        if len(file_sizes_nums) > 1:
+                            info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
                         info_dict['file_size']['file_size_median'] = statistics.median(file_sizes_nums)
-                        if eodatadown.py_sys_version_flt >= 3.8:
+                        if (len(file_sizes_nums) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
                             info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
         logger.debug("Calculated the scene file sizes.")
 
@@ -2429,9 +2491,10 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             info_dict['download_time']['download_time_mean_secs'] = statistics.mean(download_times)
             info_dict['download_time']['download_time_min_secs'] = min(download_times)
             info_dict['download_time']['download_time_max_secs'] = max(download_times)
-            info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
+            if len(download_times) > 1:
+                info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
             info_dict['download_time']['download_time_median_secs'] = statistics.median(download_times)
-            if eodatadown.py_sys_version_flt >= 3.8:
+            if (len(download_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
                 info_dict['download_time']['download_time_quartiles_secs'] = statistics.quantiles(download_times)
 
         if len(ard_process_times) > 0:
@@ -2439,9 +2502,100 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
             info_dict['ard_process_time']['ard_process_time_mean_secs'] = statistics.mean(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_min_secs'] = min(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_max_secs'] = max(ard_process_times)
-            info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
+            if len(ard_process_times) > 1:
+                info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_median_secs'] = statistics.median(ard_process_times)
-            if eodatadown.py_sys_version_flt >= 3.8:
-                info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(ard_process_times)
+            if (len(ard_process_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
+                info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(
+                        ard_process_times)
         logger.debug("Calculated the download and processing time stats.")
+
+        if self.calc_scn_usr_analysis():
+            plgin_lst = self.get_usr_analysis_keys()
+            info_dict['usr_plugins'] = dict()
+            for plgin_key in plgin_lst:
+                info_dict['usr_plugins'][plgin_key] = dict()
+                scns = ses.query(EDDSentinel1ASFPlugins).filter(EDDSentinel1ASFPlugins.PlugInName == plgin_key).all()
+                n_err_scns = 0
+                n_complete_scns = 0
+                n_success_scns = 0
+                plugin_times = []
+                for scn in scns:
+                    if scn.Completed:
+                        plugin_times.append((scn.End_Date - scn.Start_Date).total_seconds())
+                        n_complete_scns += 1
+                    if scn.Success:
+                        n_success_scns += 1
+                    if scn.Error:
+                        n_err_scns += 1
+                info_dict['usr_plugins'][plgin_key]['n_success'] = n_success_scns
+                info_dict['usr_plugins'][plgin_key]['n_completed'] = n_complete_scns
+                info_dict['usr_plugins'][plgin_key]['n_error'] = n_err_scns
+                if len(plugin_times) > 0:
+                    info_dict['usr_plugins'][plgin_key]['processing'] = dict()
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_mean_secs'] = statistics.mean(plugin_times)
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_min_secs'] = min(plugin_times)
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_max_secs'] = max(plugin_times)
+                    if len(plugin_times) > 1:
+                        info_dict['usr_plugins'][plgin_key]['processing']['time_stdev_secs'] = statistics.stdev(plugin_times)
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_median_secs'] = statistics.median(plugin_times)
+                    if (len(plugin_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
+                        info_dict['usr_plugins'][plgin_key]['processing']['time_quartiles_secs'] = statistics.quantiles(plugin_times)
+        ses.close()
+        return info_dict
+
+    def get_sensor_plugin_info(self, plgin_key):
+        """
+        A function which generates a dictionary of information (e.g., errors) for a plugin.
+
+        :param plgin_key: The name of the plugin for which the information will be produced.
+        :return: a dict with the information.
+
+        """
+        info_dict = dict()
+        if self.calc_scn_usr_analysis():
+            plugin_keys = self.get_usr_analysis_keys()
+            if plgin_key not in plugin_keys:
+                raise EODataDownException("The specified plugin ('{}') does not exist.".format(plgin_key))
+
+            import statistics
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            scns = ses.query(EDDSentinel1ASFPlugins).filter(EDDSentinel1ASFPlugins.PlugInName == plgin_key).all()
+            n_err_scns = 0
+            n_complete_scns = 0
+            n_success_scns = 0
+            plugin_times = []
+            errors_dict = dict()
+            for scn in scns:
+                if scn.Completed:
+                    plugin_times.append((scn.End_Date - scn.Start_Date).total_seconds())
+                    n_complete_scns += 1
+                if scn.Success:
+                    n_success_scns += 1
+                if scn.Error:
+                    n_err_scns += 1
+                    errors_dict[scn.Scene_PID] = scn.ExtendedInfo
+            ses.close()
+            info_dict[plgin_key] = dict()
+            info_dict[plgin_key]['n_success'] = n_success_scns
+            info_dict[plgin_key]['n_completed'] = n_complete_scns
+            info_dict[plgin_key]['n_error'] = n_err_scns
+            if len(plugin_times) > 0:
+                info_dict[plgin_key]['processing'] = dict()
+                info_dict[plgin_key]['processing']['time_mean_secs'] = statistics.mean(plugin_times)
+                info_dict[plgin_key]['processing']['time_min_secs'] = min(plugin_times)
+                info_dict[plgin_key]['processing']['time_max_secs'] = max(plugin_times)
+                if len(plugin_times) > 1:
+                    info_dict[plgin_key]['processing']['time_stdev_secs'] = statistics.stdev(plugin_times)
+                info_dict[plgin_key]['processing']['time_median_secs'] = statistics.median(plugin_times)
+                if (len(plugin_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
+                    info_dict[plgin_key]['processing']['time_quartiles_secs'] = statistics.quantiles(plugin_times)
+            if n_err_scns > 0:
+                info_dict[plgin_key]['errors'] = errors_dict
+        else:
+            raise EODataDownException("There are no plugins for a summary to be produced for.")
+
         return info_dict

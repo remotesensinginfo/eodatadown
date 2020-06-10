@@ -152,23 +152,22 @@ class EODataDownUserAnalysis (object):
         return keys_present
 
     @abstractmethod
-    def perform_analysis(self, scn_db_obj, sen_obj):
+    def perform_analysis(self, scn_db_obj, sen_obj, plgin_objs):
         """
         A function which needs to be implemented by the user to perform the analysis.
         The object for the scene representing the database record is provided to the function.
 
-        The function must return a set of with a boolean and dict (bool, dict).
-        The boolean represents whether the analysis was successfully completed.
-        The dict will be added to the database record JSON field (ExtendedInfo)
-        using the key (defined by get_ext_info_key). If the dict is None then
-        and the processing successfully completed then a simple value of True
-        will be written as the key value.
-
-        The function cannot alter the other database fields, only the JSON field.
+        The function must return a set of with a boolean, dict and boolean (bool, dict, bool).
+        The first boolean represents whether the analysis was successfully completed.
+        The dict will be added to the database record JSON field (ExtendedInfo). The second
+        boolean is whether there is an output file(s) from the plugin. This is useful where
+        plugins are following each other and you need to know whether to look for an output file.
 
         :param scn_db_obj: The scene record from the database.
         :param sen_obj: An instance of a eodatadownsensor object related to the sensor for the scene.
-        :return: (bool, dict); dict can be None. See description above.
+        :param plgin_objs: A dict of plugin database objects to find information from other plugins for the scene.
+                           The dict keys are the unique plugin names.
+        :return: (bool, dict, bool); dict can be None. See description above.
 
         """
         pass

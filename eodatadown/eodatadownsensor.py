@@ -465,6 +465,9 @@ class EODataDownSensor (object):
     @abstractmethod
     def get_sensor_summary_info(self): pass
 
+    @abstractmethod
+    def get_sensor_plugin_info(self, plgin_key): pass
+
 
 class EODataDownObsDates (object):
 
