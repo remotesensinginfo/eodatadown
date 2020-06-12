@@ -1678,7 +1678,6 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
     def run_usr_analysis(self, unq_id):
         if self.calc_scn_usr_analysis():
-            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             for plugin_info in self.analysis_plugins:
                 plugin_path = os.path.abspath(plugin_info["path"])
                 plugin_module_name = plugin_info["module"]
