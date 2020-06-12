@@ -1346,7 +1346,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
             query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Invalid == False,
                                                              EDDSentinel1ASF.ARDProduct == True).order_by(
-                                                             EDDSentinel1ASF.Date_Acquired.asc()).all()
+                                                             EDDSentinel1ASF.Acquisition_Date.asc()).all()
 
             for scn in query_result:
                 scn_plgin_db_objs = ses.query(EDDSentinel1ASFPlugins).filter(EDDSentinel1ASFPlugins.Scene_PID == scn.PID).all()

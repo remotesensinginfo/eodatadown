@@ -1502,7 +1502,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             query_result = ses.query(EDDSentinel2Google).filter(EDDSentinel2Google.Invalid == False,
                                                                 EDDSentinel2Google.ARDProduct == True).order_by(
-                                                                EDDSentinel2Google.Date_Acquired.asc()).all()
+                                                                EDDSentinel2Google.Sensing_Time.asc()).all()
 
             for scn in query_result:
                 scn_plgin_db_objs = ses.query(EDDSentinel2GooglePlugins).filter(EDDSentinel2GooglePlugins.Scene_PID == scn.PID).all()

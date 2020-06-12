@@ -1065,7 +1065,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
             usr_analysis_keys = self.get_usr_analysis_keys()
 
             query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.Invalid == False,
-                                                        EDDICESAT2.ARDProduct == True).order_by(EDDICESAT2.Date_Acquired.asc()).all()
+                                                        EDDICESAT2.ARDProduct == True).order_by(EDDICESAT2.Start_Time.asc()).all()
 
             for scn in query_result:
                 scn_plgin_db_objs = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == scn.PID).all()
