@@ -38,6 +38,7 @@ import shutil
 import multiprocessing
 import sys
 import importlib
+import traceback
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -102,6 +103,19 @@ class EDDICESAT2(Base):
     Invalid = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
     RegCheck = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+
+
+class EDDICESAT2Plugins(Base):
+    __tablename__ = "EDDICESAT2Plugins"
+    Scene_PID = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    PlugInName = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+    Start_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    End_Date = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
+    Completed = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Success = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Outputs = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    Error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
+    ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
 
 
 def _download_icesat2_file(params):
@@ -1048,54 +1062,32 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
             session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
             ses = session_sqlalc()
 
-            for plugin_info in self.analysis_plugins:
-                plugin_path = os.path.abspath(plugin_info["path"])
-                plugin_module_name = plugin_info["module"]
-                plugin_cls_name = plugin_info["class"]
-                # Check if plugin path input is already in system path.
-                already_in_path = False
-                for c_path in sys.path:
-                    c_path = os.path.abspath(c_path)
-                    if c_path == plugin_path:
-                        already_in_path = True
-                        break
-                # Add plugin path to system path
-                if not already_in_path:
-                    sys.path.insert(0, plugin_path)
-                    logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
-                # Try to import the module.
-                logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
-                plugin_mod_inst = importlib.import_module(plugin_module_name)
-                logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
-                if plugin_mod_inst is None:
-                    raise Exception("Could not load the module: '{}'".format(plugin_module_name))
-                # Try to make instance of class.
-                logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
-                plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
-                logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
-                if plugin_cls_inst is None:
-                    raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+            usr_analysis_keys = self.get_usr_analysis_keys()
 
-                plugin_key = plugin_cls_inst.get_ext_info_key()
-                query_result = ses.query(EDDICESAT2).filter(
-                        sqlalchemy.or_(
-                                EDDICESAT2.ExtendedInfo.is_(None),
-                                sqlalchemy.not_(EDDICESAT2.ExtendedInfo.has_key(plugin_key))),
-                        EDDICESAT2.Invalid == False,
-                        EDDICESAT2.ARDProduct == True).order_by(EDDICESAT2.Start_Time.asc()).all()
+            query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.Invalid == False,
+                                                        EDDICESAT2.ARDProduct == True).order_by(EDDICESAT2.Start_Time.asc()).all()
 
-                if query_result is not None:
-                    for record in query_result:
-                        if record.PID not in scns2runusranalysis:
-                            scns2runusranalysis.append(record.PID)
-
+            for scn in query_result:
+                scn_plgin_db_objs = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == scn.PID).all()
+                if (scn_plgin_db_objs is None) or (not scn_plgin_db_objs):
+                    scns2runusranalysis.append(scn.PID)
+                else:
+                    for plugin_key in usr_analysis_keys:
+                        plugin_completed = False
+                        for plgin_db_obj in scn_plgin_db_objs:
+                            if (plgin_db_obj.PlugInName == plugin_key) and plgin_db_obj.Completed:
+                                plugin_completed = True
+                                break
+                        if not plugin_completed:
+                            scns2runusranalysis.append(scn.PID)
+                            break
             ses.close()
             logger.debug("Closed the database session.")
         return scns2runusranalysis
 
     def has_scn_usr_analysis(self, unq_id):
-        usr_plugins_calcd = False
-        logger.debug("Going to test whether there are plugins.")
+        usr_plugins_calcd = True
+        logger.debug("Going to test whether there are plugins to execute.")
         if self.calc_scn_usr_analysis():
             logger.debug("Creating Database Engine and Session.")
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
@@ -1105,44 +1097,20 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
             query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one_or_none()
             if query_result is None:
                 raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
-            scn_json = query_result.ExtendedInfo
+
+            scn_plgin_db_objs = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == unq_id).all()
             ses.close()
             logger.debug("Closed the database session.")
-
-            if scn_json is not None:
-                json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
-                usr_plugins_calcd = True
-                for plugin_info in self.analysis_plugins:
-                    plugin_path = os.path.abspath(plugin_info["path"])
-                    plugin_module_name = plugin_info["module"]
-                    plugin_cls_name = plugin_info["class"]
-                    logger.debug("Using plugin '{}' from '{}'.".format(plugin_cls_name, plugin_module_name))
-                    # Check if plugin path input is already in system path.
-                    already_in_path = False
-                    for c_path in sys.path:
-                        c_path = os.path.abspath(c_path)
-                        if c_path == plugin_path:
-                            already_in_path = True
+            if (scn_plgin_db_objs is None) or (not scn_plgin_db_objs):
+                usr_plugins_calcd = False
+            else:
+                usr_analysis_keys = self.get_usr_analysis_keys()
+                for plugin_key in usr_analysis_keys:
+                    plugin_completed = False
+                    for plgin_db_obj in scn_plgin_db_objs:
+                        if (plgin_db_obj.PlugInName == plugin_key) and plgin_db_obj.Completed:
+                            plugin_completed = True
                             break
-                    # Add plugin path to system path
-                    if not already_in_path:
-                        sys.path.insert(0, plugin_path)
-                        logger.debug("Add plugin path ('{}') to the system path.".format(plugin_path))
-                    # Try to import the module.
-                    logger.debug("Try to import the plugin module: '{}'".format(plugin_module_name))
-                    plugin_mod_inst = importlib.import_module(plugin_module_name)
-                    logger.debug("Imported the plugin module: '{}'".format(plugin_module_name))
-                    if plugin_mod_inst is None:
-                        raise Exception("Could not load the module: '{}'".format(plugin_module_name))
-                    # Try to make instance of class.
-                    logger.debug("Try to create instance of class: '{}'".format(plugin_cls_name))
-                    plugin_cls_inst = getattr(plugin_mod_inst, plugin_cls_name)()
-                    logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
-                    if plugin_cls_inst is None:
-                        raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
-
-                    plugin_key = plugin_cls_inst.get_ext_info_key()
-                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
                     if not plugin_completed:
                         usr_plugins_calcd = False
                         break
@@ -1150,7 +1118,6 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
 
     def run_usr_analysis(self, unq_id):
         if self.calc_scn_usr_analysis():
-            json_parse_helper = eodatadown.eodatadownutils.EDDJSONParseHelper()
             for plugin_info in self.analysis_plugins:
                 plugin_path = os.path.abspath(plugin_info["path"])
                 plugin_module_name = plugin_info["module"]
@@ -1183,6 +1150,10 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                 logger.debug("Created instance of class: '{}'".format(plugin_cls_name))
                 if plugin_cls_inst is None:
                     raise Exception("Could not create instance of '{}'".format(plugin_cls_name))
+                plugin_key = plugin_cls_inst.get_ext_info_key()
+                logger.debug("Using plugin '{}' from '{}' with key '{}'.".format(plugin_cls_name,
+                                                                                 plugin_module_name,
+                                                                                 plugin_key))
 
                 # Try to read any plugin parameters to be passed to the plugin when instantiated.
                 if "params" in plugin_info:
@@ -1197,52 +1168,91 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                 scn_db_obj = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one_or_none()
                 if scn_db_obj is None:
                     raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
+                logger.debug("Perform query to find scene in plugin DB.")
+                plgin_db_obj = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == unq_id,
+                                                                   EDDICESAT2Plugins.PlugInName == plugin_key).one_or_none()
+                plgin_db_objs = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == unq_id).all()
                 ses.close()
                 logger.debug("Closed the database session.")
 
-                plugin_key = plugin_cls_inst.get_ext_info_key()
-                scn_json = scn_db_obj.ExtendedInfo
-                if scn_json is not None:
-                    plugin_completed = json_parse_helper.doesPathExist(scn_json, [plugin_key])
-                else:
+                plgins_dict = dict()
+                for plgin_obj in plgin_db_objs:
+                    plgins_dict[plgin_obj.PlugInName] = plgin_obj
+
+                plugin_completed = True
+                exists_in_db = True
+                if plgin_db_obj is None:
+                    plugin_completed = False
+                    exists_in_db = False
+                elif not plgin_db_obj.Completed:
                     plugin_completed = False
 
                 if not plugin_completed:
-                    plg_success, out_dict = plugin_cls_inst.perform_analysis(scn_db_obj, self)
+                    start_time = datetime.datetime.now()
+                    try:
+                        completed = True
+                        error_occurred = False
+                        plg_success, out_dict, plg_outputs = plugin_cls_inst.perform_analysis(scn_db_obj, self, plgins_dict)
+                    except Exception as e:
+                        plg_success = False
+                        plg_outputs = False
+                        error_occurred = True
+                        out_dict = dict()
+                        out_dict['error'] = str(e)
+                        out_dict['traceback'] = traceback.format_exc()
+                        completed = False
+                    end_time = datetime.datetime.now()
                     if plg_success:
                         logger.debug("The plugin analysis has been completed - SUCCESSFULLY.")
-                        if scn_json is None:
-                            logger.debug("No existing extended info so creating the dict.")
-                            scn_json = dict()
+                    else:
+                        logger.debug("The plugin analysis has been completed - UNSUCCESSFULLY.")
 
-                        if out_dict is None:
-                            logger.debug("No output dict from the plugin so just setting as True to indicate "
-                                         "the plugin has successfully executed.")
-                            scn_json[plugin_key] = True
-                        else:
-                            logger.debug("An output dict from the plugin was provided so adding to extended info.")
-                            scn_json[plugin_key] = out_dict
-
+                    if exists_in_db:
                         logger.debug("Creating Database Engine and Session.")
                         db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
                         session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
                         ses = session_sqlalc()
-                        scn_db_up_obj = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one_or_none()
-                        if scn_db_up_obj is None:
-                            raise EODataDownException("Scene ('{}') could not be found in database".format(unq_id))
-                        logger.debug("Updating the extended info field in the database.")
-                        scn_db_up_obj.ExtendedInfo = scn_json
-                        flag_modified(scn_db_up_obj, "ExtendedInfo")
-                        ses.add(scn_db_up_obj)
+                        logger.debug("Perform query to find scene in plugin DB.")
+                        plgin_db_obj = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == unq_id,
+                                                                           EDDICESAT2Plugins.PlugInName == plugin_key).one_or_none()
+
+                        if plgin_db_obj is None:
+                            raise EODataDownException(
+                                    "Do not know what has happened, scene plugin instance not found but was earlier.")
+
+                        plgin_db_obj.Success = plg_success
+                        plgin_db_obj.Completed = completed
+                        plgin_db_obj.Outputs = plg_outputs
+                        plgin_db_obj.Error = error_occurred
+                        plgin_db_obj.Start_Date = start_time
+                        plgin_db_obj.End_Date = end_time
+                        if out_dict is not None:
+                            plgin_db_obj.ExtendedInfo = out_dict
+                            flag_modified(plgin_db_obj, "ExtendedInfo")
+                        ses.add(plgin_db_obj)
                         ses.commit()
-                        logger.debug("Updated the extended info field in the database.")
+                        logger.debug("Committed updated record to database - PID {}.".format(unq_id))
                         ses.close()
                         logger.debug("Closed the database session.")
                     else:
-                        logger.debug("The plugin analysis has not been completed - UNSUCCESSFUL.")
+                        plgin_db_obj = EDDICESAT2Plugins(Scene_PID=scn_db_obj.PID, PlugInName=plugin_key,
+                                                         Start_Date=start_time, End_Date=end_time,
+                                                         Completed=completed, Success=plg_success,
+                                                         Error=error_occurred, Outputs=plg_outputs)
+                        if out_dict is not None:
+                            plgin_db_obj.ExtendedInfo = out_dict
+
+                        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+                        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+                        ses = session_sqlalc()
+                        ses.add(plgin_db_obj)
+                        ses.commit()
+                        logger.debug("Committed new record to database - PID {}.".format(unq_id))
+                        ses.close()
+                        logger.debug("Closed the database session.")
                 else:
                     logger.debug("The plugin '{}' from '{}' has already been run so will not be run again".format(
-                        plugin_cls_name, plugin_module_name))
+                            plugin_cls_name, plugin_module_name))
 
     def run_usr_analysis_all_avail(self, n_cores):
         scn_lst = self.get_scnlist_usr_analysis()
@@ -1259,10 +1269,11 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
 
         """
         if self.calc_scn_usr_analysis():
+            reset_all_plgins = False
             if plgin_lst is None:
-                logger.debug(
-                    "A list of plugins to reset has not been provided so populating that list with all plugins.")
+                logger.debug("A list of plugins to reset has not been provided so populating that list with all plugins.")
                 plgin_lst = self.get_usr_analysis_keys()
+                reset_all_plgins = True
             logger.debug("There are {} plugins to reset".format(len(plgin_lst)))
 
             if len(plgin_lst) > 0:
@@ -1273,40 +1284,21 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
 
                 if scn_pid is None:
                     logger.debug("No scene PID has been provided so resetting all the scenes.")
-                    query_result = ses.query(EDDICESAT2).all()
-                    if query_result is not None:
-                        for record in query_result:
-                            out_ext_info = dict()
-                            in_ext_info = record.ExtendedInfo
-                            if in_ext_info is not None:
-                                for key in in_ext_info:
-                                    if key not in plgin_lst:
-                                        out_ext_info[key] = in_ext_info[key]
-                                # If out dict is empty then set to None.
-                                if not out_ext_info:
-                                    out_ext_info = sqlalchemy.sql.null()
-                                record.ExtendedInfo = out_ext_info
-                                flag_modified(record, "ExtendedInfo")
-                                ses.add(record)
-                                ses.commit()
+                    for plgin_key in plgin_lst:
+                        ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.PlugInName == plgin_key).delete(synchronize_session=False)
+                        ses.commit()
                 else:
                     logger.debug("Scene PID {} has been provided so resetting.".format(scn_pid))
-                    scn_db_obj = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == scn_pid).one_or_none()
-                    if scn_db_obj is None:
-                        raise EODataDownException("Scene ('{}') could not be found in database".format(scn_pid))
-                    out_ext_info = dict()
-                    in_ext_info = scn_db_obj.ExtendedInfo
-                    if in_ext_info is not None:
-                        for key in in_ext_info:
-                            if key not in plgin_lst:
-                                out_ext_info[key] = in_ext_info[key]
-                        # If out dict is empty then set to None.
-                        if not out_ext_info:
-                            out_ext_info = sqlalchemy.sql.null()
-                        scn_db_obj.ExtendedInfo = out_ext_info
-                        flag_modified(scn_db_obj, "ExtendedInfo")
-                        ses.add(scn_db_obj)
-                        ses.commit()
+                    if reset_all_plgins:
+                        ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == scn_pid).delete(synchronize_session=False)
+                    else:
+                        scn_plgin_db_objs = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.Scene_PID == scn_pid).all()
+                        if (scn_plgin_db_objs is None) and (not scn_plgin_db_objs):
+                            raise EODataDownException("Scene ('{}') could not be found in database".format(scn_pid))
+                        for plgin_db_obj in scn_plgin_db_objs:
+                            if plgin_db_obj.PlugInName in plgin_lst:
+                                ses.delete(plgin_db_obj)
+                    ses.commit()
                 ses.close()
 
     def is_scn_invalid(self, unq_id):
@@ -1474,9 +1466,10 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                         info_dict['file_size']['file_size_mean'] = statistics.mean(file_sizes_nums)
                         info_dict['file_size']['file_size_min'] = min(file_sizes_nums)
                         info_dict['file_size']['file_size_max'] = max(file_sizes_nums)
-                        info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
+                        if len(file_sizes_nums) > 1:
+                            info_dict['file_size']['file_size_stdev'] = statistics.stdev(file_sizes_nums)
                         info_dict['file_size']['file_size_median'] = statistics.median(file_sizes_nums)
-                        if eodatadown.py_sys_version_flt >= 3.8:
+                        if (len(file_sizes_nums) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
                             info_dict['file_size']['file_size_quartiles'] = statistics.quantiles(file_sizes_nums)
         logger.debug("Calculated the scene file sizes.")
 
@@ -1494,9 +1487,10 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
             info_dict['download_time']['download_time_mean_secs'] = statistics.mean(download_times)
             info_dict['download_time']['download_time_min_secs'] = min(download_times)
             info_dict['download_time']['download_time_max_secs'] = max(download_times)
-            info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
+            if len(download_times) > 1:
+                info_dict['download_time']['download_time_stdev_secs'] = statistics.stdev(download_times)
             info_dict['download_time']['download_time_median_secs'] = statistics.median(download_times)
-            if eodatadown.py_sys_version_flt >= 3.8:
+            if (len(download_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
                 info_dict['download_time']['download_time_quartiles_secs'] = statistics.quantiles(download_times)
 
         if len(ard_process_times) > 0:
@@ -1504,10 +1498,104 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
             info_dict['ard_process_time']['ard_process_time_mean_secs'] = statistics.mean(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_min_secs'] = min(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_max_secs'] = max(ard_process_times)
-            info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
+            if len(ard_process_times) > 1:
+                info_dict['ard_process_time']['ard_process_time_stdev_secs'] = statistics.stdev(ard_process_times)
             info_dict['ard_process_time']['ard_process_time_median_secs'] = statistics.median(ard_process_times)
-            if eodatadown.py_sys_version_flt >= 3.8:
-                info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(ard_process_times)
+            if (len(ard_process_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
+                info_dict['ard_process_time']['ard_process_time_quartiles_secs'] = statistics.quantiles(
+                        ard_process_times)
         logger.debug("Calculated the download and processing time stats.")
+
+        if self.calc_scn_usr_analysis():
+            plgin_lst = self.get_usr_analysis_keys()
+            info_dict['usr_plugins'] = dict()
+            for plgin_key in plgin_lst:
+                info_dict['usr_plugins'][plgin_key] = dict()
+                scns = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.PlugInName == plgin_key).all()
+                n_err_scns = 0
+                n_complete_scns = 0
+                n_success_scns = 0
+                plugin_times = []
+                for scn in scns:
+                    if scn.Completed:
+                        plugin_times.append((scn.End_Date - scn.Start_Date).total_seconds())
+                        n_complete_scns += 1
+                    if scn.Success:
+                        n_success_scns += 1
+                    if scn.Error:
+                        n_err_scns += 1
+                info_dict['usr_plugins'][plgin_key]['n_success'] = n_success_scns
+                info_dict['usr_plugins'][plgin_key]['n_completed'] = n_complete_scns
+                info_dict['usr_plugins'][plgin_key]['n_error'] = n_err_scns
+                if len(plugin_times) > 0:
+                    info_dict['usr_plugins'][plgin_key]['processing'] = dict()
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_mean_secs'] = statistics.mean(plugin_times)
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_min_secs'] = min(plugin_times)
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_max_secs'] = max(plugin_times)
+                    if len(plugin_times) > 1:
+                        info_dict['usr_plugins'][plgin_key]['processing']['time_stdev_secs'] = statistics.stdev(
+                                plugin_times)
+                    info_dict['usr_plugins'][plgin_key]['processing']['time_median_secs'] = statistics.median(
+                            plugin_times)
+                    if (len(plugin_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
+                        info_dict['usr_plugins'][plgin_key]['processing']['time_quartiles_secs'] = statistics.quantiles(
+                                plugin_times)
+        ses.close()
+        return info_dict
+
+    def get_sensor_plugin_info(self, plgin_key):
+        """
+        A function which generates a dictionary of information (e.g., errors) for a plugin.
+
+        :param plgin_key: The name of the plugin for which the information will be produced.
+        :return: a dict with the information.
+
+        """
+        info_dict = dict()
+        if self.calc_scn_usr_analysis():
+            plugin_keys = self.get_usr_analysis_keys()
+            if plgin_key not in plugin_keys:
+                raise EODataDownException("The specified plugin ('{}') does not exist.".format(plgin_key))
+
+            import statistics
+            logger.debug("Creating Database Engine and Session.")
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            scns = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.PlugInName == plgin_key).all()
+            n_err_scns = 0
+            n_complete_scns = 0
+            n_success_scns = 0
+            plugin_times = []
+            errors_dict = dict()
+            for scn in scns:
+                if scn.Completed:
+                    plugin_times.append((scn.End_Date - scn.Start_Date).total_seconds())
+                    n_complete_scns += 1
+                if scn.Success:
+                    n_success_scns += 1
+                if scn.Error:
+                    n_err_scns += 1
+                    errors_dict[scn.Scene_PID] = scn.ExtendedInfo
+            ses.close()
+            info_dict[plgin_key] = dict()
+            info_dict[plgin_key]['n_success'] = n_success_scns
+            info_dict[plgin_key]['n_completed'] = n_complete_scns
+            info_dict[plgin_key]['n_error'] = n_err_scns
+            if len(plugin_times) > 0:
+                info_dict[plgin_key]['processing'] = dict()
+                info_dict[plgin_key]['processing']['time_mean_secs'] = statistics.mean(plugin_times)
+                info_dict[plgin_key]['processing']['time_min_secs'] = min(plugin_times)
+                info_dict[plgin_key]['processing']['time_max_secs'] = max(plugin_times)
+                if len(plugin_times) > 1:
+                    info_dict[plgin_key]['processing']['time_stdev_secs'] = statistics.stdev(plugin_times)
+                info_dict[plgin_key]['processing']['time_median_secs'] = statistics.median(plugin_times)
+                if (len(plugin_times) > 1) and (eodatadown.py_sys_version_flt >= 3.8):
+                    info_dict[plgin_key]['processing']['time_quartiles_secs'] = statistics.quantiles(plugin_times)
+            if n_err_scns > 0:
+                info_dict[plgin_key]['errors'] = errors_dict
+        else:
+            raise EODataDownException("There are no plugins for a summary to be produced for.")
+
         return info_dict
 
