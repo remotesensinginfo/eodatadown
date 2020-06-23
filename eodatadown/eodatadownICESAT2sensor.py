@@ -134,6 +134,7 @@ def _download_icesat2_file(params):
     earth_data_user = params[6]
     earth_data_pass = params[7]
     dir_lcl_data_cache = params[8]
+    use_symlnk_lcl_data_cache = params[9]
     success = False
 
     found_lcl_file = False
@@ -148,7 +149,12 @@ def _download_icesat2_file(params):
 
     start_date = datetime.datetime.now()
     if found_lcl_file:
-        shutil.copy(lcl_file, scn_lcl_dwnld_path)
+        if use_symlnk_lcl_data_cache:
+            scn_file_name = os.path.basename(lcl_file)
+            scn_symlnk = os.path.join(scn_lcl_dwnld_path, scn_file_name)
+            os.symlink(lcl_file, scn_symlnk)
+        else:
+            shutil.copy(lcl_file, scn_lcl_dwnld_path)
         success = True
     else:
         eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
@@ -284,6 +290,13 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                                                                                        "download", "lcl_data_cache"])
             else:
                 self.dir_lcl_data_cache = None
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "use_symlnk_data_cache"]):
+                self.use_symlnk_lcl_data_cache = json_parse_helper.getBooleanValue(config_data, ["eodatadown", "sensor",
+                                                                                                 "download",
+                                                                                                 "use_symlnk_data_cache"])
+            else:
+                self.use_symlnk_lcl_data_cache = False
             logger.debug("Found search params from config file")
 
             self.scn_intersect = False
@@ -875,7 +888,8 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 _download_icesat2_file([record.PID, producer_id, record.Remote_URL, self.db_info_obj,
                                         scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, producer_id),
-                                        self.earthDataUser, self.earthDataPass, self.dir_lcl_data_cache])
+                                        self.earthDataUser, self.earthDataPass, self.dir_lcl_data_cache,
+                                        self.use_symlnk_lcl_data_cache])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
@@ -923,8 +937,9 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 downloaded_new_scns = True
                 dwnld_params.append([record.PID, producer_id, record.Remote_URL, self.db_info_obj,
-                                        scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, producer_id),
-                                        self.earthDataUser, self.earthDataPass, self.dir_lcl_data_cache])
+                                     scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, producer_id),
+                                     self.earthDataUser, self.earthDataPass, self.dir_lcl_data_cache,
+                                     self.use_symlnk_lcl_data_cache])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")

@@ -127,6 +127,7 @@ def _download_gedi_file(params):
     earth_data_user = params[6]
     earth_data_pass = params[7]
     dir_lcl_data_cache = params[8]
+    use_symlnk_lcl_data_cache = params[9]
     success = False
 
     found_lcl_file = False
@@ -140,7 +141,12 @@ def _download_gedi_file(params):
                     break
     start_date = datetime.datetime.now()
     if found_lcl_file:
-        shutil.copy(lcl_file, scn_lcl_dwnld_path)
+        if use_symlnk_lcl_data_cache:
+            scn_file_name = os.path.basename(lcl_file)
+            scn_symlnk = os.path.join(scn_lcl_dwnld_path, scn_file_name)
+            os.symlink(lcl_file, scn_symlnk)
+        else:
+            shutil.copy(lcl_file, scn_lcl_dwnld_path)
         success = True
     else:
         eodd_wget_downloader = eodatadown.eodatadownutils.EODDWGetDownload()
@@ -522,6 +528,13 @@ class EODataDownGEDISensor (EODataDownSensor):
                                                                                        "download", "lcl_data_cache"])
             else:
                 self.dir_lcl_data_cache = None
+
+            if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "download", "use_symlnk_data_cache"]):
+                self.use_symlnk_lcl_data_cache = json_parse_helper.getBooleanValue(config_data, ["eodatadown", "sensor",
+                                                                                                 "download",
+                                                                                                 "use_symlnk_data_cache"])
+            else:
+                self.use_symlnk_lcl_data_cache = False
             logger.debug("Found search params from config file")
 
             self.scn_intersect = False
@@ -793,7 +806,8 @@ class EODataDownGEDISensor (EODataDownSensor):
                 out_filename = record.FileName
                 _download_gedi_file([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
                                      scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
-                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache])
+                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache,
+                                     self.use_symlnk_lcl_data_cache])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
@@ -840,7 +854,8 @@ class EODataDownGEDISensor (EODataDownSensor):
                 downloaded_new_scns = True
                 dwnld_params.append([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
                                      scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
-                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache])
+                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache,
+                                     self.use_symlnk_lcl_data_cache])
         else:
             downloaded_new_scns = False
             logger.info("There are no scenes to be downloaded.")
