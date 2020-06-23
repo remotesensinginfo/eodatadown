@@ -140,12 +140,11 @@ def _download_icesat2_file(params):
     found_lcl_file = False
     if dir_lcl_data_cache is not None:
         file_name = os.path.basename(exp_out_file)
-        for lcl_dir in dir_lcl_data_cache:
-            if os.path.exists(lcl_dir) and os.path.isdir(lcl_dir):
-                lcl_file = os.path.join(lcl_dir, file_name)
-                if os.path.exists(lcl_file):
-                    found_lcl_file = True
-                    break
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        cache_file_dict = eodd_utils.find_files_mpaths_ext(dir_lcl_data_cache, 'h5')
+        if file_name in cache_file_dict:
+            lcl_file = cache_file_dict[file_name]
+            found_lcl_file = True
 
     start_date = datetime.datetime.now()
     if found_lcl_file:

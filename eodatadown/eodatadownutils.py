@@ -224,6 +224,48 @@ class EODataDownUtils(object):
                         found_files.append(found_file)
         return found_files
 
+    def find_files_ext(self, dir_path, ending):
+        """
+        Find all the files within a directory structure with a specific file ending.
+        The files are return as dictionary using the file name as the dictionary key.
+        This means you cannot have files with the same name within the structure.
+
+        :param dir_path: the base directory path within which to search.
+        :param ending: the file ending (e.g., .txt, or txt or .kea, kea).
+        :return: dict with file name as key
+
+        """
+        out_file_dict = dict()
+        for root, dirs, files in os.walk(dir_path):
+            for file in files:
+                if file.endswith(ending):
+                    file_found = os.path.join(root, file)
+                    if os.path.isfile(file_found):
+                        out_file_dict[file] = file_found
+        return out_file_dict
+
+    def find_files_mpaths_ext(self, dir_paths, ending):
+        """
+        Find all the files within a list of input directories and the structure beneath
+        with a specific file ending. The files are return as dictionary using the file
+        name as the dictionary key. This means you cannot have files with the same name
+        within the structure.
+
+        :param dir_path: the base directory path within which to search.
+        :param ending: the file ending (e.g., .txt, or txt or .kea, kea).
+        :return: dict with file name as key
+
+        """
+        out_file_dict = dict()
+        for dir_path in dir_paths:
+            for root, dirs, files in os.walk(dir_path):
+                for file in files:
+                    if file.endswith(ending):
+                        file_found = os.path.join(root, file)
+                        if os.path.isfile(file_found):
+                            out_file_dict[file] = file_found
+        return out_file_dict
+
     def moveFile2DIR(self, in_file, out_dir):
         """
         A function which moves a file to the specified output directory.
