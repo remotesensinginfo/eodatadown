@@ -40,6 +40,8 @@ import sys
 import importlib
 import traceback
 
+import rsgislib
+
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownutils import EODataDownResponseException
@@ -160,16 +162,265 @@ def _download_gedi_file(params):
         else:
             fileHashUtils = eodatadown.eodatadownutils.EDDCheckFileHash()
             file_md5 = fileHashUtils.calcMD5Checksum(exp_out_file)
+            file_size = os.stat(exp_out_file).st_size
             query_result.Downloaded = True
             query_result.Download_Start_Date = start_date
             query_result.Download_End_Date = end_date
             query_result.Download_Path = scn_lcl_dwnld_path
             query_result.File_MD5 = file_md5
+            query_result.Total_Size = file_size
             ses.commit()
         ses.close()
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
         logger.error("Download did not complete, re-run and it should try again: {}".format(scn_lcl_dwnld_path))
+
+
+class GEDIProcessUtils(object):
+
+    def get_beam_lst(self, input_file):
+        """
+        A function which returns a list of beam names.
+
+        :param input_file: input file path.
+        :return: list of strings
+
+        """
+        import h5py
+        gedi_h5_file = h5py.File(input_file, 'r')
+        gedi_keys = list(gedi_h5_file.keys())
+        gedi_beams = ['BEAM0000', 'BEAM0001', 'BEAM0010', 'BEAM0011', 'BEAM0101', 'BEAM0110', 'BEAM1000', 'BEAM1011']
+        gedi_beams_lst = []
+        for gedi_beam_name in gedi_keys:
+            if gedi_beam_name in gedi_beams:
+                gedi_beams_lst.append(gedi_beam_name)
+        gedi_h5_file.close()
+        return gedi_beams_lst
+
+    def get_metadata(self, input_file):
+        """
+        A function which returns a dict of the file metadata.
+
+        :param input_file: input file path.
+        :return: dict with the metadata.
+
+        """
+        import h5py
+        gedi_h5_file = h5py.File(input_file, 'r')
+
+        file_att_keys = list(gedi_h5_file.attrs.keys())
+        if 'short_name' in file_att_keys:
+            gedi_short_name = gedi_h5_file.attrs['short_name']
+        else:
+            raise Exception("Could not find the GEDI file short name - valid file?")
+
+        metadata_dict = dict()
+        if gedi_short_name == 'GEDI_L2B':
+            gedi_keys = list(gedi_h5_file.keys())
+
+            if 'METADATA' in gedi_keys:
+                gedi_metadata_keys = list(gedi_h5_file['METADATA'])
+                if 'DatasetIdentification' in gedi_metadata_keys:
+                    metadata_dict['version_id'] = gedi_h5_file['METADATA']['DatasetIdentification'].attrs['VersionID']
+                    metadata_dict['pge_version'] = gedi_h5_file['METADATA']['DatasetIdentification'].attrs['PGEVersion']
+                    creation_date_str = gedi_h5_file['METADATA']['DatasetIdentification'].attrs['creationDate']
+                    metadata_dict['creation_date'] = datetime.datetime.strptime(creation_date_str,
+                                                                                '%Y-%m-%dT%H:%M:%S.%fZ')
+                    metadata_dict['file_uuid'] = gedi_h5_file['METADATA']['DatasetIdentification'].attrs['uuid']
+                else:
+                    raise Exception("No metadata DatasetIdentification directory - is this file valid?")
+            else:
+                raise Exception("No metadata directory - is this file valid?")
+        else:
+            raise Exception("The input file must be a GEDI_L2B - not implemented for other products yet.")
+        gedi_h5_file.close()
+        return metadata_dict
+
+    def get_gedi02_b_beam_as_gdf(self, input_file, gedi_beam_name, valid_only=True, out_epsg_code=4326):
+        """
+        A function which gets a geopandas dataframe for a beam. Note the parameters with multiple
+        values in the z axis are not included in the dataframe.
+
+        :param input_file: input file path.
+        :param gedi_beam_name: the name of the beam to be processed.
+        :param valid_only: If True (default) then returns which are labelled as invalid are removed from the
+                           dataframe.
+        :param out_epsg_code: If provided the returns will be reprojected to the EPSG code provided.
+                              default is EPSG:4326
+
+        """
+        import h5py
+        import pandas
+        import geopandas
+        gedi_beams = self.get_beam_lst(input_file)
+        if gedi_beam_name not in gedi_beams:
+            raise Exception("Bean '{}' is not available within the file: {}".format(gedi_beam_name, input_file))
+
+        gedi_h5_file = h5py.File(input_file, 'r')
+
+        file_att_keys = list(gedi_h5_file.attrs.keys())
+        if 'short_name' in file_att_keys:
+            gedi_short_name = gedi_h5_file.attrs['short_name']
+        else:
+            raise Exception("Could not find the GEDI file short name - valid file?")
+
+        if gedi_short_name != 'GEDI_L2B':
+            raise Exception("The input file must be a GEDI_L2B.")
+
+        logger.debug("Creating geopandas dataframe for beam: {}".format(gedi_beam_name))
+        gedi_beam = gedi_h5_file[gedi_beam_name]
+        gedi_beam_keys = list(gedi_beam.keys())
+
+        # Get location info.
+        gedi_beam_geoloc = gedi_beam['geolocation']
+        # Get land cover data.
+        gedi_beam_landcover = gedi_beam['land_cover_data']
+
+        gedi_beam_df = pandas.DataFrame(
+                {'elevation_bin0'         : gedi_beam_geoloc['elevation_bin0'],
+                 'elevation_lastbin'      : gedi_beam_geoloc['elevation_lastbin'],
+                 'height_bin0'            : gedi_beam_geoloc['height_bin0'],
+                 'height_lastbin'         : gedi_beam_geoloc['height_lastbin'],
+                 'shot_number'            : gedi_beam_geoloc['shot_number'],
+                 'solar_azimuth'          : gedi_beam_geoloc['solar_azimuth'],
+                 'solar_elevation'        : gedi_beam_geoloc['solar_elevation'],
+                 'latitude_bin0'          : gedi_beam_geoloc['latitude_bin0'],
+                 'latitude_lastbin'       : gedi_beam_geoloc['latitude_lastbin'],
+                 'longitude_bin0'         : gedi_beam_geoloc['longitude_bin0'],
+                 'longitude_lastbin'      : gedi_beam_geoloc['longitude_lastbin'],
+                 'degrade_flag'           : gedi_beam_geoloc['degrade_flag'],
+                 'digital_elevation_model': gedi_beam_geoloc['digital_elevation_model'],
+                 'landsat_treecover'      : gedi_beam_landcover['landsat_treecover'],
+                 'modis_nonvegetated'     : gedi_beam_landcover['modis_nonvegetated'],
+                 'modis_nonvegetated_sd'  : gedi_beam_landcover['modis_nonvegetated_sd'],
+                 'modis_treecover'        : gedi_beam_landcover['modis_treecover'],
+                 'modis_treecover_sd'     : gedi_beam_landcover['modis_treecover_sd'],
+                 'beam'                   : gedi_beam['beam'],
+                 'cover'                  : gedi_beam['cover'],
+                 'master_frac'            : gedi_beam['master_frac'],
+                 'master_int'             : gedi_beam['master_int'],
+                 'num_detectedmodes'      : gedi_beam['num_detectedmodes'],
+                 'omega'                  : gedi_beam['omega'],
+                 'pai'                    : gedi_beam['pai'],
+                 'pgap_theta'             : gedi_beam['pgap_theta'],
+                 'pgap_theta_error'       : gedi_beam['pgap_theta_error'],
+                 'rg'                     : gedi_beam['rg'],
+                 'rh100'                  : gedi_beam['rh100'],
+                 'rhog'                   : gedi_beam['rhog'],
+                 'rhog_error'             : gedi_beam['rhog_error'],
+                 'rhov'                   : gedi_beam['rhov'],
+                 'rhov_error'             : gedi_beam['rhov_error'],
+                 'rossg'                  : gedi_beam['rossg'],
+                 'rv'                     : gedi_beam['rv'],
+                 'sensitivity'            : gedi_beam['sensitivity'],
+                 'stale_return_flag'      : gedi_beam['stale_return_flag'],
+                 'surface_flag'           : gedi_beam['surface_flag'],
+                 'l2a_quality_flag'       : gedi_beam['l2a_quality_flag'],
+                 'l2b_quality_flag'       : gedi_beam['l2b_quality_flag']})
+
+        gedi_beam_gdf = geopandas.GeoDataFrame(gedi_beam_df, crs='EPSG:4326',
+                                               geometry=geopandas.points_from_xy(gedi_beam_df.longitude_lastbin,
+                                                                                 gedi_beam_df.latitude_lastbin))
+        if valid_only:
+            logger.debug("Masking beam {} so only valid returns remain".format(gedi_beam_name))
+            gedi_beam_gdf = gedi_beam_gdf[(gedi_beam_gdf.l2a_quality_flag == 1) & (gedi_beam_gdf.l2b_quality_flag == 1)]
+        if out_epsg_code != 4326:
+            logger.debug("Reprojecting beam {} to EPSG:{}.".format(gedi_beam_name, out_epsg_code))
+            gedi_beam_gdf = gedi_beam_gdf.to_crs("EPSG:{}".format(out_epsg_code))
+        gedi_h5_file.close()
+        logger.debug("Finished creating geopandas dataframe for beam: {}".format(gedi_beam_name))
+        return gedi_beam_gdf
+
+    def gedi02_b_beams_gpkg(self, input_file, out_vec_file, valid_only=True, out_epsg_code=4326):
+        """
+        A function which converts all the beams to a GPKG vector file with each beam as a different
+        layer within the vector file.
+
+        :param input_file: input file path.
+        :param out_vec_file: output file path
+        :param gedi_beam_name: the name of the beam to be processed.
+        :param valid_only: If True (default) then returns which are labelled as invalid are removed from the
+                           dataframe.
+        :param out_epsg_code: If provided the returns will be reprojected to the EPSG code provided.
+                              default is EPSG:4326
+
+        """
+        gedi_beams = self.get_beam_lst(input_file)
+        for gedi_beam_name in gedi_beams:
+            logger.info("Processing beam '{}'".format(gedi_beam_name))
+            gedi_beam_gdf = self.get_gedi02_b_beam_as_gdf(input_file, gedi_beam_name, valid_only, out_epsg_code)
+            gedi_beam_gdf.to_file(out_vec_file, layer=gedi_beam_name, driver="GPKG")
+            logger.info("Finished processing beam '{}'".format(gedi_beam_name))
+
+def find_bbox_union(bboxes):
+    """
+    A function which finds the union of all the bboxes inputted.
+
+    :param bboxes: a list of bboxes [(xMin, xMax, yMin, yMax), (xMin, xMax, yMin, yMax)]
+    :return: bbox (xMin, xMax, yMin, yMax)
+
+    """
+    if len(bboxes) == 1:
+        out_bbox = list(bboxes[0])
+    elif len(bboxes) > 1:
+        out_bbox = list(bboxes[0])
+        for bbox in bboxes:
+            if bbox[0] < out_bbox[0]:
+                out_bbox[0] = bbox[0]
+            if bbox[1] > out_bbox[1]:
+                out_bbox[1] = bbox[1]
+            if bbox[2] < out_bbox[2]:
+                out_bbox[2] = bbox[2]
+            if bbox[3] > out_bbox[3]:
+                out_bbox[3] = bbox[3]
+    else:
+        out_bbox = None
+    return out_bbox
+
+
+
+
+def _process_to_ard(params):
+    scn_pid = params[0]
+    gedi_h5_file = params[1]
+    out_vec_file = params[2]
+    db_info_obj = params[3]
+    ard_path = params[4]
+
+    start_date = datetime.datetime.now()
+    gedi_utils = GEDIProcessUtils()
+    logger.info("Processing scene: {}".format(scn_pid))
+    gedi_utils.gedi02_b_beams_gpkg(gedi_h5_file, out_vec_file)
+    logger.info("Finished processing scene: {}".format(scn_pid))
+    end_date = datetime.datetime.now()
+
+    import rsgislib.vectorutils
+    vec_lyrs = rsgislib.vectorutils.getVecLyrsLst(out_vec_file)
+    bboxes = list()
+    rsgis_utils = rsgislib.RSGISPyUtils()
+    for vec_lyr in vec_lyrs:
+        bbox = rsgis_utils.getVecLayerExtent(out_vec_file, vec_lyr, computeIfExp=True)
+        bboxes.append(bbox)
+    bbox = find_bbox_union(bboxes)
+
+    logger.debug("Set up database connection and update record.")
+    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+    session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session_sqlalc()
+    query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == scn_pid).one_or_none()
+    if query_result is None:
+        logger.error("Could not find the scene within local database: {}".format(scn_pid))
+    query_result.ARDProduct = True
+    query_result.ARDProduct_Start_Date = start_date
+    query_result.ARDProduct_End_Date = end_date
+    query_result.ARDProduct_Path = ard_path
+    query_result.North_Lat = bbox[3]
+    query_result.South_Lat = bbox[2]
+    query_result.East_Lon = bbox[0]
+    query_result.West_Lon = bbox[1]
+    ses.commit()
+    ses.close()
+    logger.debug("Finished download and updated database - scene valid.")
 
 
 class EODataDownGEDISensor (EODataDownSensor):
@@ -606,16 +857,150 @@ class EODataDownGEDISensor (EODataDownSensor):
                                updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
     def get_scnlist_con2ard(self):
-        raise Exception("Not Implement...")
+        """
+        A function which queries the database to find scenes which have been downloaded but have not yet been
+        processed to an analysis ready data (ARD) format.
+
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == True,
+                                                 EDDGEDI.ARDProduct == False,
+                                                 EDDGEDI.Invalid == False).order_by(EDDGEDI.Date_Acquired.asc()).all()
+
+        scns2ard = list()
+        if query_result is not None:
+            for record in query_result:
+                scns2ard.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2ard
 
     def has_scn_con2ard(self, unq_id):
-        raise Exception("Not Implement...")
+        """
+        A function which checks whether a scene has been converted to an ARD product.
+        :param unq_id: the unique ID of the scene of interest.
+
+        :return: boolean (True: has been converted. False: Has not been converted)
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id).one()
+        ses.close()
+        logger.debug("Closed the database session.")
+        return (query_result.ARDProduct == True) and (query_result.Invalid == False)
 
     def scn2ard(self, unq_id):
-        raise Exception("Not Implement...")
+        """
+        A function which processes a single scene to an analysis ready data (ARD) format.
+        :param unq_id: the unique ID of the scene to be processed.
+        :return: returns boolean indicating successful or otherwise processing.
+        """
+        rsgis_utils = rsgislib.RSGISPyUtils()
+
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.PID == unq_id,
+                                                 EDDGEDI.Downloaded == True,
+                                                 EDDGEDI.ARDProduct == False).one_or_none()
+        ses.close()
+
+        if query_result is not None:
+            record = query_result
+            logger.debug("Create the specific output directories for the ARD processing.")
+
+            gedi_h5_file = rsgis_utils.findFileNone(record.Download_Path, "GEDI*.h5")
+            if gedi_h5_file is None:
+                raise EODataDownException("The GEDI data file could not be found in the "
+                                          "download path: {}".format(record.Download_Path))
+
+            logger.debug("Create info for running ARD analysis for scene: {}".format(record.PID))
+            ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_ID, record.PID))
+            if not os.path.exists(ard_scn_path):
+                os.mkdir(ard_scn_path)
+
+            out_vec_file = os.path.join(ard_scn_path, "{}_{}.gpkg".format(record.Product_ID, record.PID))
+
+            scn_ard_params = list()
+            scn_ard_params.append(record.PID)
+            scn_ard_params.append(gedi_h5_file)
+            scn_ard_params.append(out_vec_file)
+            scn_ard_params.append(self.db_info_obj)
+            scn_ard_params.append(ard_scn_path)
+
+            _process_to_ard(scn_ard_params)
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
 
     def scns2ard_all_avail(self, n_cores):
-        raise Exception("Not Implement...")
+        rsgis_utils = rsgislib.RSGISPyUtils()
+
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDGEDI).filter(EDDGEDI.Downloaded == True,
+                                                 EDDGEDI.ARDProduct == False,
+                                                 EDDGEDI.Invalid == False).order_by(EDDGEDI.Date_Acquired.asc()).all()
+        ses.close()
+
+        if query_result is not None:
+            ard_scns = list()
+            for record in query_result:
+                logger.debug("Create the specific output directories for the ARD processing.")
+
+                gedi_h5_file = rsgis_utils.findFileNone(record.Download_Path, "GEDI*.h5")
+                if gedi_h5_file is None:
+                    raise EODataDownException("The GEDI data file could not be found in the "
+                                              "download path: {}".format(record.Download_Path))
+
+                logger.debug("Create info for running ARD analysis for scene: {}".format(record.PID))
+                ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_ID, record.PID))
+                if not os.path.exists(ard_scn_path):
+                    os.mkdir(ard_scn_path)
+
+                out_vec_file = os.path.join(ard_scn_path, "{}_{}.gpkg".format(record.Product_ID, record.PID))
+
+                scn_ard_params = list()
+                scn_ard_params.append(record.PID)
+                scn_ard_params.append(gedi_h5_file)
+                scn_ard_params.append(out_vec_file)
+                scn_ard_params.append(self.db_info_obj)
+                scn_ard_params.append(ard_scn_path)
+                ard_scns.append(scn_ard_params)
+
+            if len(ard_scns) > 0:
+                logger.info("Start processing the scenes.")
+                with multiprocessing.Pool(processes=n_cores) as pool:
+                    pool.map(_process_to_ard, ard_scns)
+                logger.info("Finished processing the scenes.")
+
+            edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+            edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensor_name,
+                                   updated_lcl_db=True, convert_scns_ard=True)
 
     def get_scnlist_datacube(self, loaded=False):
         raise Exception("Not Implement...")
