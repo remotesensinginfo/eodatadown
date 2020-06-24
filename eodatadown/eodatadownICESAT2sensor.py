@@ -133,15 +133,13 @@ def _download_icesat2_file(params):
     exp_out_file = params[5]
     earth_data_user = params[6]
     earth_data_pass = params[7]
-    dir_lcl_data_cache = params[8]
+    cache_file_dict = params[8]
     use_symlnk_lcl_data_cache = params[9]
     success = False
 
     found_lcl_file = False
-    if dir_lcl_data_cache is not None:
+    if cache_file_dict is not None:
         file_name = os.path.basename(exp_out_file)
-        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-        cache_file_dict = eodd_utils.find_files_mpaths_ext(dir_lcl_data_cache, 'h5')
         if file_name in cache_file_dict:
             lcl_file = cache_file_dict[file_name]
             found_lcl_file = True
@@ -877,6 +875,11 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         if query_result is not None:
             if len(query_result) == 1:
                 record = query_result[0]
+                cache_file_dict = None
+                if self.dir_lcl_data_cache is not None:
+                    eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+                    cache_file_dict = eodd_utils.find_files_mpaths_ext(self.dir_lcl_data_cache, 'h5')
+
                 logger.debug("Building download info for '" + record.Remote_URL + "'")
                 producer_id = record.Producer_ID
                 basename = os.path.splitext(producer_id)[0]
@@ -887,7 +890,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                     os.mkdir(scn_lcl_dwnld_path)
                 _download_icesat2_file([record.PID, producer_id, record.Remote_URL, self.db_info_obj,
                                         scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, producer_id),
-                                        self.earthDataUser, self.earthDataPass, self.dir_lcl_data_cache,
+                                        self.earthDataUser, self.earthDataPass, cache_file_dict,
                                         self.use_symlnk_lcl_data_cache])
                 success = True
             elif len(query_result) == 0:
@@ -925,6 +928,11 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         dwnld_params = list()
         downloaded_new_scns = False
         if query_result is not None:
+            cache_file_dict = None
+            if self.dir_lcl_data_cache is not None:
+                eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+                cache_file_dict = eodd_utils.find_files_mpaths_ext(self.dir_lcl_data_cache, 'h5')
+
             for record in query_result:
                 logger.debug("Building download info for '" + record.Remote_URL + "'")
                 producer_id = record.Producer_ID
@@ -937,7 +945,7 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
                 downloaded_new_scns = True
                 dwnld_params.append([record.PID, producer_id, record.Remote_URL, self.db_info_obj,
                                      scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, producer_id),
-                                     self.earthDataUser, self.earthDataPass, self.dir_lcl_data_cache,
+                                     self.earthDataUser, self.earthDataPass, cache_file_dict,
                                      self.use_symlnk_lcl_data_cache])
         else:
             downloaded_new_scns = False

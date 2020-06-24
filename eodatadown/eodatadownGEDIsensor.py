@@ -126,20 +126,22 @@ def _download_gedi_file(params):
     exp_out_file = params[5]
     earth_data_user = params[6]
     earth_data_pass = params[7]
-    dir_lcl_data_cache = params[8]
+    cache_file_dict = params[8]
     use_symlnk_lcl_data_cache = params[9]
     success = False
 
     found_lcl_file = False
-    if dir_lcl_data_cache is not None:
+    if cache_file_dict is not None:
         file_name = os.path.basename(exp_out_file)
-        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-        cache_file_dict = eodd_utils.find_files_mpaths_ext(dir_lcl_data_cache, 'h5')
         if file_name in cache_file_dict:
             lcl_file = cache_file_dict[file_name]
             found_lcl_file = True
-
-    start_date = datetime.datetime.now()
+    if found_lcl_file:
+        print("Found: {}".format(lcl_file))
+    else:
+        print("Not Found: {}".format(file_name))
+    """
+    start_date = "datetime.datetime.now()
     if found_lcl_file:
         if use_symlnk_lcl_data_cache:
             scn_file_name = os.path.basename(lcl_file)
@@ -180,7 +182,7 @@ def _download_gedi_file(params):
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
         logger.error("Download did not complete, re-run and it should try again: {}".format(scn_lcl_dwnld_path))
-
+    """
 
 class GEDIProcessUtils(object):
 
@@ -798,6 +800,11 @@ class EODataDownGEDISensor (EODataDownSensor):
         if query_result is not None:
             if len(query_result) == 1:
                 record = query_result[0]
+                cache_file_dict = None
+                if self.dir_lcl_data_cache is not None:
+                    eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+                    cache_file_dict = eodd_utils.find_files_mpaths_ext(self.dir_lcl_data_cache, 'h5')
+
                 logger.debug("Building download info for '" + record.Remote_URL + "'")
                 scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath,
                                                   "{}_{}".format(record.Product_ID, record.PID))
@@ -806,7 +813,7 @@ class EODataDownGEDISensor (EODataDownSensor):
                 out_filename = record.FileName
                 _download_gedi_file([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
                                      scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
-                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache,
+                                     self.earthDataUser,  self.earthDataPass, cache_file_dict,
                                      self.use_symlnk_lcl_data_cache])
                 success = True
             elif len(query_result) == 0:
@@ -844,6 +851,11 @@ class EODataDownGEDISensor (EODataDownSensor):
         dwnld_params = list()
         downloaded_new_scns = False
         if query_result is not None:
+            cache_file_dict = None
+            if self.dir_lcl_data_cache is not None:
+                eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+                cache_file_dict = eodd_utils.find_files_mpaths_ext(self.dir_lcl_data_cache, 'h5')
+
             for record in query_result:
                 logger.debug("Building download info for '" + record.Remote_URL + "'")
                 scn_lcl_dwnld_path = os.path.join(self.baseDownloadPath,
@@ -854,7 +866,7 @@ class EODataDownGEDISensor (EODataDownSensor):
                 downloaded_new_scns = True
                 dwnld_params.append([record.PID, record.Product_ID, record.Remote_URL, self.db_info_obj,
                                      scn_lcl_dwnld_path, os.path.join(scn_lcl_dwnld_path, out_filename),
-                                     self.earthDataUser,  self.earthDataPass, self.dir_lcl_data_cache,
+                                     self.earthDataUser,  self.earthDataPass, cache_file_dict,
                                      self.use_symlnk_lcl_data_cache])
         else:
             downloaded_new_scns = False

@@ -42,7 +42,7 @@ import json
 
 EODATADOWN_VERSION_MAJOR = 2
 EODATADOWN_VERSION_MINOR = 4
-EODATADOWN_VERSION_PATCH = 2
+EODATADOWN_VERSION_PATCH = 3
 
 py_sys_version = sys.version_info
 py_sys_version_str = "{}.{}".format(py_sys_version.major, py_sys_version.minor)
