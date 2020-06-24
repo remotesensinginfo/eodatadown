@@ -136,12 +136,8 @@ def _download_gedi_file(params):
         if file_name in cache_file_dict:
             lcl_file = cache_file_dict[file_name]
             found_lcl_file = True
-    if found_lcl_file:
-        print("Found: {}".format(lcl_file))
-    else:
-        print("Not Found: {}".format(file_name))
-    """
-    start_date = "datetime.datetime.now()
+
+    start_date = datetime.datetime.now()
     if found_lcl_file:
         if use_symlnk_lcl_data_cache:
             scn_file_name = os.path.basename(lcl_file)
@@ -182,7 +178,7 @@ def _download_gedi_file(params):
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
         logger.error("Download did not complete, re-run and it should try again: {}".format(scn_lcl_dwnld_path))
-    """
+
 
 class GEDIProcessUtils(object):
 
