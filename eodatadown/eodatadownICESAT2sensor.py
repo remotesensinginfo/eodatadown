@@ -40,6 +40,8 @@ import sys
 import importlib
 import traceback
 
+import rsgislib
+
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownutils import EODataDownResponseException
@@ -183,6 +185,36 @@ def _download_icesat2_file(params):
         logger.info("Finished download and updated database: {}".format(scn_lcl_dwnld_path))
     else:
         logger.error("Download did not complete, re-run and it should try again: {}".format(scn_lcl_dwnld_path))
+
+
+def _process_to_ard(params):
+    import pysl4land.pysl4land_icesat2
+    scn_pid = params[0]
+    icesat2_h5_file = params[1]
+    out_vec_file = params[2]
+    db_info_obj = params[3]
+    ard_path = params[4]
+
+    start_date = datetime.datetime.now()
+    logger.info("Processing scene: {}".format(scn_pid))
+    pysl4land.pysl4land_icesat2.icesat2_alt08_beams_gpkg(icesat2_h5_file, out_vec_file, True, 4326)
+    logger.info("Finished processing scene: {}".format(scn_pid))
+    end_date = datetime.datetime.now()
+
+    logger.debug("Set up database connection and update record.")
+    db_engine = sqlalchemy.create_engine(db_info_obj.dbConn)
+    session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+    ses = session_sqlalc()
+    query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == scn_pid).one_or_none()
+    if query_result is None:
+        logger.error("Could not find the scene within local database: {}".format(scn_pid))
+    query_result.ARDProduct = True
+    query_result.ARDProduct_Start_Date = start_date
+    query_result.ARDProduct_End_Date = end_date
+    query_result.ARDProduct_Path = ard_path
+    ses.commit()
+    ses.close()
+    logger.debug("Finished download and updated database - scene valid.")
 
 
 class EODataDownICESAT2Sensor (EODataDownSensor):
@@ -962,19 +994,155 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         edd_usage_db.add_entry(description_val="Checked downloaded new scenes.", sensor_val=self.sensor_name,
                                updated_lcl_db=True, downloaded_new_scns=downloaded_new_scns)
 
-
-
     def get_scnlist_con2ard(self):
-        raise Exception("Not Implement...")
+        """
+        A function which queries the database to find scenes which have been downloaded but have not yet been
+        processed to an analysis ready data (ARD) format.
+
+        :return: A list of unq_ids for the scenes. The list will be empty if there are no scenes to process.
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scenes which need downloading.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.Downloaded == True,
+                                                    EDDICESAT2.ARDProduct == False,
+                                                    EDDICESAT2.Invalid == False).order_by(
+                                                    EDDICESAT2.Start_Time.asc()).all()
+
+        scns2ard = list()
+        if query_result is not None:
+            for record in query_result:
+                scns2ard.append(record.PID)
+        ses.close()
+        logger.debug("Closed the database session.")
+        return scns2ard
 
     def has_scn_con2ard(self, unq_id):
-        raise Exception("Not Implement...")
+        """
+        A function which checks whether a scene has been converted to an ARD product.
+        :param unq_id: the unique ID of the scene of interest.
+
+        :return: boolean (True: has been converted. False: Has not been converted)
+
+        """
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one()
+        ses.close()
+        logger.debug("Closed the database session.")
+        return (query_result.ARDProduct == True) and (query_result.Invalid == False)
 
     def scn2ard(self, unq_id):
-        raise Exception("Not Implement...")
+        """
+        A function which processes a single scene to an analysis ready data (ARD) format.
+        :param unq_id: the unique ID of the scene to be processed.
+        :return: returns boolean indicating successful or otherwise processing.
+        """
+        rsgis_utils = rsgislib.RSGISPyUtils()
+
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id,
+                                                    EDDICESAT2.Downloaded == True,
+                                                    EDDICESAT2.ARDProduct == False).one_or_none()
+        ses.close()
+
+        if query_result is not None:
+            record = query_result
+            logger.debug("Create the specific output directories for the ARD processing.")
+
+            icesat2_h5_file = rsgis_utils.findFileNone(record.Download_Path, "*.h5")
+            if icesat2_h5_file is None:
+                raise EODataDownException("The ICESAT2 data file could not be found in the "
+                                          "download path: {}".format(record.Download_Path))
+
+            logger.debug("Create info for running ARD analysis for scene: {}".format(record.PID))
+            scn_unq_name = self.get_scn_unq_name_record(record)
+            ard_scn_path = os.path.join(self.ardFinalPath, scn_unq_name)
+            if not os.path.exists(ard_scn_path):
+                os.mkdir(ard_scn_path)
+
+            out_vec_file = os.path.join(ard_scn_path, "{}.gpkg".format(scn_unq_name))
+
+            scn_ard_params = list()
+            scn_ard_params.append(record.PID)
+            scn_ard_params.append(icesat2_h5_file)
+            scn_ard_params.append(out_vec_file)
+            scn_ard_params.append(self.db_info_obj)
+            scn_ard_params.append(ard_scn_path)
+
+            _process_to_ard(scn_ard_params)
+        else:
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
 
     def scns2ard_all_avail(self, n_cores):
-        raise Exception("Not Implement...")
+        rsgis_utils = rsgislib.RSGISPyUtils()
+
+        if not os.path.exists(self.ardFinalPath):
+            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        query_result = ses.query(EDDICESAT2).filter(EDDICESAT2.Downloaded == True,
+                                                    EDDICESAT2.ARDProduct == False,
+                                                    EDDICESAT2.Invalid == False).order_by(
+                                                    EDDICESAT2.Start_Time.asc()).all()
+        ses.close()
+
+        if query_result is not None:
+            ard_scns = list()
+            for record in query_result:
+                logger.debug("Create the specific output directories for the ARD processing.")
+
+                icesat2_h5_file = rsgis_utils.findFileNone(record.Download_Path, "*.h5")
+                if icesat2_h5_file is None:
+                    raise EODataDownException("The ICESAT2 data file could not be found in the "
+                                              "download path: {}".format(record.Download_Path))
+
+                logger.debug("Create info for running ARD analysis for scene: {}".format(record.PID))
+                scn_unq_name = self.get_scn_unq_name_record(record)
+                ard_scn_path = os.path.join(self.ardFinalPath, scn_unq_name)
+                if not os.path.exists(ard_scn_path):
+                    os.mkdir(ard_scn_path)
+
+                out_vec_file = os.path.join(ard_scn_path, "{}.gpkg".format(scn_unq_name))
+
+                scn_ard_params = list()
+                scn_ard_params.append(record.PID)
+                scn_ard_params.append(icesat2_h5_file)
+                scn_ard_params.append(out_vec_file)
+                scn_ard_params.append(self.db_info_obj)
+                scn_ard_params.append(ard_scn_path)
+                ard_scns.append(scn_ard_params)
+
+            if len(ard_scns) > 0:
+                logger.info("Start processing the scenes.")
+                with multiprocessing.Pool(processes=n_cores) as pool:
+                    pool.map(_process_to_ard, ard_scns)
+                logger.info("Finished processing the scenes.")
+
+            edd_usage_db = EODataDownUpdateUsageLogDB(self.db_info_obj)
+            edd_usage_db.add_entry(description_val="Processed scenes to an ARD product.", sensor_val=self.sensor_name,
+                                   updated_lcl_db=True, convert_scns_ard=True)
 
     def get_scnlist_datacube(self, loaded=False):
         raise Exception("Not Implement...")
