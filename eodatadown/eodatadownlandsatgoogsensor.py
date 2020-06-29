@@ -2482,13 +2482,34 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.
+
         :param lat_north: double with latitude north
         :param lat_south: double with latitude south
         :param lon_east: double with longitude east
         :param lon_west: double with longitude west
+
         :return: list of database records.
         """
-        raise EODataDownException("Not implemented.")
+        scns_lst = list()
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        query_result = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Invalid == False,
+                                                          EDDLandsatGoogle.ARDProduct == True).filter(
+                                                          (lon_east > EDDLandsatGoogle.West_Lon),
+                                                          (EDDLandsatGoogle.East_Lon > lon_west),
+                                                          (lat_north > EDDLandsatGoogle.South_Lat),
+                                                          (EDDLandsatGoogle.North_Lat > lat_south)).order_by(
+                                                          EDDLandsatGoogle.Date_Acquired.desc()).all()
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        for rec in query_result:
+            scns_lst.append(rec)
+
+        return scns_lst
 
     def update_dwnld_path(self, replace_path, new_path):
         """

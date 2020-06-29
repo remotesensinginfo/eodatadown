@@ -2084,13 +2084,34 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
     def query_scn_records_bbox(self, lat_north, lat_south, lon_east, lon_west):
         """
         A function which queries the database to find scenes within a specified bounding box.
+
         :param lat_north: double with latitude north
         :param lat_south: double with latitude south
         :param lon_east: double with longitude east
         :param lon_west: double with longitude west
         :return: list of database records.
+
         """
-        raise EODataDownException("Not implemented.")
+        scns_lst = list()
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        query_result = ses.query(EDDSentinel1ASF).filter(EDDSentinel1ASF.Invalid == False,
+                                                         EDDSentinel1ASF.ARDProduct == True).filter(
+                                                         (lon_east > EDDSentinel1ASF.West_Lon),
+                                                         (EDDSentinel1ASF.East_Lon > lon_west),
+                                                         (lat_north > EDDSentinel1ASF.South_Lat),
+                                                         (EDDSentinel1ASF.North_Lat > lat_south)).order_by(
+                                                         EDDSentinel1ASF.Acquisition_Date.desc()).all()
+        ses.close()
+        logger.debug("Closed the database session.")
+
+        for rec in query_result:
+            scns_lst.append(rec)
+
+        return scns_lst
 
     def update_dwnld_path(self, replace_path, new_path):
         """
