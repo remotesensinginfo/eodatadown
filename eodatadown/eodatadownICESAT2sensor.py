@@ -1594,16 +1594,222 @@ class EODataDownICESAT2Sensor (EODataDownSensor):
         raise Exception("Not Implement...")
 
     def export_db_to_json(self, out_json_file):
-        raise Exception("Not Implement...")
+        """
+        This function exports the database table to a JSON file.
+        :param out_json_file: output JSON file path.
+
+        """
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+
+        query_result = ses.query(EDDICESAT2).all()
+        db_scn_dict = dict()
+        for scn in query_result:
+            db_scn_dict[scn.PID] = dict()
+            db_scn_dict[scn.PID]['PID'] = scn.PID
+            db_scn_dict[scn.PID]['Producer_ID'] = scn.Producer_ID
+            db_scn_dict[scn.PID]['Granule_ID'] = scn.Granule_ID
+            db_scn_dict[scn.PID]['Title'] = scn.Title
+            db_scn_dict[scn.PID]['Start_Time'] = eodd_utils.getDateTimeAsString(scn.Start_Time)
+            db_scn_dict[scn.PID]['End_Time'] = eodd_utils.getDateTimeAsString(scn.End_Time)
+            db_scn_dict[scn.PID]['Updated_Time'] = eodd_utils.getDateTimeAsString(scn.Updated_Time)
+            db_scn_dict[scn.PID]['Product'] = scn.Product
+            db_scn_dict[scn.PID]['Version'] = scn.Version
+            db_scn_dict[scn.PID]['Online'] = scn.Online
+            db_scn_dict[scn.PID]['Original_Format'] = scn.Original_Format
+            db_scn_dict[scn.PID]['Orb_Ascending_Crossing'] = scn.Orb_Ascending_Crossing
+            db_scn_dict[scn.PID]['Orb_Start_Direct'] = scn.Orb_Start_Direct
+            db_scn_dict[scn.PID]['Orb_Start_Lat'] = scn.Orb_Start_Lat
+            db_scn_dict[scn.PID]['Orb_End_Direct'] = scn.Orb_End_Direct
+            db_scn_dict[scn.PID]['Orb_End_Lat'] = scn.Orb_End_Lat
+            db_scn_dict[scn.PID]['Eq_Cross_Time'] = eodd_utils.getDateTimeAsString(scn.Eq_Cross_Time)
+            db_scn_dict[scn.PID]['Eq_Cross_Lon'] = scn.Eq_Cross_Lon
+            db_scn_dict[scn.PID]['Orbit_Number'] = scn.Orbit_Number
+            db_scn_dict[scn.PID]['North_Lat'] = scn.North_Lat
+            db_scn_dict[scn.PID]['South_Lat'] = scn.South_Lat
+            db_scn_dict[scn.PID]['East_Lon'] = scn.East_Lon
+            db_scn_dict[scn.PID]['West_Lon'] = scn.West_Lon
+            db_scn_dict[scn.PID]['Total_Size'] = scn.Total_Size
+            db_scn_dict[scn.PID]['File_MD5'] = scn.File_MD5
+            db_scn_dict[scn.PID]['Remote_URL'] = scn.Remote_URL
+            db_scn_dict[scn.PID]['Query_Date'] = eodd_utils.getDateTimeAsString(scn.Query_Date)
+            db_scn_dict[scn.PID]['Download_Start_Date'] = eodd_utils.getDateTimeAsString(scn.Download_Start_Date)
+            db_scn_dict[scn.PID]['Download_End_Date'] = eodd_utils.getDateTimeAsString(scn.Download_End_Date)
+            db_scn_dict[scn.PID]['Downloaded'] = scn.Downloaded
+            db_scn_dict[scn.PID]['Download_Path'] = scn.Download_Path
+            db_scn_dict[scn.PID]['Archived'] = scn.Archived
+            db_scn_dict[scn.PID]['ARDProduct_Start_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_Start_Date)
+            db_scn_dict[scn.PID]['ARDProduct_End_Date'] = eodd_utils.getDateTimeAsString(scn.ARDProduct_End_Date)
+            db_scn_dict[scn.PID]['ARDProduct'] = scn.ARDProduct
+            db_scn_dict[scn.PID]['ARDProduct_Path'] = scn.ARDProduct_Path
+            db_scn_dict[scn.PID]['DCLoaded_Start_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_Start_Date)
+            db_scn_dict[scn.PID]['DCLoaded_End_Date'] = eodd_utils.getDateTimeAsString(scn.DCLoaded_End_Date)
+            db_scn_dict[scn.PID]['DCLoaded'] = scn.DCLoaded
+            db_scn_dict[scn.PID]['Invalid'] = scn.Invalid
+            db_scn_dict[scn.PID]['ExtendedInfo'] = scn.ExtendedInfo
+            db_scn_dict[scn.PID]['RegCheck'] = scn.RegCheck
+
+        db_plgin_dict = dict()
+        if self.calc_scn_usr_analysis():
+            plugin_keys = self.get_usr_analysis_keys()
+            for plgin_key in plugin_keys:
+                query_result = ses.query(EDDICESAT2Plugins).filter(EDDICESAT2Plugins.PlugInName == plgin_key).all()
+                db_plgin_dict[plgin_key] = dict()
+                for scn in query_result:
+                    db_plgin_dict[plgin_key][scn.Scene_PID] = dict()
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Scene_PID'] = scn.Scene_PID
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['PlugInName'] = scn.PlugInName
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Start_Date'] = eodd_utils.getDateTimeAsString(scn.Start_Date)
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['End_Date'] = eodd_utils.getDateTimeAsString(scn.End_Date)
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Completed'] = scn.Completed
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Success'] = scn.Success
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Outputs'] = scn.Outputs
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['Error'] = scn.Error
+                    db_plgin_dict[plgin_key][scn.Scene_PID]['ExtendedInfo'] = scn.ExtendedInfo
+        ses.close()
+
+        fnl_out_dict = dict()
+        fnl_out_dict['scn_db'] = db_scn_dict
+        if db_plgin_dict:
+            fnl_out_dict['plgin_db'] = db_plgin_dict
+
+        with open(out_json_file, 'w') as outfile:
+            json.dump(fnl_out_dict, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
 
     def import_sensor_db(self, input_json_file, replace_path_dict=None):
-        raise Exception("Not Implement...")
+        db_records = list()
+        db_plgin_records = list()
+        eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+        with open(input_json_file) as json_file_obj:
+            db_data = json.load(json_file_obj)
+            if 'scn_db' in db_data:
+                sensor_rows = db_data['scn_db']
+            else:
+                sensor_rows = db_data
+
+            for pid in sensor_rows:
+                db_records.append(EDDICESAT2(PID=sensor_rows[pid]['PID'],
+                                             Producer_ID=sensor_rows[pid]['Producer_ID'],
+                                             Granule_ID=sensor_rows[pid]['Granule_ID'],
+                                             Title=sensor_rows[pid]['Title'],
+                                             Start_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Start_Time']),
+                                             End_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['End_Time']),
+                                             Updated_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Updated_Time']),
+                                             Product=sensor_rows[pid]['Product'],
+                                             Version=sensor_rows[pid]['Version'],
+                                             Online=sensor_rows[pid]['Online'],
+                                             Original_Format=sensor_rows[pid]['Original_Format'],
+                                             Orb_Ascending_Crossing=sensor_rows[pid]['Orb_Ascending_Crossing'],
+                                             Orb_Start_Direct=sensor_rows[pid]['Orb_Start_Direct'],
+                                             Orb_Start_Lat=sensor_rows[pid]['Orb_Start_Lat'],
+                                             Orb_End_Direct=sensor_rows[pid]['Orb_End_Direct'],
+                                             Orb_End_Lat=sensor_rows[pid]['Orb_End_Lat'],
+                                             Eq_Cross_Time=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Eq_Cross_Time']),
+                                             Eq_Cross_Lon=sensor_rows[pid]['Eq_Cross_Lon'],
+                                             Orbit_Number=sensor_rows[pid]['Orbit_Number'],
+                                             North_Lat=sensor_rows[pid]['North_Lat'],
+                                             South_Lat=sensor_rows[pid]['South_Lat'],
+                                             East_Lon=sensor_rows[pid]['East_Lon'],
+                                             West_Lon=sensor_rows[pid]['West_Lon'],
+                                             Total_Size=sensor_rows[pid]['Total_Size'],
+                                             File_MD5=sensor_rows[pid]['File_MD5'],
+                                             Remote_URL=sensor_rows[pid]['Remote_URL'],
+                                             Query_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Query_Date']),
+                                             Download_Start_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Download_Start_Date']),
+                                             Download_End_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['Download_End_Date']),
+                                             Downloaded=sensor_rows[pid]['Downloaded'],
+                                             Download_Path=eodd_utils.update_file_path(sensor_rows[pid]['Download_Path'],replace_path_dict),
+                                             Archived=sensor_rows[pid]['Archived'],
+                                             ARDProduct_Start_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['ARDProduct_Start_Date']),
+                                             ARDProduct_End_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['ARDProduct_End_Date']),
+                                             ARDProduct=sensor_rows[pid]['ARDProduct'],
+                                             ARDProduct_Path=eodd_utils.update_file_path(sensor_rows[pid]['ARDProduct_Path'], replace_path_dict),
+                                             DCLoaded_Start_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['DCLoaded_Start_Date']),
+                                             DCLoaded_End_Date=eodd_utils.getDateTimeFromISOString(sensor_rows[pid]['DCLoaded_End_Date']),
+                                             DCLoaded=sensor_rows[pid]['DCLoaded'],
+                                             Invalid=sensor_rows[pid]['Invalid'],
+                                             ExtendedInfo=self.update_extended_info_qklook_tilecache_paths(sensor_rows[pid]['ExtendedInfo'], replace_path_dict),
+                                             RegCheck=sensor_rows[pid]['RegCheck']))
+
+            if 'plgin_db' in db_data:
+                plgin_rows = db_data['plgin_db']
+                for plgin_key in plgin_rows:
+                    for scn_pid in plgin_rows[plgin_key]:
+                        db_plgin_records.append(
+                                EDDICESAT2Plugins(Scene_PID=plgin_rows[plgin_key][scn_pid]['Scene_PID'],
+                                                  PlugInName=plgin_rows[plgin_key][scn_pid]['PlugInName'],
+                                                  Start_Date=eodd_utils.getDateTimeFromISOString(plgin_rows[plgin_key][scn_pid]['Start_Date']),
+                                                  End_Date=eodd_utils.getDateTimeFromISOString(plgin_rows[plgin_key][scn_pid]['End_Date']),
+                                                  Completed=plgin_rows[plgin_key][scn_pid]['Completed'],
+                                                  Success=plgin_rows[plgin_key][scn_pid]['Success'],
+                                                  Outputs=plgin_rows[plgin_key][scn_pid]['Outputs'],
+                                                  Error=plgin_rows[plgin_key][scn_pid]['Error'],
+                                                  ExtendedInfo=plgin_rows[plgin_key][scn_pid]['ExtendedInfo']))
+
+        if len(db_records) > 0:
+            db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+            session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+            ses = session_sqlalc()
+            ses.add_all(db_records)
+            ses.commit()
+            if len(db_plgin_records) > 0:
+                ses.add_all(db_plgin_records)
+                ses.commit()
+            ses.close()
 
     def create_gdal_gis_lyr(self, file_path, lyr_name, driver_name='GPKG', add_lyr=False):
         raise Exception("Not Implement...")
 
     def reset_scn(self, unq_id, reset_download=False, reset_invalid=False):
-        raise Exception("Not Implement...")
+        logger.debug("Creating Database Engine and Session.")
+        db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
+        session_sqlalc = sqlalchemy.orm.sessionmaker(bind=db_engine)
+        ses = session_sqlalc()
+
+        logger.debug("Perform query to find scene.")
+        scn_record = ses.query(EDDICESAT2).filter(EDDICESAT2.PID == unq_id).one_or_none()
+
+        if scn_record is None:
+            ses.close()
+            logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
+            raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
+
+        if scn_record.DCLoaded:
+            # How to remove from datacube?
+            scn_record.DCLoaded_Start_Date = None
+            scn_record.DCLoaded_End_Date = None
+            scn_record.DCLoaded = False
+
+        if scn_record.ARDProduct:
+            ard_path = scn_record.ARDProduct_Path
+            if os.path.exists(ard_path):
+                shutil.rmtree(ard_path)
+            scn_record.ARDProduct_Start_Date = None
+            scn_record.ARDProduct_End_Date = None
+            scn_record.ARDProduct_Path = ""
+            scn_record.ARDProduct = False
+
+        if scn_record.Downloaded and reset_download:
+            dwn_path = scn_record.Download_Path
+            if os.path.exists(dwn_path):
+                shutil.rmtree(dwn_path)
+            scn_record.Download_Start_Date = None
+            scn_record.Download_End_Date = None
+            scn_record.Download_Path = ""
+            scn_record.Downloaded = False
+
+        if reset_invalid:
+            scn_record.Invalid = False
+
+        scn_record.ExtendedInfo = None
+        flag_modified(scn_record, "ExtendedInfo")
+        ses.add(scn_record)
+
+        ses.commit()
+        ses.close()
 
     def reset_dc_load(self, unq_id):
         raise Exception("Not Implement...")

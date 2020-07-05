@@ -187,25 +187,33 @@ class EODataDownUtils(object):
             raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, c_dirPath, len(files)))
         return files[0]
 
-    def findFirstFile(self, dirPath, fileSearch):
+    def findFirstFile(self, dirPath, fileSearch, rtn_except=True):
         """
         Search for a single file with a path using glob. Therefore, the file
         path returned is a true path. Within the fileSearch provide the file
         name with '*' as wildcard(s).
-        :param dirPath:
-        :param fileSearch:
-        :return:
+        :param dirPath: The directory within which to search, note that the search will be within
+                        sub-directories within the base directory until a file meeting the search
+                        criteria are met.
+        :param fileSearch: The file search string in the file name and must contain a wild character (i.e., *).
+        :param rtn_except: if True then an exception will be raised if no file or multiple files are found (default).
+                           If False then None will be returned rather than an exception raised.
+        :return: The file found (or None if rtn_except=False)
+
         """
-        c_dirPath = dirPath
+        import glob
+        files = None
         for root, dirs, files in os.walk(dirPath):
             files = glob.glob(os.path.join(root, fileSearch))
             if len(files) > 0:
-                c_dirPath = root
                 break
-
-        if len(files) != 1:
-            raise EODataDownException("Could not find a single file ({0}) in {1}; found {2} files.".format(fileSearch, dirPath, len(files)))
-        return files[0]
+        out_file = None
+        if (files is not None) and (len(files) == 1):
+            out_file = files[0]
+        elif rtn_except:
+            raise Exception("Could not find a single file ({0}) in {1}; "
+                            "found {2} files.".format(fileSearch, dirPath, len(files)))
+        return out_file
 
     def findFilesRecurse(self, dir_path, file_ext):
         """
