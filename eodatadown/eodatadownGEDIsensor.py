@@ -1365,11 +1365,11 @@ class EODataDownGEDISensor (EODataDownSensor):
 
     def import_sensor_db(self, input_json_file, replace_path_dict=None):
         """
-                This function imports from the database records from the specified input JSON file.
+        This function imports from the database records from the specified input JSON file.
 
-                :param input_json_file: input JSON file with the records to be imported.
-                :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
-                """
+        :param input_json_file: input JSON file with the records to be imported.
+        :param replace_path_dict: a dictionary of file paths to be updated, if None then ignored.
+        """
         db_records = list()
         db_plgin_records = list()
         eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
