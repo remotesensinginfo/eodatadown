@@ -936,21 +936,35 @@ def get_obs_dates_need_processing(config_file, sensor):
     return obs_dates_list
 
 
-def get_scenes_need_processing_date_order(config_file, sensors):
+def get_scenes_need_processing_date_order(config_file, sensors, start_datetime=None, end_datetime=None):
     """
     This function returns a list of dicts with sensor, scene PID and observation date
     sorted to ascending order (i.e., earliest first). This can be used for a single
     sensor or multiple sensors where the the scenes are merged from the different
     sensors.
 
+    If a start date is provided then no scenes before that will be returned. If an end data is
+    provided then no scenes after that date will be included.
+
     The outputs of this function can be used to call the run_scn_analysis function.
 
     :param config_file: The EODataDown configuration file path.
     :param sensors: a list of sensors
+    :param start_datetime: Optional, default None. If inputted then it should be a datetime object
+                           and no scenes BEFORE this date will be included in the returned list of
+                           scenes.
+    :param end_datetime: Optional, default None. If inputted then it should be a datetime object
+                         and no scenes AFTER this date will be included in the returned list of
+                         scenes.
     :return: a list of lists where each scn has [config_file, scn_sensor, scn_id]
 
     """
     import datetime
+    if (start_datetime is not None) and type(start_datetime) is not datetime.datetime:
+        raise EODataDownException("The inputted start_datetime should be either None or a datetime object.")
+    if (end_datetime is not None) and type(end_datetime) is not datetime.datetime:
+        raise EODataDownException("The inputted end_datetime should be either None or a datetime object.")
+
     sys_main_obj = eodatadown.eodatadownsystemmain.EODataDownSystemMain()
     sys_main_obj.parse_config(config_file)
 
@@ -966,7 +980,17 @@ def get_scenes_need_processing_date_order(config_file, sensors):
         if type(scn_datetime) is datetime.date:
             scn_datetime = datetime.datetime(scn_datetime.year, scn_datetime.month, scn_datetime.day)
         logger.debug("Scene {} ({}) acq datetime: {}".format(scn[2], scn[1], scn_datetime.isoformat()))
-        scns_dict[scn_datetime] = scn
+        if (start_datetime is None) and (end_datetime is None):
+            scns_dict[scn_datetime] = scn
+        elif (start_datetime is not None) and (end_datetime is not None):
+            if (scn_datetime >= start_datetime) and (scn_datetime <= end_datetime):
+                scns_dict[scn_datetime] = scn
+        elif start_datetime is not None:
+            if scn_datetime >= start_datetime:
+                scns_dict[scn_datetime] = scn
+        elif end_datetime is not None:
+            if scn_datetime <= end_datetime:
+                scns_dict[scn_datetime] = scn
 
     out_scns = list()
     for scn_key in sorted(list(scns_dict.keys())):

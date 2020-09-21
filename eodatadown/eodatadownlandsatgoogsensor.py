@@ -598,7 +598,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 wrs2_filter = "{} OR {}".format(wrs2_filter, sgn_wrs2_filter)
         wrs2_filter = "({})".format(wrs2_filter)
 
-        logger.info("Finding scenes for {}".format(wrs2_filter))
+        logger.debug("Finding scenes for {}".format(wrs2_filter))
 
         month_filter = ''
         first = True
