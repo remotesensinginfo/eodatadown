@@ -42,7 +42,7 @@ import json
 
 EODATADOWN_VERSION_MAJOR = 2
 EODATADOWN_VERSION_MINOR = 4
-EODATADOWN_VERSION_PATCH = 8
+EODATADOWN_VERSION_PATCH = 9
 
 py_sys_version = sys.version_info
 py_sys_version_str = "{}.{}".format(py_sys_version.major, py_sys_version.minor)
@@ -67,6 +67,8 @@ EODATADOWN_COPYRIGHT_NAMES = "Pete Bunting"
 EODATADOWN_SUPPORT_EMAIL = "rsgislib-support@googlegroups.com"
 EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
 EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ASF", "GEDI", "ICESAT2"]
+
+__version__ = EODATADOWN_VERSION
 
 log_default_level=logging.INFO
 if eodd_log_level.upper() == 'INFO':
