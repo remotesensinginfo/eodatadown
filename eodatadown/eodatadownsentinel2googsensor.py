@@ -482,7 +482,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         goog_db_str = "`bigquery-public-data.cloud_storage_geo_index.sentinel_2_index` "
 
         #goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '" + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
-        goog_filter_date = "sensing_time > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '{}')".format(query_date.strftime("%Y-%m-%d %H:%M:%S"))
+        goog_filter_date = "CAST(sensing_time AS DATETIME) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '{}')".format(query_date.strftime("%Y-%m-%d %H:%M:%S"))
         goog_filter_cloud = "CAST(cloud_cover AS NUMERIC) < " + str(self.cloudCoverThres)
 
         month_filter = ''
@@ -527,14 +527,13 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
         logger.debug("Process google query result and add to local database.")
         if query_results.result():
             for row in query_results.result():
-                generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
+                #generation_time_tmp = row.generation_time.replace('Z', '')[:-1]
                 query_rtn = ses.query(EDDSentinel2Google).filter(
                     EDDSentinel2Google.Granule_ID == row.granule_id,
-                    EDDSentinel2Google.Generation_Time == datetime.datetime.strptime(generation_time_tmp,
-                                                                                     "%Y-%m-%dT%H:%M:%S.%f")).all()
+                    EDDSentinel2Google.Generation_Time == row.generation_time).all() #datetime.datetime.strptime(generation_time_tmp, "%Y-%m-%dT%H:%M:%S.%f")).all()
                 if len(query_rtn) == 0:
                     logger.debug("Granule_ID: " + row.granule_id + "\tProduct_ID: " + row.product_id)
-                    sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
+                    #sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                     platform = 'Sentinel2'
                     if 'GS2A' in row.datatake_identifier:
                         platform = 'Sentinel2A'
@@ -544,11 +543,9 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         EDDSentinel2Google(PID=n_max_pid, Granule_ID=row.granule_id, Product_ID=row.product_id,
                                            Platform_ID=platform, Datatake_Identifier=row.datatake_identifier,
                                            Mgrs_Tile=row.mgrs_tile,
-                                           Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
-                                                                                   "%Y-%m-%dT%H:%M:%S.%f"),
+                                           Sensing_Time=row.sensing_time, #datetime.datetime.strptime(sensing_time_tmp, "%Y-%m-%dT%H:%M:%S.%f"),
                                            Geometric_Quality_Flag=row.geometric_quality_flag,
-                                           Generation_Time=datetime.datetime.strptime(generation_time_tmp,
-                                                                                      "%Y-%m-%dT%H:%M:%S.%f"),
+                                           Generation_Time=row.generation_time, #datetime.datetime.strptime(generation_time_tmp, "%Y-%m-%dT%H:%M:%S.%f"),
                                            Cloud_Cover=float(row.cloud_cover), North_Lat=row.north_lat,
                                            South_Lat=row.south_lat,
                                            East_Lon=row.east_lon, West_Lon=row.west_lon, Total_Size=row.total_size,

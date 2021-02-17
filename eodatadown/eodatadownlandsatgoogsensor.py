@@ -556,7 +556,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         goog_db_str = "`bigquery-public-data.cloud_storage_geo_index.landsat_index`"
 
         #goog_filter_date = "PARSE_DATE('%Y-%m-%d', date_acquired) > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
-        goog_filter_date = "date_acquired > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
+        goog_filter_date = "CAST(date_acquired AS DATE) > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
         goog_filter_cloud = "cloud_cover < " + str(self.cloudCoverThres)
         goog_filter_spacecraft = "spacecraft_id IN ("
         first = True
@@ -640,7 +640,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                 query_rtn = ses.query(EDDLandsatGoogle).filter(EDDLandsatGoogle.Scene_ID == row.scene_id).all()
                 if len(query_rtn) == 0:
                     logger.debug("SceneID: " + row.scene_id + "\tProduct_ID: " + row.product_id)
-                    sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
+                    #sensing_time_tmp = row.sensing_time.replace('Z', '')[:-1]
                     db_records.append(
                         EDDLandsatGoogle(PID=n_max_pid, Scene_ID=row.scene_id, Product_ID=row.product_id,
                                          Spacecraft_ID=row.spacecraft_id,
@@ -649,8 +649,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                                                                                   "%Y-%m-%d").date(),
                                          Collection_Number=row.collection_number,
                                          Collection_Category=row.collection_category,
-                                         Sensing_Time=datetime.datetime.strptime(sensing_time_tmp,
-                                                                                 "%Y-%m-%dT%H:%M:%S.%f"),
+                                         Sensing_Time=row.sensing_time,#datetime.datetime.strptime(sensing_time_tmp, "%Y-%m-%dT%H:%M:%S.%f"),
                                          Data_Type=row.data_type, WRS_Path=row.wrs_path, WRS_Row=row.wrs_row,
                                          Cloud_Cover=row.cloud_cover, North_Lat=row.north_lat,
                                          South_Lat=row.south_lat,
