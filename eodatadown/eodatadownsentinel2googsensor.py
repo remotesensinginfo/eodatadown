@@ -481,14 +481,16 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                       "generation_time,north_lat,south_lat,west_lon,east_lon,base_url,total_size,cloud_cover"
         goog_db_str = "`bigquery-public-data.cloud_storage_geo_index.sentinel_2_index` "
 
-        goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '" + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
+        #goog_filter_date = "PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time) > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '" + query_date.strftime("%Y-%m-%d %H:%M:%S") + "')"
+        goog_filter_date = "sensing_time > PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '{}')".format(query_date.strftime("%Y-%m-%d %H:%M:%S"))
         goog_filter_cloud = "CAST(cloud_cover AS NUMERIC) < " + str(self.cloudCoverThres)
 
         month_filter = ''
         first = True
         if self.monthsOfInterest is not None:
             for curr_month in self.monthsOfInterest:
-                sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {})".format(curr_month)
+                #sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*SZ', sensing_time)) = {})".format(curr_month)
+                sgn_month_filter = "(EXTRACT(MONTH FROM sensing_time) = {})".format(curr_month)
                 if first:
                     month_filter = sgn_month_filter
                     first = False

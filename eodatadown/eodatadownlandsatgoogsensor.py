@@ -555,7 +555,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
                       "east_lon,total_size,base_url"
         goog_db_str = "`bigquery-public-data.cloud_storage_geo_index.landsat_index`"
 
-        goog_filter_date = "PARSE_DATE('%Y-%m-%d', date_acquired) > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
+        #goog_filter_date = "PARSE_DATE('%Y-%m-%d', date_acquired) > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
+        goog_filter_date = "date_acquired > DATE(\"" + query_date.strftime("%Y-%m-%d") + "\")"
         goog_filter_cloud = "cloud_cover < " + str(self.cloudCoverThres)
         goog_filter_spacecraft = "spacecraft_id IN ("
         first = True
@@ -604,7 +605,8 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         first = True
         if self.monthsOfInterest is not None:
             for curr_month in self.monthsOfInterest:
-                sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATE('%Y-%m-%d', date_acquired)) = {})".format(curr_month)
+                #sgn_month_filter = "(EXTRACT(MONTH FROM PARSE_DATE('%Y-%m-%d', date_acquired)) = {})".format(curr_month)
+                sgn_month_filter = "(EXTRACT(MONTH FROM date_acquired) = {})".format(curr_month)
                 if first:
                     month_filter = sgn_month_filter
                     first = False
