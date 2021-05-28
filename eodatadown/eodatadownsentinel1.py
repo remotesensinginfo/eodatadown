@@ -40,6 +40,7 @@ from eodatadown.eodatadownsensor import EODataDownSensor
 import eodatadown.eodatadownutils
 import rsgislib
 import rsgislib.imageutils
+import rsgislib.vectorutils
 
 logger = logging.getLogger(__name__)
 

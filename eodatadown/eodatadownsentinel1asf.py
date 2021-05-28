@@ -817,10 +817,22 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 os.mkdir(wrk_ard_scn_path)
 
             pols = list()
-            if 'VV' in query_result.Polarization:
-                pols.append('VV')
-            if 'VH' in query_result.Polarization:
-                pols.append('VH')
+            if "GRDH_1SDV" in query_result.Product_File_ID:
+                if 'VV' in query_result.Polarization:
+                    pols.append('VV')
+                if 'VH' in query_result.Polarization:
+                    pols.append('VH')
+            elif "GRDH_1SDH" in query_result.Product_File_ID:
+                if 'HH' in query_result.Polarization:
+                    pols.append('HH')
+                if 'HV' in query_result.Polarization:
+                    pols.append('HV')
+
+            # If polarisations haven't been captured for what ever reason then just process
+            # all the polarisations.
+            if len(pols) == 0:
+                pols = None
+
             zip_file = eodd_utils.findFilesRecurse(query_result.Download_Path, '.zip')
             if len(zip_file) == 1:
                 zip_file = zip_file[0]
