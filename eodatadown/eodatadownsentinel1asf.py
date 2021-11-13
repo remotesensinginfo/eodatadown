@@ -44,13 +44,10 @@ import shutil
 import importlib
 import traceback
 
-import rsgislib
-
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownutils import EODataDownResponseException
 from eodatadown.eodatadownsensor import EODataDownSensor
-from eodatadown.eodatadownsentinel1 import EODataDownSentinel1ProcessorSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 
 import sqlalchemy
@@ -253,6 +250,13 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 self.ardMethod = json_parse_helper.getStrValue(config_data,
                                                                ["eodatadown", "sensor", "ardparams", "software"],
                                                                valid_values=["GAMMA", "SNAP"])
+            # Import the class for processing SAR data depending on method requested.
+            # Do this here as might not have all dependencies for both classes.
+            if self.ardMethod == 'GAMMA':
+                from eodatadown.eodatadownsentinel1_gamma import EODataDownSentinel1ProcessorSensor
+            elif self.ardMethod == 'SNAP':
+                from eodatadown.eodatadownsentinel1_snap import EODataDownSentinel1ProcessorSensor
+
             self.use_roi = False
             if json_parse_helper.doesPathExist(config_data,["eodatadown", "sensor", "ardparams", "roi"]):
                 self.use_roi = True
@@ -529,6 +533,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
         """
         if self.scn_intersect:
+            import rsgislib
             import rsgislib.vectorutils
             logger.debug("Creating Database Engine and Session.")
             db_engine = sqlalchemy.create_engine(self.db_info_obj.dbConn)
