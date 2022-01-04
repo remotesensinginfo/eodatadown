@@ -51,18 +51,18 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     def _convert_file_to_cog(self, in_file, out_file):
         """
         Convet GDAL readable file into Cloud Optimised GeoTiff
-        """ 
+        """
         in_ds = gdal.Open(in_file, gdal.GA_ReadOnly)
 
         gdal.Translate(out_file, in_ds, format="COG",
                        creationOptions=["COMPRESS=LZW"])
-        
+
         in_ds = None
 
     def _reproject_file_to_cog(self, in_file, out_file, out_proj_epsg, out_img_res):
         """
         Reproject file and save to Cloud Optimised Geotiff
-        """ 
+        """
         in_ds = gdal.Open(in_file, gdal.GA_ReadOnly)
 
         gdal.Warp(out_file, in_ds, format="COG",
@@ -71,7 +71,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                   srcNodata=0, dstNodata=0,
                   multithread=True,
                   creationOptions=["COMPRESS=LZW"])
-        
+
         in_ds = None
 
     def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res,
@@ -117,12 +117,12 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
 
             logger.info("Using SNAP to produce Sentinel-1 Geocoded product.")
             geocode(infile=input_safe_zipfile, outdir=out_sen1_files_dir, cleanup=True,
-                    scaling="dB", refarea="gamma0", 
+                    scaling="dB", refarea="gamma0",
                     shapefile=subset_vec_file, tr=out_img_res)
- 
+
 
             temp_tiff_files = glob.glob(os.path.join(out_sen1_files_dir, "*.tif"))
-    
+
             for temp_tif in temp_tiff_files:
                 # Use either VV or VH as filename as this is needed for ingestion into open data cube
                 # FIXME: This is going to break other parts where looking for '*dB*tif' for creating data for
@@ -131,7 +131,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                     out_tif = os.path.join(out_sen1_files_dir, "VV.tif")
                 elif "VH" in os.path.basename(temp_tif):
                     out_tif = os.path.join(out_sen1_files_dir, "VH.tif")
-    
+
             if reproj_outputs:
                 logger.info("Reprojecting Sentinel-1 ARD product {} to {}".format(temp_tif, out_tif))
                 self._reproject_file_to_cog(temp_tif, out_tif, out_proj_epsg, out_img_res)

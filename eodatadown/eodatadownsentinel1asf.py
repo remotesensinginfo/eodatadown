@@ -49,6 +49,7 @@ from eodatadown.eodatadownutils import EODataDownException
 from eodatadown.eodatadownutils import EODataDownResponseException
 from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
+from eodatadown.eodatadownsentinel1_snap import EODataDownSentinel1ProcessorSensor
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
@@ -251,7 +252,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                                                                ["eodatadown", "sensor", "ardparams", "software"],
                                                                valid_values=["GAMMA", "SNAP"])
             # Import the class for processing SAR data depending on method requested.
-            # Do this here as might not have all dependencies for both classes.
+            # Redo import here to overwrite default of SNAP
             if self.ardMethod == 'GAMMA':
                 from eodatadown.eodatadownsentinel1_gamma import EODataDownSentinel1ProcessorSensor
             elif self.ardMethod == 'SNAP':
