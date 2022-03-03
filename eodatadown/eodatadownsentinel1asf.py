@@ -461,7 +461,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                         granule_name_val = json_parse_helper.getStrValue(scn_json, ["granuleName"])
                         granule_type_val = json_parse_helper.getStrValue(scn_json, ["granuleType"])
                         incidence_angle_strval = json_parse_helper.getStrValue(scn_json, ["incidenceAngle"])
-                        if (incidence_angle_strval == "") or (incidence_angle_strval == "NA"):
+                        if (incidence_angle_strval == "") or (incidence_angle_strval == "NA") or (incidence_angle_strval is None):
                             incidence_angle_val = None
                         elif eoed_utils.isNumber(incidence_angle_strval):
                             incidence_angle_val = float(incidence_angle_strval)
