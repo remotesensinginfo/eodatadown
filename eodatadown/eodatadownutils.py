@@ -1701,7 +1701,7 @@ class EODDWGetDownload(object):
         try_number = str(try_number)
         time_out = str(time_out)
         success = False
-        command = ["wget", "-c", "-P", out_file_path, "-t", try_number, "-T", time_out, "--no-check-certificate"]
+        command = ["wget", "--no-clobber", "-c", "-O", out_file_path, "-t", try_number, "-T", time_out, "--no-check-certificate"]
         if (username is not None) and (password is not None):
             command.append("--user")
             command.append(username)
