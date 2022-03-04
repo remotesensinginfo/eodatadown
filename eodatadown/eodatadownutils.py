@@ -211,10 +211,14 @@ class EODataDownUtils(object):
         """
         Recursively search a directory for files with the provided extension.
         Ignores directories which have the same extension.
+        If the directory passed in is actually a file and the extension matches will return this
         :param dir_path: directory file path
         :param file_ext: file extension (include dot; e.g., .kea)
         :return: returns list of files.
         """
+        if os.path.isfile(dir_path) and dir_path.endswith(file_ext):
+            return [dir_path]
+
         found_files = list()
         for root, dirs, files in os.walk(dir_path):
             for file in files:
@@ -1701,7 +1705,7 @@ class EODDWGetDownload(object):
         try_number = str(try_number)
         time_out = str(time_out)
         success = False
-        command = ["wget", "--no-clobber", "-c", "-O", out_file_path, "-t", try_number, "-T", time_out, "--no-check-certificate"]
+        command = ["wget", "-c", "-O", out_file_path, "-t", try_number, "-T", time_out, "--no-check-certificate"]
         if (username is not None) and (password is not None):
             command.append("--user")
             command.append(username)
@@ -1729,7 +1733,7 @@ class EODDWGetDownload(object):
                 success = True
         else:
             success = False
-            logger.info("File being downloaded did not successfully complete: {}".format(out_file_path))
+            logger.info("File being downloaded did not successfully complete: {}, retured exit code {}".format(out_file_path, download_state))
         return success
 
 class EODDDefineSensorROI(object):

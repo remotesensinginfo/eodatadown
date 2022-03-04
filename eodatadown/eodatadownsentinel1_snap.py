@@ -35,13 +35,31 @@ import os
 import sys
 import tempfile
 
+import numpy
 from osgeo import gdal
 from pyroSAR.snap import geocode
+from rios import applier
+from rios import cuiprogress
 
 from eodatadown.eodatadownsensor import EODataDownSensor
 import eodatadown.eodatadownutils
 
 logger = logging.getLogger(__name__)
+
+def _rios_apply_three_band_stack(info, inputs, outputs):
+    """
+    Function called by rios applier to create a three band image stack of VV,HV,VV/VH scaled by 1000
+    to fit as a UINT16
+    """
+
+    input_vv_scaled = numpy.where(numpy.isfinite(inputs.inimage[0]), inputs.inimage[0] * 1000, 0)
+    input_vh_scaled = numpy.where(numpy.isfinite(inputs.inimage[1]), inputs.inimage[1] * 1000, 0)
+
+    # Input is in dB so subtract to get ratio
+    ratio_image = input_vv_scaled - input_vh_scaled
+
+    outputs.outimage = numpy.vstack([input_vv_scaled, input_vh_scaled, ratio_image]).astype(numpy.uint16)
+
 
 class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
     """
@@ -73,6 +91,27 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                   creationOptions=["COMPRESS=LZW"])
 
         in_ds = None
+
+    def _create_three_band_stack(in_vv_file, in_hv_file, out_file):
+        """
+        Creates a three band image stack of VV,HV,VV/VH scaled by 1000
+        to fit as a UINT16
+        """
+        infiles = applier.FilenameAssociations()
+        infiles.inimage = [in_vv_file, in_hv_file]
+
+        outfiles = applier.FilenameAssociations()
+        outfiles.outimage = out_file
+
+        controls = applier.ApplierControls()
+        controls.progress = cuiprogress.CUIProgressBar()
+
+        controls.setOutputDriverName("GTiff")
+        controls.setCreationOptions(["COMPRESS=LZW"])
+        controls.setCalcStats(True)
+
+        applier.apply(_rios_apply_three_band_stack, infiles, outfiles, controls=controls)
+
 
     def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res,
                        polarisations, out_proj_epsg, out_proj_str, out_proj_img_res=-1, out_proj_interp=None,
@@ -108,6 +147,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
 
         """
         sen1_ard_success = False
+
         try:
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
             if out_proj_epsg is not None and int(out_proj_epsg) != 4326:
@@ -115,37 +155,53 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                 sen1_out_proj_epsg = None
                 out_sen1_files_dir = output_dir
 
+            # Check if output stack file exists, if it does then ARD processing has already run but database hasn't been updated
+            out_stack_file = os.path.join(out_sen1_files_dir, "{}_dB_stack.tif".format(out_sen1_files_dir.rstrip("/").split("/")[-1]))
+
+            out_stack_file_glob = os.path.join("{}*".format(out_sen1_files_dir[0:-10]), "*_dB_stack.tif")
+            if len(glob.glob(out_stack_file_glob)) > 0:
+                logger.info("Stack ARD file exists, processing has already completed. Will update database")
+                sen1_ard_success = True
+                return sen1_ard_success
+
             logger.info("Using SNAP to produce Sentinel-1 Geocoded product.")
             geocode(infile=input_safe_zipfile, outdir=out_sen1_files_dir, cleanup=True,
                     scaling="dB", refarea="gamma0",
                     shapefile=subset_vec_file, tr=out_img_res)
 
-
             temp_tiff_files = glob.glob(os.path.join(out_sen1_files_dir, "*.tif"))
+
+            vv_tif = None
+            vh_tif = None
 
             for temp_tif in temp_tiff_files:
                 # Use either VV or VH as filename as this is needed for ingestion into open data cube
-                # FIXME: This is going to break other parts where looking for '*dB*tif' for creating data for
-                # visualisation
                 if "VV" in os.path.basename(temp_tif):
                     out_tif = os.path.join(out_sen1_files_dir, "VV.tif")
+                    vv_tif = out_tif
                 elif "VH" in os.path.basename(temp_tif):
                     out_tif = os.path.join(out_sen1_files_dir, "VH.tif")
+                    vh_tif = out_tif
+                if reproj_outputs:
+                    logger.info("Reprojecting Sentinel-1 ARD product {} to {}".format(temp_tif, out_tif))
+                    self._reproject_file_to_cog(temp_tif, out_tif, out_proj_epsg, out_img_res)
+                else:
+                    logging.info("Converting {} to COG ({})".format(temp_tif, out_tif))
+                    self._convert_file_to_cog(temp_tif, out_tif)
 
-            if reproj_outputs:
-                logger.info("Reprojecting Sentinel-1 ARD product {} to {}".format(temp_tif, out_tif))
-                self._reproject_file_to_cog(temp_tif, out_tif, out_proj_epsg, out_img_res)
+                # Remove tif file produced by SNAP
+                os.remove(temp_tif)
+
+            # Create three band stack
+            if vv_tif is None or vh_tif is None:
+                raise Exception("Couldn't find processed HH or VV files, can't create three band stack")
             else:
-                logging.info("Converting {} to COG ({})".format(temp_tif, out_tif))
-                self._convert_file_to_cog(temp_tif, out_tif)
+                self._create_three_band_stack(vv_tif, vh_tif, out_stack_file)
 
-            # Remove tif file produced by SNAP
-            os.remove(temp_tif)
-
-            logger.info("Successfully finished processing: '{}'".format(input_safe_file))
+            logger.info("Successfully finished processing: '{}'".format(input_safe_zipfile))
             sen1_ard_success = True
 
         except Exception as e:
-            logger.error("Failed in processing: '{}'".format(input_safe_file))
+            logger.error("Failed in processing: '{}'".format(input_safe_zipfile))
             raise e
         return sen1_ard_success

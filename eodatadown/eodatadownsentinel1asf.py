@@ -874,13 +874,13 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         :param n_cores: The number of scenes to be simultaneously processed.
         """
         if not os.path.exists(self.ardFinalPath):
-            raise EODataDownException("The ARD final path does not exist, please create and run again.")
+            raise EODataDownException("The ARD final path '{}' does not exist, please create and run again.",format(self.ardFinalPath))
 
         if not os.path.exists(self.ardProdWorkPath):
-            raise EODataDownException("The ARD working path does not exist, please create and run again.")
+            raise EODataDownException("The ARD working path '{}' does not exist, please create and run again.".format(self.ardProdWorkPath))
 
         if not os.path.exists(self.ardProdTmpPath):
-            raise EODataDownException("The ARD tmp path does not exist, please create and run again.")
+            raise EODataDownException("The ARD tmp path '{}' does not exist, please create and run again.".format(self.ardProdTmpPath))
 
         eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
 
@@ -914,6 +914,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
 
             for record in query_result:
                 start_date = datetime.datetime.now()
+                # Check if have already processed but not with EODD
+                
+
                 final_ard_scn_path = os.path.join(self.ardFinalPath, "{}_{}".format(record.Product_File_ID, record.PID))
                 if not os.path.exists(final_ard_scn_path):
                     os.mkdir(final_ard_scn_path)
@@ -935,9 +938,9 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
                 if len(zip_file) == 1:
                     zip_file = zip_file[0]
                 else:
-                    logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {}".format(record.PID))
+                    logger.error("Could not find unique zip file for Sentinel-1 zip: PID = {} in {}".format(record.PID, record.Download_Path))
                     raise EODataDownException(
-                        "Could not find unique zip file for Sentinel-1 zip: PID = {}".format(record.PID))
+                        "Could not find unique zip file for Sentinel-1 zip: PID = {} in {}".format(record.PID, record.Download_Path))
                 success_process_ard = self.convertSen1ARD(zip_file, final_ard_scn_path, wrk_ard_scn_path,
                                                           tmp_ard_scn_path, self.demFile, self.outImgRes, pols,
                                                           proj_epsg, self.projabbv, self.out_proj_img_res,
@@ -1075,7 +1078,7 @@ class EODataDownSentinel1ASFProcessorSensor (EODataDownSentinel1ProcessorSensor)
         :param unq_id: integer unique ID for the scene.
         """
         if (self.quicklookPath is None) or (not os.path.exists(self.quicklookPath)):
-            raise EODataDownException("The quicklook path does not exist or not provided, please create and run again.")
+            raise EODataDownException("The quicklook path '{}' does not exist or not provided, please create and run again.")
 
         if not os.path.exists(self.ardProdTmpPath):
             raise EODataDownException("The tmp path does not exist, please create and run again.")
