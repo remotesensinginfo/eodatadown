@@ -46,19 +46,38 @@ import eodatadown.eodatadownutils
 
 logger = logging.getLogger(__name__)
 
+def _set_nodata_value(in_file, nodata_value):
+    """
+    Sets nodata value for all bands of a GDAL dataset.
+
+    Arguments:
+
+    * in_file - path to existing GDAL dataset.
+    * nodata_value - nodata value
+
+    """
+
+    gdal_ds = gdal.Open(in_file, gdal.GA_Update)
+
+    for i in range(gdal_ds.RasterCount):
+        gdal_ds.GetRasterBand(i+1).SetNoDataValue(nodata_value)
+
+    gdal_ds = None
+
+
 def _rios_apply_three_band_stack(info, inputs, outputs):
     """
-    Function called by rios applier to create a three band image stack of VV,HV,VV/VH scaled by 1000
+    Function called by rios applier to create a three band image stack of VV,HV,VV/VH scaled by 100
     to fit as a UINT16
     """
 
-    input_vv_scaled = numpy.where(numpy.isfinite(inputs.inimage[0]), inputs.inimage[0] * 1000, 0)
-    input_vh_scaled = numpy.where(numpy.isfinite(inputs.inimage[1]), inputs.inimage[1] * 1000, 0)
+    input_vv_scaled = numpy.where(numpy.isfinite(inputs.inimage[0]), inputs.inimage[0] * 100.0, 0.0)
+    input_vh_scaled = numpy.where(numpy.isfinite(inputs.inimage[1]), inputs.inimage[1] * 100.0, 0.0)
+    ratio = inputs.inimage[0] - inputs.inimage[1]
+    ratio_scaled = numpy.where(numpy.isfinite(ratio), ratio * 100.0, 0.0)
 
-    # Input is in dB so subtract to get ratio
-    ratio_image = input_vv_scaled - input_vh_scaled
+    outputs.outimage = numpy.vstack([input_vv_scaled, input_vh_scaled, ratio_scaled]).astype(numpy.int16)
 
-    outputs.outimage = numpy.vstack([input_vv_scaled, input_vh_scaled, ratio_image]).astype(numpy.uint16)
 
 
 class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
@@ -72,8 +91,8 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         """
         in_ds = gdal.Open(in_file, gdal.GA_ReadOnly)
 
-        gdal.Translate(out_file, in_ds, format="COG",
-                       creationOptions=["COMPRESS=LZW"])
+        gdal.Translate(out_file, in_ds, format="GTiff",
+                       creationOptions=["COMPRESS=LZW", "TILED=YES"])
 
         in_ds = None
 
@@ -83,16 +102,16 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         """
         in_ds = gdal.Open(in_file, gdal.GA_ReadOnly)
 
-        gdal.Warp(out_file, in_ds, format="COG",
-                  dstSRS=out_proj_epsg,
+        gdal.Warp(out_file, in_ds, format="GTiff",
+                  dstSRS="EPSG:{}".format(out_proj_epsg),
                   xRes=out_img_res, yRes=out_img_res,
                   srcNodata=0, dstNodata=0,
                   multithread=True,
-                  creationOptions=["COMPRESS=LZW"])
+                  creationOptions=["COMPRESS=LZW", "TILED=YES"])
 
         in_ds = None
 
-    def _create_three_band_stack(in_vv_file, in_hv_file, out_file):
+    def _create_three_band_stack(self, in_vv_file, in_hv_file, out_file):
         """
         Creates a three band image stack of VV,HV,VV/VH scaled by 1000
         to fit as a UINT16
@@ -107,11 +126,13 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
         controls.progress = cuiprogress.CUIProgressBar()
 
         controls.setOutputDriverName("GTiff")
-        controls.setCreationOptions(["COMPRESS=LZW"])
+        controls.setCreationOptions(["COMPRESS=LZW", "TILED=YES"])
         controls.setCalcStats(True)
 
+        # Create three band stack using RIOS applier.
         applier.apply(_rios_apply_three_band_stack, infiles, outfiles, controls=controls)
-
+        # Set no data value to 0
+        _set_nodata_value(out_file, 0)
 
     def convertSen1ARD(self, input_safe_zipfile, output_dir, work_dir, tmp_dir, dem_img_file, out_img_res,
                        polarisations, out_proj_epsg, out_proj_str, out_proj_img_res=-1, out_proj_interp=None,
@@ -166,8 +187,8 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
 
             logger.info("Using SNAP to produce Sentinel-1 Geocoded product.")
             geocode(infile=input_safe_zipfile, outdir=out_sen1_files_dir, cleanup=True,
-                    scaling="dB", refarea="gamma0",
-                    shapefile=subset_vec_file, tr=out_img_res)
+                    scaling="dB", refarea="gamma0", allow_RES_OSV=True,
+                    shapefile=subset_vec_file, spacing=out_img_res)
 
             temp_tiff_files = glob.glob(os.path.join(out_sen1_files_dir, "*.tif"))
 
