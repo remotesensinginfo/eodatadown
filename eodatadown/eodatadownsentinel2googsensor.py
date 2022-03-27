@@ -1380,12 +1380,18 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+            # Look for data which has been pansharpened with ARCSI
             try:
                 ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_sharp_rad_srefdem_stdsref.tif')
             except:
-                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
+                # Then data processed with ARCSI but not pan sharpened
+                try:
+                    ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
+                except:
+                    # Then L2 data downloaded from ESA which has a VRT stack with the same bands ARCSI exports
+                    ard_img_file = eodd_utils.findFile(ard_img_path, '*_stack.vrt')
             logger.debug("ARD Image: {}".format(ard_img_file))
-
+ 
             out_tilecache_dir = os.path.join(self.tilecachePath,
                                             "{}_{}".format(query_result.Product_ID, query_result.PID))
             if not os.path.exists(out_tilecache_dir):
