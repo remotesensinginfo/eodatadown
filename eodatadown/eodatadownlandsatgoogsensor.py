@@ -1368,8 +1368,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
-
+            # Look for data which has been processed with ARCSI
+            try:
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
+            except:
+                # Then check for L2 data downloaded from USGS with a VRT stack of all bands
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*_stack.vrt')
+ 
             out_quicklook_path = os.path.join(self.quicklookPath,
                                               "{}_{}".format(query_result.Product_ID, query_result.PID))
             if not os.path.exists(out_quicklook_path):
@@ -1501,8 +1506,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
 
             ard_img_path = query_result.ARDProduct_Path
             eodd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-            ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
-
+            # Look for data which has been processed with ARCSI
+            try:
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*vmsk_rad_srefdem_stdsref.tif')
+            except:
+                # Then check for L2 data downloaded from USGS with a VRT stack of all bands
+                ard_img_file = eodd_utils.findFile(ard_img_path, '*_stack.vrt')
+ 
             out_tilecache_dir = os.path.join(self.tilecachePath,
                                              "{}_{}".format(query_result.Product_ID, query_result.PID))
             if not os.path.exists(out_tilecache_dir):
@@ -2400,6 +2410,7 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
             spacecraft = ''
             for scn in scns:
                 ard_file = eoddutils.findFile(scn.ARDProduct_Path, "*vmsk_rad_srefdem_stdsref.tif")
+
                 print("\t{}: {} {} - {}".format(scn.PID, scn.Spacecraft_ID, scn.Scene_ID, ard_file))
                 scn_files.append(ard_file)
                 if first:
@@ -2448,7 +2459,13 @@ class EODataDownLandsatGoogSensor (EODataDownSensor):
         spacecraft = ''
         for pid in scn_pids:
             scn = self.get_scn_record(pid)
-            ard_file = eoddutils.findFileNone(scn.ARDProduct_Path, "*vmsk_rad_srefdem_stdsref.tif")
+            # Look for data which has been processed with ARCSI
+            try:
+                ard_file = eodd_utils.findFile(scn.ARDProduct_Path, '*vmsk_rad_srefdem_stdsref.tif')
+            except:
+                # Then check for L2 data downloaded from USGS with a VRT stack of all bands
+                ard_file = eodd_utils.findFile(scn.ARDProduct_Path, '*_stack.vrt')
+
             if ard_file is not None:
                 ard_images.append(ard_file)
             if first:
