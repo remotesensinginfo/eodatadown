@@ -110,6 +110,60 @@ class EDDSentinel2GooglePlugins(Base):
     Error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
 
+def _reproject_file_to_cog(in_file, out_file, out_proj):
+    """
+    Reproject a file to a cloud optimised geotiff (COG)
+    For compatability with older versions of GDAL set creation options rather than specifying 'COG'
+    """
+    with open(proj_wkt_file) as f:
+        proj_wkt = f.read()
+
+    in_ds = gdal.Open(in_file, gdal.GA_ReadOnly)
+    x_src_res = in_ds.GetGeoTransform()[1]
+    y_src_res = in_ds.GetGeoTransform()[5]
+    gdal.Warp(out_file, in_ds, format="GTiff",
+              xres=x_src_res, yres=y_src_res,
+              dstSRS=TARGET_PROJ, multithread=False,
+              creationOptions=["COMPRESS=LZW", "TILED=YES"])
+    in_ds = None
+
+def _post_process_esa_l2_scene(scene_path, output_dir, proj_wkt_file):
+    """
+    Takes an ESA L2 scene and reprojects files, saving as GeoTiffs
+    """
+    sceneName = scene_path.split(scene_path,2)[1].split(".SAFE",2)[0]
+    listBandsJP2_10m=glob.glob(os.path.join(scene_path,"GRANULE/**/IMG_DATA/R10m/*.jp2"))
+    listBandsJP2_20m=glob.glob(os.path.join(scene_path,"GRANULE/**/IMG_DATA/R20m/*.jp2"))
+    listBandsJP2_60m=glob.glob(os.path.join(scene_path,"GRANULE/**/IMG_DATA/R60m/*.jp2"))
+    
+    if not os.path.exists(os.path.join(ARD_DIR,sceneName)):
+        os.makedirs(os.path.join(ARD_DIR,sceneName))
+    
+    for bandsJP2_10m in listBandsJP2_10m:
+        fileName = os.path.basename(bandsJP2_10m)
+        bandName = fileName.split("_")[-2]
+        bandRes = fileName.split("_")[-1].split(".")[0]
+        out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
+        logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
+        _reproject_file_to_cog(bandsJP2_10m, out_tif, proj_wkt_file)
+    
+    
+    for bandsJP2_20m in listBandsJP2_20m:
+        fileName = os.path.basename(bandsJP2_20m)
+        bandName = fileName.split("_")[-2]
+        bandRes = fileName.split("_")[-1].split(".")[0]
+        out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
+        logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
+        _reproject_file_to_cog(bandsJP2_20m, out_tif, proj_wkt_file)
+    
+    
+    for bandsJP2_60m in listBandsJP2_60m:
+        fileName = os.path.basename(bandsJP2_60m)
+        bandName = fileName.split("_")[-2]
+        bandRes = fileName.split("_")[-1].split(".")[0]
+        out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
+        logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
+        _reproject_file_to_cog(bandsJP2_60m, out_tif, proj_wkt_file)
 
 def _download_scn_goog(params):
     """
@@ -127,6 +181,14 @@ def _download_scn_goog(params):
     scn_lcl_dwnld_path = params[7]
     scn_remote_url = params[8]
     goog_down_meth = params[9]
+    download_level2 = params[10]
+
+    # The bigquery database only has L1 data in as far as I can tell. For download if want L2 data then to find and relace L1 with L2
+    # The scenes also have a different processing time for L2 so just drop this off and replace with a glob.
+    # This isn't a particuarly nice way of doing it but was the easiest way to add L2 downloads from google with minimal changes to existing code
+    if download_level2:
+        scn_remote_url = scn_remote_url.replace("sentinel-2/tiles/","sentinel-2/L2/tiles/").replace("MSIL1C","MSIL2A")
+        scn_remote_url = "{}*.SAFE".format(scn_remote_url[0:-20])
 
     download_completed = False
     logger.info("Downloading ".format(granule_id))
@@ -228,24 +290,30 @@ def _process_to_ard(params):
     mask_vec_file = params[17]
     mask_vec_lyr = params[18]
     low_res = params[19]
+    ard_method = params[20]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
-    input_hdr = edd_utils.findFirstFile(scn_path, "*MTD*.xml")
+    if ard_method == "ARCSI":
+        input_hdr = edd_utils.findFirstFile(scn_path, "*MTD*.xml")
 
-    start_date = datetime.datetime.now()
-    eodatadown.eodatadownrunarcsi.run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs,
-                                                      proj_wkt_file, projabbv, low_res)
+        start_date = datetime.datetime.now()
+        eodatadown.eodatadownrunarcsi.run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs,
+                                                          proj_wkt_file, projabbv, low_res)
 
-    logger.debug("Move final ARD files to specified location.")
-    # Move ARD files to be kept.
-    valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path, use_roi,
-                                                                             intersect_vec_file, intersect_vec_lyr,
-                                                                             subset_vec_file, subset_vec_lyr,
-                                                                             mask_outputs, mask_vec_file, mask_vec_lyr,
-                                                                             tmp_dir)
-    # Remove Remaining files.
-    shutil.rmtree(output_dir)
-    shutil.rmtree(tmp_dir)
+        logger.debug("Move final ARD files to specified location.")
+        # Move ARD files to be kept.
+        valid_output = eodatadown.eodatadownrunarcsi.move_arcsi_stdsref_products(output_dir, final_ard_path, use_roi,
+                                                                                 intersect_vec_file, intersect_vec_lyr,
+                                                                                 subset_vec_file, subset_vec_lyr,
+                                                                                 mask_outputs, mask_vec_file, mask_vec_lyr,
+                                                                                 tmp_dir)
+        # Remove Remaining files.
+        shutil.rmtree(output_dir)
+        shutil.rmtree(tmp_dir)
+
+    elif ard_method == "ESA_L2":
+        _post_process_esa_l2_scene(scene_path, final_ard_path, proj_wkt_file)
+        
     end_date = datetime.datetime.now()
     logger.debug("Moved final ARD files to specified location.")
 
@@ -329,8 +397,14 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
             logger.debug("Have the correct config file for 'Sentinel2GOOG'")
 
             logger.debug("Find ARD processing params from config file")
+            
+            # Get the method used for generating ARD, if not specified then assume want ARCSI
+            # For ESA_L2 download as L2 data and do some post processing.
+            self.ardMethod = "ARCSI"
+            if json_parse_helper.doesPathExist(config_data,["eodatadown", "sensor", "ardparams", "software"]):
+                self.ardMethod = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "software"],
+                                                               valid_values=["ARCSI","ESA_L2"])
             self.demFile = json_parse_helper.getStrValue(config_data, ["eodatadown", "sensor", "ardparams", "dem"])
-
             self.low_res_prod = False
             if json_parse_helper.doesPathExist(config_data, ["eodatadown", "sensor", "ardparams", "lowres"]):
                 self.low_res_prod = json_parse_helper.getBooleanValue(config_data, ["eodatadown", "sensor", "ardparams", "lowres"])
@@ -729,9 +803,12 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
+                download_level2 = False
+                if self.ardMethod == "ESA_L2":
+                    download_level2 = True
                 _download_scn_goog([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
                                     self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path,
-                                    record.Remote_URL, self.goog_down_meth])
+                                    record.Remote_URL, self.goog_down_meth, download_level2])
                 success = True
             elif len(query_result) == 0:
                 logger.info("PID {0} is either not available or already been downloaded.".format(unq_id))
@@ -775,6 +852,13 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
 
             logger.debug("Build download file list.")
             dwnld_params = []
+            
+            # If ARD method is ESA_L2 then need to download L2 data from google.
+            # set for all records
+            download_level2 = False
+            if self.ardMethod == "ESA_L2":
+                download_level2 = True
+
             for record in query_result:
                 logger.debug("Building download info for '"+record.Remote_URL+"'")
                 url_path = record.Remote_URL
@@ -805,9 +889,10 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         os.makedirs(dwnld_dirpath, exist_ok=True)
                     scn_dwnlds_filelst.append({"bucket_path": blob.name, "dwnld_path": dwnld_file})
 
+
                 dwnld_params.append([record.PID, record.Granule_ID, self.db_info_obj, self.goog_key_json,
                                      self.goog_proj_name, bucket_name, scn_dwnlds_filelst, scn_lcl_dwnld_path,
-                                     record.Remote_URL, self.goog_down_meth])
+                                     record.Remote_URL, self.goog_down_meth, download_level2])
             downloaded_new_scns = True
         else:
             downloaded_new_scns = False
@@ -929,7 +1014,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                              work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
                              proj_wkt_file, self.projabbv, self.use_roi, self.intersect_vec_file,
                              self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
-                             self.mask_vec_file, self.mask_vec_lyr, self.low_res_prod])
+                             self.mask_vec_file, self.mask_vec_lyr, self.low_res_prod, self.ardMethod])
         else:
             logger.error("PID {0} has not returned a scene - check inputs.".format(unq_id))
             raise EODataDownException("PID {0} has not returned a scene - check inputs.".format(unq_id))
@@ -1004,7 +1089,7 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                                    work_ard_scn_path, tmp_ard_scn_path, final_ard_scn_path, self.ardProjDefined,
                                    proj_wkt_file, self.projabbv, self.use_roi, self.intersect_vec_file,
                                    self.intersect_vec_lyr, self.subset_vec_file, self.subset_vec_lyr, self.mask_outputs,
-                                   self.mask_vec_file, self.mask_vec_lyr, self.low_res_prod])
+                                   self.mask_vec_file, self.mask_vec_lyr, self.low_res_prod, self.ardMethod])
         else:
             logger.info("There are no scenes which have been downloaded but not processed to an ARD product.")
         ses.close()
