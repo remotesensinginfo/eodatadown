@@ -127,7 +127,7 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
 
         controls.setOutputDriverName("GTiff")
         controls.setCreationOptions(["COMPRESS=LZW", "TILED=YES"])
-        controls.setCalcStats(True)
+        controls.setCalcStats(False)
 
         # Create three band stack using RIOS applier.
         applier.apply(_rios_apply_three_band_stack, infiles, outfiles, controls=controls)
@@ -186,6 +186,8 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                 return sen1_ard_success
 
             logger.info("Using SNAP to produce Sentinel-1 Geocoded product.")
+            if len(glob.glob(os.path.join(out_sen1_files_dir, "*error.log"))) > 0:
+                raise Exception("SNAP has previously been run for this scene and failed")
             geocode(infile=input_safe_zipfile, outdir=out_sen1_files_dir, cleanup=True,
                     scaling="dB", refarea="gamma0", allow_RES_OSV=True,
                     shapefile=subset_vec_file, spacing=out_img_res)
@@ -224,5 +226,4 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
 
         except Exception as e:
             logger.error("Failed in processing: '{}'".format(input_safe_zipfile))
-            raise e
         return sen1_ard_success
