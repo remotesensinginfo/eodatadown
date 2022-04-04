@@ -127,6 +127,47 @@ def _reproject_file_to_cog(in_file, out_file, out_proj):
               creationOptions=["COMPRESS=LZW", "TILED=YES"])
     in_ds = None
 
+def _set_nodata_value(in_file, nodata_value):
+    """
+    Sets nodata value for all bands of a GDAL dataset.
+
+    Arguments:
+
+    * in_file - path to existing GDAL dataset.
+    * nodata_value - nodata value
+
+    """
+
+    gdal_ds = gdal.Open(in_file, gdal.GA_Update)
+
+    for i in range(gdal_ds.RasterCount):
+        gdal_ds.GetRasterBand(i+1).SetNoDataValue(nodata_value)
+
+    gdal_ds = None
+
+
+def _create_vrt_stack(scenedir):
+    """
+    Create a VRT stack for ESA L2 data for further processing.
+    """
+    out_vrt = os.path.join(scenedir, "{}_stack.vrt".format(os.path.basename(scenedir)))
+
+    gdalvrd_cmd = ["gdalbuildvrt", "-separate", "-o", out_vrt,
+                   os.path.join(scenedir, "B02_10m.tif"),
+                   os.path.join(scenedir, "B03_10m.tif"),
+                   os.path.join(scenedir, "B04_10m.tif"),
+                   os.path.join(scenedir, "B05_20m.tif"),
+                   os.path.join(scenedir, "B06_20m.tif"),
+                   os.path.join(scenedir, "B07_20m.tif"),
+                   os.path.join(scenedir, "B08_10m.tif"),
+                   os.path.join(scenedir, "B8A_20m.tif"),
+                   os.path.join(scenedir, "B11_20m.tif"),
+                   os.path.join(scenedir, "B12_20m.tif")]
+    subprocess.call(gdalvrd_cmd)
+
+    if os.path.isfile(out_vrt):
+        _set_nodata_value(out_vrt, 0)
+
 def _post_process_esa_l2_scene(scene_path, output_dir, proj_wkt_file):
     """
     Takes an ESA L2 scene and reprojects files, saving as GeoTiffs
@@ -164,6 +205,8 @@ def _post_process_esa_l2_scene(scene_path, output_dir, proj_wkt_file):
         out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
         logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
         _reproject_file_to_cog(bandsJP2_60m, out_tif, proj_wkt_file)
+
+    _create_vrt_stack(output_dir)
 
 def _download_scn_goog(params):
     """
