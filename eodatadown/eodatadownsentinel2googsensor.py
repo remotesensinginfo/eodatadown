@@ -31,18 +31,27 @@ EODataDown - a sensor class for Sentinel-2 data downloaded from the Google Cloud
 # Version 1.0 - Created.
 
 import logging
+import glob
 import json
 import os
 import sys
 import datetime
 import multiprocessing
 import shutil
-import rsgislib
 import uuid
-import yaml
 import subprocess
 import importlib
 import traceback
+
+import yaml
+import rsgislib
+from osgeo import gdal
+
+from sqlalchemy.ext.declarative import declarative_base
+import sqlalchemy
+import sqlalchemy.dialects.postgresql
+from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.sql.expression import func
 
 import eodatadown.eodatadownutils
 from eodatadown.eodatadownutils import EODataDownException
@@ -50,11 +59,6 @@ from eodatadown.eodatadownsensor import EODataDownSensor
 from eodatadown.eodatadownusagedb import EODataDownUpdateUsageLogDB
 import eodatadown.eodatadownrunarcsi
 
-from sqlalchemy.ext.declarative import declarative_base
-import sqlalchemy
-import sqlalchemy.dialects.postgresql
-from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.sql.expression import func
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +114,7 @@ class EDDSentinel2GooglePlugins(Base):
     Error = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False, default=False)
     ExtendedInfo = sqlalchemy.Column(sqlalchemy.dialects.postgresql.JSONB, nullable=True)
 
-def _reproject_file_to_cog(in_file, out_file, out_proj):
+def _reproject_file_to_cog(in_file, out_file, proj_wkt_file):
     """
     Reproject a file to a cloud optimised geotiff (COG)
     For compatability with older versions of GDAL set creation options rather than specifying 'COG'
@@ -122,8 +126,8 @@ def _reproject_file_to_cog(in_file, out_file, out_proj):
     x_src_res = in_ds.GetGeoTransform()[1]
     y_src_res = in_ds.GetGeoTransform()[5]
     gdal.Warp(out_file, in_ds, format="GTiff",
-              xres=x_src_res, yres=y_src_res,
-              dstSRS=TARGET_PROJ, multithread=False,
+              xRes=x_src_res, yRes=y_src_res,
+              dstSRS=proj_wkt, multithread=False,
               creationOptions=["COMPRESS=LZW", "TILED=YES"])
     in_ds = None
 
@@ -172,41 +176,33 @@ def _post_process_esa_l2_scene(scene_path, output_dir, proj_wkt_file):
     """
     Takes an ESA L2 scene and reprojects files, saving as GeoTiffs
     """
-    sceneName = scene_path.split(scene_path,2)[1].split(".SAFE",2)[0]
-    listBandsJP2_10m=glob.glob(os.path.join(scene_path,"GRANULE/**/IMG_DATA/R10m/*.jp2"))
-    listBandsJP2_20m=glob.glob(os.path.join(scene_path,"GRANULE/**/IMG_DATA/R20m/*.jp2"))
-    listBandsJP2_60m=glob.glob(os.path.join(scene_path,"GRANULE/**/IMG_DATA/R60m/*.jp2"))
-    
-    if not os.path.exists(os.path.join(ARD_DIR,sceneName)):
-        os.makedirs(os.path.join(ARD_DIR,sceneName))
-    
-    for bandsJP2_10m in listBandsJP2_10m:
-        fileName = os.path.basename(bandsJP2_10m)
-        bandName = fileName.split("_")[-2]
-        bandRes = fileName.split("_")[-1].split(".")[0]
-        out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
-        logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
-        _reproject_file_to_cog(bandsJP2_10m, out_tif, proj_wkt_file)
-    
-    
-    for bandsJP2_20m in listBandsJP2_20m:
-        fileName = os.path.basename(bandsJP2_20m)
-        bandName = fileName.split("_")[-2]
-        bandRes = fileName.split("_")[-1].split(".")[0]
-        out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
-        logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
-        _reproject_file_to_cog(bandsJP2_20m, out_tif, proj_wkt_file)
-    
-    
-    for bandsJP2_60m in listBandsJP2_60m:
-        fileName = os.path.basename(bandsJP2_60m)
-        bandName = fileName.split("_")[-2]
-        bandRes = fileName.split("_")[-1].split(".")[0]
-        out_tif = os.path.join(output_dir,bandName+'_'+bandRes+'.tif')
-        logger.debug("Reprojecting {} to COG ({})...".format(fileName, out_tif))
-        _reproject_file_to_cog(bandsJP2_60m, out_tif, proj_wkt_file)
 
+    sceneName = scene_path.split(scene_path,2)[1].split(".SAFE",2)[0]
+
+    # Check if there are any bands or if the download failed
+    list_bands_jp2 = glob.glob(os.path.join(scene_path,"*.SAFE","GRANULE/**/IMG_DATA/R??m/*.jp2"))
+
+    if len(list_bands_jp2) == 0:
+        raise Exception("Couldn't find any bands for {}".format(scene_path))
+
+    if not os.path.exists(os.path.join(output_dir)):
+        os.makedirs(os.path.join(output_dir))
+
+    for band_jp2 in list_bands_jp2:
+        file_name = os.path.basename(band_jp2)
+        band_name = file_name.split("_")[-2]
+        band_res = file_name.split("_")[-1].split(".")[0]
+        out_tif = os.path.join(output_dir,band_name+'_'+band_res+'.tif')
+        logger.debug("Reprojecting {} to COG ({})...".format(file_name, out_tif))
+        _reproject_file_to_cog(band_jp2, out_tif, proj_wkt_file)
+    
     _create_vrt_stack(output_dir)
+
+    if len(glob.glob(os.path.join(output_dir, "*_stack.vrt"))) == 1:
+        return True
+    else:
+        logger.error("Failed to pre-process {}".format(scene_path))
+        return False
 
 def _download_scn_goog(params):
     """
@@ -336,10 +332,12 @@ def _process_to_ard(params):
     ard_method = params[20]
 
     edd_utils = eodatadown.eodatadownutils.EODataDownUtils()
+    # Record when ARD processing starts
+    start_date = datetime.datetime.now()
+    
     if ard_method == "ARCSI":
         input_hdr = edd_utils.findFirstFile(scn_path, "*MTD*.xml")
 
-        start_date = datetime.datetime.now()
         eodatadown.eodatadownrunarcsi.run_arcsi_sentinel2(input_hdr, dem_file, output_dir, tmp_dir, reproj_outputs,
                                                           proj_wkt_file, projabbv, low_res)
 
@@ -353,12 +351,13 @@ def _process_to_ard(params):
         # Remove Remaining files.
         shutil.rmtree(output_dir)
         shutil.rmtree(tmp_dir)
+        logger.debug("Moved final ARD files to specified location.")
 
     elif ard_method == "ESA_L2":
-        _post_process_esa_l2_scene(scene_path, final_ard_path, proj_wkt_file)
+        valid_output = _post_process_esa_l2_scene(scn_path, final_ard_path, proj_wkt_file)
         
+    # Record when ARD processing finished
     end_date = datetime.datetime.now()
-    logger.debug("Moved final ARD files to specified location.")
 
     if valid_output:
         logger.debug("Set up database connection and update record.")
