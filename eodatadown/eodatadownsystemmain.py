@@ -165,6 +165,10 @@ class EODataDownSystemMain(object):
             logger.debug("Found sensor LandsatGOOG")
             from eodatadown.eodatadownlandsatgoogsensor import EODataDownLandsatGoogSensor
             sensor_obj = EODataDownLandsatGoogSensor(self.db_info_obj)
+        elif sensor == "Landsat8EE":
+            logger.debug("Found sensor Landsat8EE")
+            from eodatadown.eodatadownlandsat8ee import EODataDownLandsat8EESensor
+            sensor_obj = EODataDownLandsat8EESensor(self.db_info_obj)
         elif sensor == "Sentinel2GOOG":
             logger.debug("Found sensor Sentinel2GOOG")
             from eodatadown.eodatadownsentinel2googsensor import EODataDownSentinel2GoogSensor

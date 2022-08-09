@@ -66,7 +66,7 @@ EODATADOWN_COPYRIGHT_YEAR = "2018"
 EODATADOWN_COPYRIGHT_NAMES = "Pete Bunting"
 EODATADOWN_SUPPORT_EMAIL = "rsgislib-support@googlegroups.com"
 EODATADOWN_WEBSITE = "https://www.remotesensing.info/eodatadown"
-EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Sentinel2GOOG", "Sentinel1ASF", "GEDI", "ICESAT2"]
+EODATADOWN_SENSORS_LIST = ["LandsatGOOG", "Landsat8EE", "Sentinel2GOOG", "Sentinel1ASF", "GEDI", "ICESAT2"]
 
 log_default_level=logging.INFO
 if eodd_log_level.upper() == 'INFO':
