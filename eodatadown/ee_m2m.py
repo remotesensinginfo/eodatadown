@@ -143,7 +143,7 @@ def ee_query(dataset_name, period_start, period_end, cloud_max, wrs2, satellite=
                           ]
         childFilters = childFilters + satelliteFilter
     
-    payload = {   "datasetName": dataset_name,
+    payload = {   "datasetName": datasetName,
                     "sceneFilter": {
                         "metadataFilter":   {"filterType": "and",
                                             "childFilters": childFilters
@@ -160,7 +160,7 @@ def ee_query(dataset_name, period_start, period_end, cloud_max, wrs2, satellite=
     return payload
 
 
-def get_download_details(listId, datasetName, scene_id, filetype, serviceUrl, apiKey):
+def get_download_details(listId, datasetName, scene_id, filetype):
     """
     Creates a dictionary with the url and file size info of a scene of interest (required to fill the EODD local database)
     input:
