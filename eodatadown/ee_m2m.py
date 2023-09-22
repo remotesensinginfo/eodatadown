@@ -24,8 +24,6 @@ import datetime
 import os
 import getpass
 
-serviceUrl = "https://m2m.cr.usgs.gov/api/api/json/stable/"
-
 def sendRequest(url, data, apiKey = None, exitIfNoResponse = True): 
     """
     Function to send http request to m2m
@@ -160,7 +158,7 @@ def ee_query(dataset_name, period_start, period_end, cloud_max, wrs2, satellite=
     return payload
 
 
-def get_download_details(listId, datasetName, scene_id, filetype, apiKey=None):
+def get_download_details(listId, datasetName, scene_id, filetype, serviceUrl, apiKey=None):
     """
     Creates a dictionary with the url and file size info of a scene of interest (required to fill the EODD local database)
     input:
