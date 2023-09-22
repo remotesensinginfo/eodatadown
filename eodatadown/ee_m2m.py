@@ -24,7 +24,7 @@ import datetime
 import os
 import getpass
 
-
+serviceUrl = "https://m2m.cr.usgs.gov/api/api/json/stable/"
 
 def sendRequest(url, data, apiKey = None, exitIfNoResponse = True): 
     """
@@ -143,7 +143,7 @@ def ee_query(dataset_name, period_start, period_end, cloud_max, wrs2, satellite=
                           ]
         childFilters = childFilters + satelliteFilter
     
-    payload = {   "datasetName": datasetName,
+    payload = {   "datasetName": dataset_name,
                     "sceneFilter": {
                         "metadataFilter":   {"filterType": "and",
                                             "childFilters": childFilters
@@ -160,7 +160,7 @@ def ee_query(dataset_name, period_start, period_end, cloud_max, wrs2, satellite=
     return payload
 
 
-def get_download_details(listId, datasetName, scene_id, filetype):
+def get_download_details(listId, datasetName, scene_id, filetype, apiKey=None):
     """
     Creates a dictionary with the url and file size info of a scene of interest (required to fill the EODD local database)
     input:
