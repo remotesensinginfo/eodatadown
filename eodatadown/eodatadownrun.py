@@ -221,6 +221,7 @@ def process_data_ard(config_file, n_cores, sensors):
         try:
             sensor_obj.scns2ard_all_avail(n_cores)
         except Exception as e:
+            raise
             logger.error("Error occurred while converting to ARD for sensor: " + sensor_obj.get_sensor_name())
             logger.debug(e.__str__(), exc_info=True)
     edd_usage_db.add_entry("Finished: Converting Available Scenes to ARD Product.", end_block=True)

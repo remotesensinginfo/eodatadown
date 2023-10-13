@@ -29,9 +29,12 @@ EODataDown - an abstract sentinel1 sensor class.
 # History:
 # Version 1.0 - Created.
 
+import atexit
 import glob
 import logging
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -185,10 +188,19 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
                 sen1_ard_success = True
                 return sen1_ard_success
 
+            logger.info("Extracting Sentinel-1 file zip.")
+            base_file_name = os.path.splitext(os.path.basename(input_safe_zipfile))[0]
+            unzip_dir = os.path.join(tmp_dir, base_file_name)
+            os.makedirs(unzip_dir, exist_ok=True)
+            # Register an action to remove unzipped files once processing is complete
+            atexit.register(shutil.rmtree, unzip_dir, ignore_errors=True)
+            unzip_cmd = ["unzip", input_safe_zipfile]
+            subprocess.call(unzip_cmd, cwd=unzip_dir)
+            input_safe_file = os.path.join(unzip_dir, "{}.SAFE".format(base_file_name))
             logger.info("Using SNAP to produce Sentinel-1 Geocoded product.")
             if len(glob.glob(os.path.join(out_sen1_files_dir, "*error.log"))) > 0:
                 raise Exception("SNAP has previously been run for this scene and failed")
-            geocode(infile=input_safe_zipfile, outdir=out_sen1_files_dir, cleanup=True,
+            geocode(infile=input_safe_file, outdir=out_sen1_files_dir, cleanup=True,
                     scaling="dB", refarea="gamma0", allow_RES_OSV=True,
                     shapefile=subset_vec_file, spacing=out_img_res)
 
@@ -225,5 +237,6 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             sen1_ard_success = True
 
         except Exception as e:
+            raise
             logger.error("Failed in processing: '{}'".format(input_safe_zipfile))
         return sen1_ard_success

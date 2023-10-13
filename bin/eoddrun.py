@@ -142,6 +142,7 @@ if __name__ == "__main__":
                 eodatadown.eodatadownrun.process_data_ard(config_file, ncores, args.sensors)
                 logger.info('Finished process to data to an ARD product.')
         except Exception as e:
+            raise
             logger.error('Failed to process data to ARD products.', exc_info=True)
 
     if args.loaddc:
