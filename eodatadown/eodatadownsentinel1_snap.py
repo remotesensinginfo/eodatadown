@@ -237,6 +237,5 @@ class EODataDownSentinel1ProcessorSensor (EODataDownSensor):
             sen1_ard_success = True
 
         except Exception as e:
-            raise
             logger.error("Failed in processing: '{}'".format(input_safe_zipfile))
         return sen1_ard_success
