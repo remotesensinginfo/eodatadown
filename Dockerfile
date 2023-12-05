@@ -26,16 +26,6 @@ RUN  wget --quiet https://download.esa.int/step/snap/8.0/installers/esa-snap_sen
     bash ./esa-snap_sentinel_unix_8_0.sh -q && \
     rm esa-snap_sentinel_unix_8_0.sh
 
-# Install LivingWales branch of EODataDown
-RUN mkdir -p /opt/eodatadown . && \
-    cd /opt/eodatadown && \
-    git clone https://github.com/remotesensinginfo/eodatadown.git . && \
-	git checkout -b living_wales_ard_changes origin/living_wales_ard_changes && \
-    python ./setup.py install && \
-    cd /opt && \
-    rm -Rf ./eodatadown && \
-    sync
-
 # Install latest version of pb_process_tools
 RUN mkdir -p /opt/pb_process_tools && \
     cd /opt/pb_process_tools && \
@@ -53,6 +43,11 @@ RUN mkdir -p /opt/pyrosar && \
     cd /opt && \
     rm -Rf ./pyrosar && \
     sync
+
+# Install LivingWales branch of EODataDown
+RUN mkdir -p /opt/eodatadown .
+COPY . /opt/eodatadown/
+RUN cd /opt/eodatadown && python -m pip install .
 
 # Tidy up
 RUN conda clean --all -y
