@@ -651,6 +651,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         platform = 'Sentinel2A'
                     elif 'GS2B' in row.datatake_identifier:
                         platform = 'Sentinel2B'
+                    elif 'GS2C' in row.datatake_identifier:
+                        platform = 'Sentinel2C'
                     db_records.append(
                         EDDSentinel2Google(PID=n_max_pid, Granule_ID=row.granule_id, Product_ID=row.product_id,
                                            Platform_ID=platform, Datatake_Identifier=row.datatake_identifier,
@@ -2621,6 +2623,8 @@ class EODataDownSentinel2GoogSensor (EODataDownSensor):
                         platform = 'Sentinel2A'
                     elif 'GS2B' in sensor_rows[pid]['Datatake_Identifier']:
                         platform = 'Sentinel2B'
+                    elif 'GS2C' in sensor_rows[pid]['Datatake_Identifier']:
+                        platform = 'Sentinel2C'
                 else:
                     platform=sensor_rows[pid]['Platform_ID']
 
